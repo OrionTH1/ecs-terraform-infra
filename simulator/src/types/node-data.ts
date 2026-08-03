@@ -1,4 +1,5 @@
 import type { Node } from '@xyflow/react'
+import type { TaskFlowNode } from './task-data'
 
 export type NodeStatus = 'idle' | 'healthy' | 'warning' | 'error'
 
@@ -14,8 +15,14 @@ export interface UserNodeData extends Record<string, unknown> {
   requestsPerSecond: number
 }
 
+export interface EcsServiceNodeData extends InfraNodeData {
+  requestsPerSecond: number
+  healthyTaskCount: number
+  totalTaskCount: number
+}
+
 export type AlbFlowNode = Node<InfraNodeData, 'alb'>
-export type EcsServiceFlowNode = Node<InfraNodeData, 'ecsService'>
+export type EcsServiceFlowNode = Node<EcsServiceNodeData, 'ecsService'>
 export type UserFlowNode = Node<UserNodeData, 'user'>
 
-export type SimulatorFlowNode = AlbFlowNode | EcsServiceFlowNode | UserFlowNode
+export type SimulatorFlowNode = AlbFlowNode | EcsServiceFlowNode | UserFlowNode | TaskFlowNode
