@@ -1,52 +1,66 @@
 import { create } from 'zustand'
-import { AUTOSCALING, TASK_LIFECYCLE, targetRequestsPerSecondPerTask } from '../simulation/simulation-config'
-import type { TaskStatus } from '../types/task-data'
+import { AUTOSCALING, DEFAULT_TIME_SCALE, TASK_LIFECYCLE } from '../simulation/simulation-config'
+import type { TaskLogEntry, TaskStatus } from '../types/task-data'
 
-const TICK_MS = 500
-/** Scale-in only kicks in once load is comfortably below target, to avoid flapping right at the line. */
 const SCALE_IN_MARGIN = 0.7
 
-interface TaskRuntime {
+export interface TaskRuntime {
   id: string
   taskNumber: number
   status: TaskStatus
   stageEnteredAt: number
-  log: string[]
+  createdAt: number
+  log: TaskLogEntry[]
 }
 
 interface SimulationState {
   tasks: TaskRuntime[]
-  currentRps: number
+  currentRequestRate: number
+  clock: number
+  timeScale: number
   lastScaleOutAt: number
   lastScaleInAt: number
-  nextTaskNumber: number
-  clockStarted: boolean
-  setCurrentRps: (rps: number) => void
-  startClock: () => void
+  nextInstanceId: number
+  expandedTaskIds: string[]
+  toggleTaskLog: (taskId: string) => void
+  setCurrentRequestRate: (requestsPerMinute: number) => void
+  setTimeScale: (timeScale: number) => void
+  tick: (elapsedRealMs: number) => void
 }
 
 function createInitialTasks(): TaskRuntime[] {
-  const now = Date.now()
   return [1, 2].map((taskNumber) => ({
     id: `task-${taskNumber}`,
     taskNumber,
     status: 'healthy' as const,
-    stageEnteredAt: now,
-    log: ['Passed ALB health checks'],
+    stageEnteredAt: 0,
+    createdAt: 0,
+    log: [{ message: 'Passed ALB health checks', atMs: 0 }],
   }))
+}
+
+function lowestFreeTaskNumber(tasks: TaskRuntime[]): number {
+  const used = new Set(tasks.map((task) => task.taskNumber))
+  let taskNumber = 1
+  while (used.has(taskNumber)) taskNumber += 1
+  return taskNumber
+}
+
+function desiredTaskCount(requestsPerMinute: number, targetPerTask: number): number {
+  return Math.min(AUTOSCALING.maxCapacity, Math.max(AUTOSCALING.minCapacity, Math.ceil(requestsPerMinute / targetPerTask)))
 }
 
 function advanceTask(task: TaskRuntime, now: number): TaskRuntime | null {
   const elapsed = now - task.stageEnteredAt
 
   if (task.status === 'provisioning' && elapsed >= TASK_LIFECYCLE.provisioningMs) {
-    return { ...task, status: 'starting', stageEnteredAt: now, log: [...task.log, 'Image pulled from ECR'] }
+    return { ...task, status: 'starting', stageEnteredAt: now, log: [...task.log, { message: 'Image pulled, starting container', atMs: now }] }
   }
   if (task.status === 'starting' && elapsed >= TASK_LIFECYCLE.startingMs) {
-    return { ...task, status: 'registering', stageEnteredAt: now, log: [...task.log, 'Container started, registering with target group'] }
+    return { ...task, status: 'registering', stageEnteredAt: now, log: [...task.log, { message: 'Registering with target group', atMs: now }] }
   }
   if (task.status === 'registering' && elapsed >= TASK_LIFECYCLE.registeringMs) {
-    return { ...task, status: 'healthy', stageEnteredAt: now, log: [...task.log, 'Passed ALB health checks'] }
+    return { ...task, status: 'healthy', stageEnteredAt: now, log: [...task.log, { message: 'Passed ALB health checks', atMs: now }] }
   }
   if (task.status === 'draining' && elapsed >= TASK_LIFECYCLE.drainingMs) {
     return null
@@ -56,65 +70,91 @@ function advanceTask(task: TaskRuntime, now: number): TaskRuntime | null {
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
   tasks: createInitialTasks(),
-  currentRps: 0,
-  lastScaleOutAt: 0,
-  lastScaleInAt: 0,
-  nextTaskNumber: 3,
-  clockStarted: false,
+  currentRequestRate: 0,
+  clock: 0,
+  timeScale: DEFAULT_TIME_SCALE,
+  lastScaleOutAt: -Infinity,
+  lastScaleInAt: -Infinity,
+  nextInstanceId: 3,
+  expandedTaskIds: [],
 
-  setCurrentRps: (rps) => set({ currentRps: rps }),
+  toggleTaskLog: (taskId) =>
+    set((state) => ({
+      expandedTaskIds: state.expandedTaskIds.includes(taskId)
+        ? state.expandedTaskIds.filter((id) => id !== taskId)
+        : [...state.expandedTaskIds, taskId],
+    })),
 
-  startClock: () => {
-    if (get().clockStarted) return
-    set({ clockStarted: true })
+  setCurrentRequestRate: (requestsPerMinute) => set({ currentRequestRate: requestsPerMinute }),
 
-    setInterval(() => {
-      const now = Date.now()
-      const state = get()
+  setTimeScale: (timeScale) => set({ timeScale }),
 
-      const tasks = state.tasks.map((task) => advanceTask(task, now)).filter((task): task is TaskRuntime => task !== null)
+  tick: (elapsedRealMs) => {
+    const state = get()
+    const now = state.clock + elapsedRealMs * state.timeScale
 
-      const healthyCount = tasks.filter((task) => task.status === 'healthy').length
-      const totalCount = tasks.length
-      const avgRpsPerHealthyTask = state.currentRps / Math.max(healthyCount, 1)
+    const advanced = state.tasks.map((task) => advanceTask(task, now)).filter((task): task is TaskRuntime => task !== null)
+    const lifecycleChanged =
+      advanced.length !== state.tasks.length || advanced.some((task, index) => task !== state.tasks[index])
+    const tasks = lifecycleChanged ? advanced : state.tasks
 
-      const canScaleOut = now - state.lastScaleOutAt >= AUTOSCALING.scaleOutCooldownMs
-      const canScaleIn = now - state.lastScaleInAt >= AUTOSCALING.scaleInCooldownMs
+    const activeCount = tasks.filter((task) => task.status !== 'draining').length
+    const scaleOutTarget = desiredTaskCount(state.currentRequestRate, AUTOSCALING.targetRequestsPerMinutePerTask)
+    const scaleInTarget = desiredTaskCount(state.currentRequestRate, AUTOSCALING.targetRequestsPerMinutePerTask * SCALE_IN_MARGIN)
 
-      if (avgRpsPerHealthyTask > targetRequestsPerSecondPerTask && totalCount < AUTOSCALING.maxCapacity && canScaleOut) {
+    const canScaleOut = now - state.lastScaleOutAt >= AUTOSCALING.scaleOutCooldownMs
+    const canScaleIn = now - state.lastScaleInAt >= AUTOSCALING.scaleInCooldownMs
+
+    if (scaleOutTarget > activeCount && canScaleOut) {
+      const added: TaskRuntime[] = []
+      for (let instance = 0; instance < scaleOutTarget - activeCount; instance += 1) {
+        added.push({
+          id: `task-${state.nextInstanceId + instance}`,
+          taskNumber: lowestFreeTaskNumber([...tasks, ...added]),
+          status: 'provisioning',
+          stageEnteredAt: now,
+          createdAt: now,
+          log: [{ message: 'Pulling image from ECR', atMs: now }],
+        })
+      }
+
+      set({
+        clock: now,
+        tasks: [...tasks, ...added],
+        nextInstanceId: state.nextInstanceId + added.length,
+        lastScaleOutAt: now,
+      })
+      return
+    }
+
+    if (scaleInTarget < activeCount && canScaleIn) {
+      const drainTargetIndex = tasks.map((task) => task.status).lastIndexOf('healthy')
+      if (drainTargetIndex !== -1) {
         set({
-          tasks: [
-            ...tasks,
-            {
-              id: `task-${state.nextTaskNumber}`,
-              taskNumber: state.nextTaskNumber,
-              status: 'provisioning',
-              stageEnteredAt: now,
-              log: ['Provisioning task (pulling image from ECR)'],
-            },
-          ],
-          nextTaskNumber: state.nextTaskNumber + 1,
-          lastScaleOutAt: now,
+          clock: now,
+          tasks: tasks.map((task, index) =>
+            index === drainTargetIndex
+              ? { ...task, status: 'draining', stageEnteredAt: now, log: [...task.log, { message: 'Deregistering from target group', atMs: now }] }
+              : task,
+          ),
+          lastScaleInAt: now,
         })
         return
       }
+    }
 
-      if (avgRpsPerHealthyTask < targetRequestsPerSecondPerTask * SCALE_IN_MARGIN && totalCount > AUTOSCALING.minCapacity && canScaleIn) {
-        const drainTargetIndex = tasks.map((task) => task.status).lastIndexOf('healthy')
-        if (drainTargetIndex !== -1) {
-          set({
-            tasks: tasks.map((task, index) =>
-              index === drainTargetIndex
-                ? { ...task, status: 'draining', stageEnteredAt: now, log: [...task.log, 'Deregistering from target group'] }
-                : task,
-            ),
-            lastScaleInAt: now,
-          })
-          return
-        }
-      }
+    if (!lifecycleChanged) {
+      set({ clock: now })
+      return
+    }
 
-      set({ tasks })
-    }, TICK_MS)
+    const liveTaskIds = new Set(tasks.map((task) => task.id))
+    const expandedTaskIds = state.expandedTaskIds.filter((id) => liveTaskIds.has(id))
+
+    set({
+      clock: now,
+      tasks,
+      expandedTaskIds: expandedTaskIds.length === state.expandedTaskIds.length ? state.expandedTaskIds : expandedTaskIds,
+    })
   },
 }))

@@ -12,11 +12,11 @@ export interface InfraNodeData extends Record<string, unknown> {
 export interface UserNodeData extends Record<string, unknown> {
   label: string
   tooltip: string
-  requestsPerSecond: number
+  requestsPerMinute: number
 }
 
 export interface EcsServiceNodeData extends InfraNodeData {
-  requestsPerSecond: number
+  requestsPerMinute: number
   healthyTaskCount: number
   totalTaskCount: number
 }
