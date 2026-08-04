@@ -1,4 +1,4 @@
-import { Boxes, ChevronDown, Container, Hand, Network, User, type LucideIcon } from 'lucide-react'
+import { Bomb, Boxes, ChevronDown, Container, Hand, Network, User, type LucideIcon } from 'lucide-react'
 
 const STROKE_WIDTH = 1.75
 
@@ -37,4 +37,8 @@ export function ChevronIcon({ className }: IconProps) {
 
 export function HandIcon({ className }: IconProps) {
   return <Glyph icon={Hand} size={18} className={className} />
+}
+
+export function BlastIcon({ className }: IconProps) {
+  return <Glyph icon={Bomb} size={18} className={className} />
 }

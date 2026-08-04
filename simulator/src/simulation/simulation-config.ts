@@ -25,6 +25,7 @@ export const TASK_LIFECYCLE = {
   startingMs: 8_000,
   registeringMs: HEALTH_CHECK.healthyThreshold * HEALTH_CHECK.intervalMs,
   drainingMs: 5_000,
+  failedLingerMs: 4_000,
 }
 
 export const STAGE_DURATION_MS: Record<TaskStatus, number | null> = {
@@ -33,6 +34,7 @@ export const STAGE_DURATION_MS: Record<TaskStatus, number | null> = {
   registering: TASK_LIFECYCLE.registeringMs,
   healthy: null,
   draining: TASK_LIFECYCLE.drainingMs,
+  failed: null,
 }
 
 export const SCALE_IN_LATENCY_MS = AUTOSCALING.scaleInEvaluationMs

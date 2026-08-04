@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react'
-import { HandIcon } from '../icons'
+import { BlastIcon, HandIcon } from '../icons'
 
-export type ToolId = 'hand'
+export type ToolId = 'hand' | 'blast'
 
 export interface ToolDefinition {
   id: ToolId
@@ -10,6 +10,7 @@ export interface ToolDefinition {
   description: string
   icon: ComponentType<{ className?: string }>
   panOnDrag: boolean
+  targetsTasks: boolean
 }
 
 export const TOOLS: readonly ToolDefinition[] = [
@@ -20,6 +21,16 @@ export const TOOLS: readonly ToolDefinition[] = [
     description: 'Drag the canvas to pan around the infrastructure',
     icon: HandIcon,
     panOnDrag: true,
+    targetsTasks: false,
+  },
+  {
+    id: 'blast',
+    label: 'Blast',
+    shortcut: 'b',
+    description: 'Blow up an ECS task and watch the service scheduler replace it',
+    icon: BlastIcon,
+    panOnDrag: true,
+    targetsTasks: true,
   },
 ]
 

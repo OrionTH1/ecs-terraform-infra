@@ -1,6 +1,7 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { TaskDebugLog } from './TaskDebugLog'
 import { useSimulationStore } from '../../store/useSimulationStore'
+import { useTaskBlast } from '../../hooks/useTaskBlast'
 import type { NodeStatus } from '../../types/node-data'
 import type { TaskFlowNode, TaskStatus } from '../../types/task-data'
 import { NodeCard } from '../shared/NodeCard'
@@ -14,6 +15,7 @@ const STATUS_LABEL: Record<TaskStatus, string> = {
   registering: 'Registering',
   healthy: 'Healthy',
   draining: 'Draining',
+  failed: 'Stopped',
 }
 
 const STATUS_TO_CARD_STATUS: Record<TaskStatus, NodeStatus> = {
@@ -22,11 +24,13 @@ const STATUS_TO_CARD_STATUS: Record<TaskStatus, NodeStatus> = {
   registering: 'warning',
   healthy: 'healthy',
   draining: 'error',
+  failed: 'error',
 }
 
 export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
   const isExpanded = useSimulationStore((state) => state.expandedTaskIds.includes(id))
   const toggleTaskLog = useSimulationStore((state) => state.toggleTaskLog)
+  const { isTargetable, blast } = useTaskBlast({ taskId: id, status: data.status })
 
   return (
     <NodeCard
@@ -37,6 +41,9 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
       status={STATUS_TO_CARD_STATUS[data.status]}
       animateIn={!data.isLeaving}
       animateOut={data.isLeaving}
+      isTargetable={isTargetable}
+      isBlasted={data.status === 'failed'}
+      onTargetClick={blast}
     >
       <Handle type="target" position={Position.Left} id="in" isConnectable={false} />
       <div className="flex w-[204px] flex-col gap-1.5">

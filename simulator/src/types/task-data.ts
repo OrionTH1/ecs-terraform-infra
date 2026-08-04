@@ -1,6 +1,6 @@
 import type { Node } from '@xyflow/react'
 
-export type TaskStatus = 'provisioning' | 'starting' | 'registering' | 'healthy' | 'draining'
+export type TaskStatus = 'provisioning' | 'starting' | 'registering' | 'healthy' | 'draining' | 'failed'
 
 export interface TaskLogEntry {
   message: string

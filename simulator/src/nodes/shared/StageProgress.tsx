@@ -14,6 +14,7 @@ const STAGE_BAR_CLASS: Record<TaskStatus, string> = {
   registering: 'bg-status-warning',
   healthy: '',
   draining: 'bg-status-error',
+  failed: '',
 }
 
 export function StageProgress({ status, stageEnteredAt }: StageProgressProps) {
