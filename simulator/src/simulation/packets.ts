@@ -7,18 +7,22 @@ const MAX_PACKETS_PER_SECOND = 8
 const REQUESTS_PER_SECOND_PER_PACKET = 4
 const SECONDS_PER_MINUTE = 60
 
+export type PacketColor = 'default' | 'write'
+
 export interface Packet {
   id: number
   route: string[]
   startedAt: number
   stalledSince: number | null
   lastPosition: { x: number; y: number } | null
+  color: PacketColor
 }
 
 export interface RenderedPacket {
   id: number
   x: number
   y: number
+  color: PacketColor
 }
 
 export function packetsPerSecond(requestsPerMinute: number): number {

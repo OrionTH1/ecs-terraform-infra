@@ -7,6 +7,7 @@ import {
   packetsPerSecond,
   pathElementId,
   type Packet,
+  type PacketColor,
   type RenderedPacket,
 } from '../simulation/packets'
 
@@ -17,9 +18,16 @@ export interface PacketEntry {
   requestsPerMinute: number
 }
 
+export interface DirectPacketEntry {
+  edgeId: string
+  requestsPerMinute: number
+  color: PacketColor
+}
+
 interface PacketFlowArgs {
   entries: PacketEntry[]
   taskEdgeIds: string[]
+  directEntries: DirectPacketEntry[]
 }
 
 interface PathGeometry {
@@ -57,45 +65,72 @@ function locate(packet: Packet, now: number, cache: Map<string, PathGeometry | n
   return { kind: 'arrived' }
 }
 
-export function usePacketFlow({ entries, taskEdgeIds }: PacketFlowArgs): RenderedPacket[] {
+export function usePacketFlow({ entries, taskEdgeIds, directEntries }: PacketFlowArgs): RenderedPacket[] {
   const [rendered, setRendered] = useState<RenderedPacket[]>([])
 
   const packets = useRef<Packet[]>([])
   const pending = useRef(new Map<string, number>())
   const nextPacketId = useRef(0)
   const rotation = useRef(0)
-  const inputs = useRef<PacketFlowArgs>({ entries, taskEdgeIds })
+  const inputs = useRef<PacketFlowArgs>({ entries, taskEdgeIds, directEntries })
 
-  inputs.current = { entries, taskEdgeIds }
+  inputs.current = { entries, taskEdgeIds, directEntries }
 
   useEffect(() => {
     let frameId = 0
     let previous = performance.now()
 
-    function spawn(deltaSeconds: number, now: number) {
-      const { entries: currentEntries, taskEdgeIds: currentTaskEdgeIds } = inputs.current
-      if (currentTaskEdgeIds.length === 0) return
+    function spawnAlong(
+      edgeId: string,
+      requestsPerMinute: number,
+      deltaSeconds: number,
+      now: number,
+      color: PacketColor,
+      buildRoute: () => string[],
+      carried: Map<string, number>,
+    ) {
+      const rate = packetsPerSecond(requestsPerMinute)
+      let remaining = (pending.current.get(edgeId) ?? 0) + rate * deltaSeconds
 
+      while (remaining >= 1 && packets.current.length < MAX_LIVE_PACKETS) {
+        packets.current.push({
+          id: nextPacketId.current++,
+          route: buildRoute(),
+          startedAt: now,
+          stalledSince: null,
+          lastPosition: null,
+          color,
+        })
+        remaining -= 1
+      }
+
+      carried.set(edgeId, rate > 0 ? remaining % 1 : 0)
+    }
+
+    function spawn(deltaSeconds: number, now: number) {
+      const { entries: currentEntries, taskEdgeIds: currentTaskEdgeIds, directEntries: currentDirectEntries } = inputs.current
       const carried = new Map<string, number>()
 
-      for (const entry of currentEntries) {
-        const rate = packetsPerSecond(entry.requestsPerMinute)
-        let remaining = (pending.current.get(entry.edgeId) ?? 0) + rate * deltaSeconds
-
-        while (remaining >= 1 && packets.current.length < MAX_LIVE_PACKETS) {
-          const taskEdgeId = currentTaskEdgeIds[rotation.current % currentTaskEdgeIds.length]
-          rotation.current += 1
-          packets.current.push({
-            id: nextPacketId.current++,
-            route: [entry.edgeId, ALB_TO_ECS_EDGE_ID, taskEdgeId],
-            startedAt: now,
-            stalledSince: null,
-            lastPosition: null,
-          })
-          remaining -= 1
+      if (currentTaskEdgeIds.length > 0) {
+        for (const entry of currentEntries) {
+          spawnAlong(
+            entry.edgeId,
+            entry.requestsPerMinute,
+            deltaSeconds,
+            now,
+            'default',
+            () => {
+              const taskEdgeId = currentTaskEdgeIds[rotation.current % currentTaskEdgeIds.length]
+              rotation.current += 1
+              return [entry.edgeId, ALB_TO_ECS_EDGE_ID, taskEdgeId]
+            },
+            carried,
+          )
         }
+      }
 
-        carried.set(entry.edgeId, rate > 0 ? remaining % 1 : 0)
+      for (const entry of currentDirectEntries) {
+        spawnAlong(entry.edgeId, entry.requestsPerMinute, deltaSeconds, now, entry.color, () => [entry.edgeId], carried)
       }
 
       pending.current = carried
@@ -117,14 +152,14 @@ export function usePacketFlow({ entries, taskEdgeIds }: PacketFlowArgs): Rendere
           packet.stalledSince = stalledSince
           packet.startedAt += now - previous
           alive.push(packet)
-          if (packet.lastPosition) positions.push({ id: packet.id, ...packet.lastPosition })
+          if (packet.lastPosition) positions.push({ id: packet.id, ...packet.lastPosition, color: packet.color })
           continue
         }
 
         packet.stalledSince = null
         packet.lastPosition = { x: placement.x, y: placement.y }
         alive.push(packet)
-        positions.push({ id: packet.id, x: placement.x, y: placement.y })
+        positions.push({ id: packet.id, x: placement.x, y: placement.y, color: packet.color })
       }
 
       packets.current = alive

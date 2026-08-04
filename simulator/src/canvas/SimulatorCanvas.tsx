@@ -125,6 +125,14 @@ export function SimulatorCanvas() {
     [edges, requestsByUserId],
   )
 
+  const rdsPacketEntries = useMemo(
+    () => [
+      { edgeId: RDS_CLUSTER_TO_WRITER_EDGE_ID, requestsPerMinute: rdsWrites, color: 'write' as const },
+      { edgeId: RDS_CLUSTER_TO_READER_EDGE_ID, requestsPerMinute: rdsReads, color: 'default' as const },
+    ],
+    [rdsWrites, rdsReads],
+  )
+
   const renderEdges = useMemo(
     () => [
       ...edges.map((edge): SimulatorFlowEdge => {
@@ -163,7 +171,7 @@ export function SimulatorCanvas() {
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#2a3a6b" />
         <Controls />
-        <PacketLayer entries={packetEntries} taskEdgeIds={healthyTaskEdgeIds} />
+        <PacketLayer entries={packetEntries} taskEdgeIds={healthyTaskEdgeIds} directEntries={rdsPacketEntries} />
       </ReactFlow>
       <div className="absolute top-4 left-4 z-10 flex w-[196px] flex-col gap-3">
         <ComponentsPanel />

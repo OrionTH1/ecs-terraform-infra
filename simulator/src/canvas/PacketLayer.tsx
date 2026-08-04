@@ -1,20 +1,27 @@
 import { ViewportPortal } from '@xyflow/react'
-import { usePacketFlow, type PacketEntry } from '../hooks/usePacketFlow'
+import { usePacketFlow, type DirectPacketEntry, type PacketEntry } from '../hooks/usePacketFlow'
+import type { PacketColor } from '../simulation/packets'
 
 interface PacketLayerProps {
   entries: PacketEntry[]
   taskEdgeIds: string[]
+  directEntries: DirectPacketEntry[]
 }
 
-export function PacketLayer({ entries, taskEdgeIds }: PacketLayerProps) {
-  const packets = usePacketFlow({ entries, taskEdgeIds })
+const PACKET_COLOR_CLASS: Record<PacketColor, string> = {
+  default: 'bg-border-interaction shadow-[0_0_8px_2px_rgba(59,130,246,0.4)]',
+  write: 'bg-status-warning shadow-[0_0_8px_2px_rgba(245,158,11,0.4)]',
+}
+
+export function PacketLayer({ entries, taskEdgeIds, directEntries }: PacketLayerProps) {
+  const packets = usePacketFlow({ entries, taskEdgeIds, directEntries })
 
   return (
     <ViewportPortal>
       {packets.map((packet) => (
         <div
           key={packet.id}
-          className="pointer-events-none absolute h-[7px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-border-interaction shadow-[0_0_8px_2px_rgba(59,130,246,0.4)]"
+          className={`pointer-events-none absolute h-[7px] w-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full ${PACKET_COLOR_CLASS[packet.color]}`}
           style={{ left: packet.x, top: packet.y }}
         />
       ))}
