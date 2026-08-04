@@ -7,7 +7,7 @@ import { TargetUtilization } from '../shared/TargetUtilization'
 import { EcsServiceIcon } from '../../icons'
 
 export function EcsServiceNode({ data }: NodeProps<EcsServiceFlowNode>) {
-  const perTask = Math.round(data.requestsPerMinute / Math.max(data.healthyTaskCount, 1))
+  const perTask = data.healthyTaskCount > 0 ? Math.round(data.requestsPerMinute / data.healthyTaskCount) : null
 
   return (
     <NodeCard variant="infra" icon={<EcsServiceIcon />} title={data.label} tooltip={data.tooltip} status={data.status}>
