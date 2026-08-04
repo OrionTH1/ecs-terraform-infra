@@ -13,8 +13,9 @@ import { useTrafficRouting } from '../hooks/useTrafficRouting'
 import { useTaskGraph } from '../hooks/useTaskGraph'
 import { useCanvasConnections } from '../hooks/useCanvasConnections'
 import { useNodePalette } from '../hooks/useNodePalette'
+import { useSettleViewport } from '../hooks/useSettleViewport'
 import { useSimulationStore } from '../store/useSimulationStore'
-import { ALB_NODE_ID, ALB_TO_ECS_EDGE_ID, initialEdges, initialNodes } from './initial-graph'
+import { ALB_NODE_ID, ALB_TO_ECS_EDGE_ID, FIT_VIEW_OPTIONS, initialEdges, initialNodes } from './initial-graph'
 import type { EcsServiceNodeData, SimulatorFlowNode } from '../types/node-data'
 
 const nodeTypes = {
@@ -35,6 +36,7 @@ export function SimulatorCanvas() {
   const tasks = useSimulationStore((state) => state.tasks)
 
   useSimulationClock()
+  useSettleViewport(tasks.length)
 
   const { requestsByUserId, requestsByTaskId, totalRequestsAtAlb, healthyTaskCount } = useTrafficRouting({ nodes, edges, tasks })
   const { taskNodes, taskEdges, healthyTaskEdgeIds } = useTaskGraph({ tasks, requestsByTaskId })
@@ -93,6 +95,7 @@ export function SimulatorCanvas() {
         onDragOver={onDragOver}
         onDrop={onDrop}
         fitView
+        fitViewOptions={FIT_VIEW_OPTIONS}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#2a3a6b" />
         <Controls />

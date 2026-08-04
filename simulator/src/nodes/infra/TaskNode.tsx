@@ -35,6 +35,7 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
       title={`Task ${data.taskNumber}`}
       tooltip="One ECS Fargate task behind the ALB target group. Only healthy tasks are registered in the target group and receive traffic."
       status={STATUS_TO_CARD_STATUS[data.status]}
+      animateIn
     >
       <Handle type="target" position={Position.Left} id="in" isConnectable={false} />
       <div className="flex w-[204px] flex-col gap-1.5">
@@ -42,7 +43,7 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
           <span className="font-sans text-xs font-medium text-fg">{STATUS_LABEL[data.status]}</span>
           <RateReadout value={data.requestsPerMinute} />
         </div>
-        <StageProgress status={data.status} />
+        <StageProgress status={data.status} stageEnteredAt={data.stageEnteredAt} />
         <span className="truncate font-mono text-[11px] text-fg-muted">{data.log.at(-1)?.message}</span>
         <TaskDebugLog
           log={data.log}

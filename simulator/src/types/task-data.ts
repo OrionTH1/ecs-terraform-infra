@@ -10,6 +10,7 @@ export interface TaskLogEntry {
 export interface TaskNodeData extends Record<string, unknown> {
   taskNumber: number
   status: TaskStatus
+  stageEnteredAt: number
   log: TaskLogEntry[]
   createdAt: number
   requestsPerMinute: number

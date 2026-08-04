@@ -6,6 +6,13 @@ export const AUTOSCALING = {
   targetRequestsPerMinutePerTask: 1000,
   scaleOutCooldownMs: 60_000,
   scaleInCooldownMs: 60_000,
+  scaleOutEvaluationMs: 90_000,
+  scaleInEvaluationMs: 5 * 60_000,
+}
+
+export const AWS_ALARM_EVALUATION = {
+  scaleOutMs: 3 * 60_000,
+  scaleInMs: 15 * 60_000,
 }
 
 export const HEALTH_CHECK = {
@@ -28,11 +35,15 @@ export const STAGE_DURATION_MS: Record<TaskStatus, number | null> = {
   draining: TASK_LIFECYCLE.drainingMs,
 }
 
+export const SCALE_IN_LATENCY_MS = AUTOSCALING.scaleInEvaluationMs
+
 export const COLD_START_MS = TASK_LIFECYCLE.provisioningMs + TASK_LIFECYCLE.startingMs + TASK_LIFECYCLE.registeringMs
+
+export const SIMULATION_START_DELAY_MS = 1000
 
 export const REQUEST_RATE_STEP = 250
 export const DEFAULT_USER_REQUEST_RATE = 500
 
-export const TIME_SCALES = [1, 5, 10, 25]
-export const DEFAULT_TIME_SCALE = 10
+export const TIME_SCALES = [1, 10, 25, 60]
+export const DEFAULT_TIME_SCALE = 25
 

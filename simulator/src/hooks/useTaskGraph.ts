@@ -17,7 +17,10 @@ interface TaskGraphArgs {
 }
 
 export function useTaskGraph({ tasks, requestsByTaskId }: TaskGraphArgs) {
-  const orderedTasks = useMemo(() => [...tasks].sort((a, b) => a.taskNumber - b.taskNumber), [tasks])
+  const orderedTasks = useMemo(
+    () => [...tasks].sort((a, b) => a.createdAt - b.createdAt || a.instanceId - b.instanceId),
+    [tasks],
+  )
   const measuredSizes = useMeasuredTaskSizes()
 
   const taskNodes = useMemo((): TaskFlowNode[] => {
@@ -36,8 +39,9 @@ export function useTaskGraph({ tasks, requestsByTaskId }: TaskGraphArgs) {
         position: { x: TASK_COLUMN_X, y },
         measured: measuredSizes.get(task.id),
         data: {
-          taskNumber: task.taskNumber,
+          taskNumber: index + 1,
           status: task.status,
+          stageEnteredAt: task.stageEnteredAt,
           log: task.log,
           createdAt: task.createdAt,
           requestsPerMinute: requestsByTaskId.get(task.id) ?? 0,

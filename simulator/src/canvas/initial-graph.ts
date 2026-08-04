@@ -1,3 +1,4 @@
+import { AWS_ALARM_EVALUATION } from '../simulation/simulation-config'
 import type { SimulatorFlowNode } from '../types/node-data'
 import type { RequestFlowEdge } from '../types/edge-data'
 
@@ -8,6 +9,8 @@ export const ALB_TO_ECS_EDGE_ID = 'alb-ecs-service'
 const ECS_SERVICE_POSITION = { x: 640, y: 200 }
 
 export const TASK_COLUMN_X = 1090
+export const FIT_VIEW_OPTIONS = { padding: 0.22, maxZoom: 1 }
+
 export const TASK_ROW_GAP = 22
 export const FALLBACK_TASK_HEIGHT = 108
 export const TASK_COLUMN_CENTER_Y = ECS_SERVICE_POSITION.y
@@ -28,11 +31,13 @@ export const initialNodes: SimulatorFlowNode[] = [
     data: {
       label: 'ECS Service',
       tooltip:
-        'Runs the application tasks behind the load balancer. Autoscaling tracks the ALBRequestCountPerTarget metric and adds or removes tasks to keep the average near 1000 req/min per task.',
+        'Runs the application tasks behind the load balancer. Autoscaling tracks the ALBRequestCountPerTarget metric to keep the average near 1000 req/min per task. Target tracking is asymmetric: on AWS it scales out after ' +
+        `${AWS_ALARM_EVALUATION.scaleOutMs / 60_000} minutes above target but only scales in after ${AWS_ALARM_EVALUATION.scaleInMs / 60_000} minutes below it. ` +
+        'Both alarm windows are shortened here so the demo stays watchable.',
       status: 'idle',
       requestsPerMinute: 0,
-      healthyTaskCount: 2,
-      totalTaskCount: 2,
+      healthyTaskCount: 0,
+      totalTaskCount: 0,
     },
     draggable: false,
     deletable: false,
