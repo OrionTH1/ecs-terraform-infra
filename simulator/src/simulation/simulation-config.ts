@@ -41,6 +41,12 @@ export const COLD_START_MS = TASK_LIFECYCLE.provisioningMs + TASK_LIFECYCLE.star
 
 export const SIMULATION_START_DELAY_MS = 1000
 
+export const TRAFFIC_UPDATE_MS = 10_000
+export const RAMP_DURATION_MS = 5 * 60_000
+export const BURST_PERIOD_MS = 2 * 60_000
+export const BURST_PEAK_FRACTION = 0.3
+export const BURST_FLOOR_FRACTION = 0.15
+
 export const REQUEST_RATE_STEP = 250
 export const DEFAULT_USER_REQUEST_RATE = 500
 

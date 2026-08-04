@@ -1,6 +1,7 @@
 import { useCallback, useRef, type DragEvent } from 'react'
 import { useReactFlow, type NodeChange } from '@xyflow/react'
 import { DEFAULT_USER_REQUEST_RATE } from '../simulation/simulation-config'
+import { useSimulationStore } from '../store/useSimulationStore'
 import type { SimulatorFlowNode } from '../types/node-data'
 
 interface NodePaletteArgs {
@@ -29,7 +30,12 @@ export function useNodePalette({ onNodesChange }: NodePaletteArgs) {
         position: screenToFlowPosition({ x: event.clientX, y: event.clientY }),
         data: {
           label: 'User',
-          tooltip: 'Simulates normal traffic at a fixed request rate, in requests per minute.',
+          tooltip:
+            'Simulates traffic reaching the load balancer, in requests per minute. Constant holds the rate, Ramp climbs to it over 5 simulated minutes, Burst alternates between spikes and a quiet floor.',
+          pattern: 'constant',
+          patternStartedAt: useSimulationStore.getState().clock,
+          peakRequestsPerMinute: DEFAULT_USER_REQUEST_RATE,
+          rampFromRequestsPerMinute: 0,
           requestsPerMinute: DEFAULT_USER_REQUEST_RATE,
         },
       }

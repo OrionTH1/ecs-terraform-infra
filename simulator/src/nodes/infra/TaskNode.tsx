@@ -35,7 +35,8 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
       title={`Task ${data.taskNumber}`}
       tooltip="One ECS Fargate task behind the ALB target group. Only healthy tasks are registered in the target group and receive traffic."
       status={STATUS_TO_CARD_STATUS[data.status]}
-      animateIn
+      animateIn={!data.isLeaving}
+      animateOut={data.isLeaving}
     >
       <Handle type="target" position={Position.Left} id="in" isConnectable={false} />
       <div className="flex w-[204px] flex-col gap-1.5">

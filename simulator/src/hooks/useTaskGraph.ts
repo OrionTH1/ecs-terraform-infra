@@ -6,6 +6,7 @@ import {
   TASK_COLUMN_X,
   TASK_ROW_GAP,
 } from '../canvas/initial-graph'
+import { useLeavingTasks } from './useLeavingTasks'
 import { useMeasuredTaskSizes } from './useMeasuredTaskSizes'
 import type { TaskRuntime } from '../store/useSimulationStore'
 import type { RequestFlowEdge } from '../types/edge-data'
@@ -17,10 +18,14 @@ interface TaskGraphArgs {
 }
 
 export function useTaskGraph({ tasks, requestsByTaskId }: TaskGraphArgs) {
+  const leavingTasks = useLeavingTasks(tasks)
+
   const orderedTasks = useMemo(
-    () => [...tasks].sort((a, b) => a.createdAt - b.createdAt || a.instanceId - b.instanceId),
-    [tasks],
+    () => [...tasks, ...leavingTasks].sort((a, b) => a.createdAt - b.createdAt || a.instanceId - b.instanceId),
+    [tasks, leavingTasks],
   )
+
+  const leavingIds = useMemo(() => new Set(leavingTasks.map((task) => task.id)), [leavingTasks])
   const measuredSizes = useMeasuredTaskSizes()
 
   const taskNodes = useMemo((): TaskFlowNode[] => {
@@ -45,16 +50,17 @@ export function useTaskGraph({ tasks, requestsByTaskId }: TaskGraphArgs) {
           log: task.log,
           createdAt: task.createdAt,
           requestsPerMinute: requestsByTaskId.get(task.id) ?? 0,
+          isLeaving: leavingIds.has(task.id),
         },
         draggable: false,
         deletable: false,
       }
     })
-  }, [orderedTasks, requestsByTaskId, measuredSizes])
+  }, [orderedTasks, requestsByTaskId, measuredSizes, leavingIds])
 
   const taskEdges = useMemo(
     (): RequestFlowEdge[] =>
-      tasks.map((task) => ({
+      orderedTasks.map((task) => ({
         id: `${ECS_SERVICE_NODE_ID}-${task.id}`,
         type: 'requestFlow',
         source: ECS_SERVICE_NODE_ID,
@@ -65,7 +71,7 @@ export function useTaskGraph({ tasks, requestsByTaskId }: TaskGraphArgs) {
         deletable: false,
         reconnectable: false,
       })),
-    [tasks, requestsByTaskId],
+    [orderedTasks, requestsByTaskId],
   )
 
   const healthyTaskEdgeIds = useMemo(

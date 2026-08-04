@@ -7,16 +7,19 @@ import { UserNode } from '../nodes/interaction/UserNode'
 import { RequestFlowEdge } from '../edges/RequestFlowEdge'
 import { ComponentsPanel } from '../panels/ComponentsPanel'
 import { SpeedPanel } from '../panels/SpeedPanel'
+import { Toolbar } from '../panels/Toolbar'
 import { PacketLayer } from './PacketLayer'
 import { useSimulationClock } from '../hooks/useSimulationClock'
 import { useTrafficRouting } from '../hooks/useTrafficRouting'
 import { useTaskGraph } from '../hooks/useTaskGraph'
 import { useCanvasConnections } from '../hooks/useCanvasConnections'
+import { useActiveTool } from '../hooks/useActiveTool'
 import { useNodePalette } from '../hooks/useNodePalette'
+import { useToolShortcuts } from '../hooks/useToolShortcuts'
 import { useSettleViewport } from '../hooks/useSettleViewport'
 import { useSimulationStore } from '../store/useSimulationStore'
 import { ALB_NODE_ID, ALB_TO_ECS_EDGE_ID, FIT_VIEW_OPTIONS, initialEdges, initialNodes } from './initial-graph'
-import type { EcsServiceNodeData, SimulatorFlowNode } from '../types/node-data'
+import type { AlbNodeData, EcsServiceNodeData, SimulatorFlowNode } from '../types/node-data'
 
 const nodeTypes = {
   alb: AlbNode,
@@ -36,6 +39,8 @@ export function SimulatorCanvas() {
   const tasks = useSimulationStore((state) => state.tasks)
 
   useSimulationClock()
+  useToolShortcuts()
+  const activeTool = useActiveTool()
   useSettleViewport(tasks.length)
 
   const { requestsByUserId, requestsByTaskId, totalRequestsAtAlb, healthyTaskCount } = useTrafficRouting({ nodes, edges, tasks })
@@ -46,15 +51,27 @@ export function SimulatorCanvas() {
   const renderNodes = useMemo(
     () => [
       ...nodes.map((node): SimulatorFlowNode => {
-        if (node.type !== 'ecsService') return node
-
-        const data: EcsServiceNodeData = {
-          ...node.data,
-          requestsPerMinute: totalRequestsAtAlb,
-          healthyTaskCount,
-          totalTaskCount: tasks.length,
+        if (node.type === 'alb') {
+          const data: AlbNodeData = {
+            ...node.data,
+            requestsPerMinute: totalRequestsAtAlb,
+            healthyTargetCount: healthyTaskCount,
+            status: healthyTaskCount === 0 && totalRequestsAtAlb > 0 ? 'error' : 'idle',
+          }
+          return { ...node, data }
         }
-        return { ...node, data }
+
+        if (node.type === 'ecsService') {
+          const data: EcsServiceNodeData = {
+            ...node.data,
+            requestsPerMinute: totalRequestsAtAlb,
+            healthyTaskCount,
+            totalTaskCount: tasks.length,
+          }
+          return { ...node, data }
+        }
+
+        return node
       }),
       ...taskNodes,
     ],
@@ -82,7 +99,7 @@ export function SimulatorCanvas() {
   )
 
   return (
-    <div className="relative h-screen w-screen">
+    <div className="relative h-screen w-screen" data-active-tool={activeTool.id}>
       <ReactFlow
         nodes={renderNodes}
         edges={renderEdges}
@@ -94,6 +111,7 @@ export function SimulatorCanvas() {
         isValidConnection={isValidConnection}
         onDragOver={onDragOver}
         onDrop={onDrop}
+        panOnDrag={activeTool.panOnDrag}
         fitView
         fitViewOptions={FIT_VIEW_OPTIONS}
       >
@@ -105,6 +123,7 @@ export function SimulatorCanvas() {
         <ComponentsPanel />
         <SpeedPanel />
       </div>
+      <Toolbar />
     </div>
   )
 }

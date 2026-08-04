@@ -32,6 +32,17 @@
   }
 }
 
+@keyframes node-leave {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-14px) scale(0.94);
+  }
+}
+
 @keyframes log-entry-in {
   from {
     opacity: 0;
@@ -50,6 +61,57 @@
   to {
     width: 100%;
   }
+}
+
+.react-flow .react-flow__handle {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface-raised);
+}
+
+.react-flow .react-flow__handle-left {
+  left: -6px;
+}
+
+.react-flow .react-flow__handle-right {
+  right: -6px;
+}
+
+.react-flow .react-flow__handle.connectionindicator {
+  border-color: var(--color-canvas);
+  background: var(--color-border-interaction);
+  transition:
+    box-shadow 150ms ease-out,
+    transform 150ms ease-out;
+}
+
+.react-flow .react-flow__handle.connectionindicator::after {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: 9999px;
+}
+
+.react-flow .react-flow__handle.connectionindicator:hover {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-border-interaction) 30%, transparent);
+}
+
+.react-flow .react-flow__handle-left.connectionindicator {
+  transform-origin: right center;
+}
+
+.react-flow .react-flow__handle-right.connectionindicator {
+  transform-origin: left center;
+}
+
+.react-flow .react-flow__handle-left.connectionindicator:hover {
+  transform: translate(-50%, -50%) scale(1.35);
+}
+
+.react-flow .react-flow__handle-right.connectionindicator:hover {
+  transform: translate(50%, -50%) scale(1.35);
 }
 
 html,

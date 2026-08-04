@@ -9,10 +9,21 @@ export interface InfraNodeData extends Record<string, unknown> {
   status: NodeStatus
 }
 
+export type TrafficPattern = 'constant' | 'ramp' | 'burst'
+
 export interface UserNodeData extends Record<string, unknown> {
   label: string
   tooltip: string
+  pattern: TrafficPattern
+  patternStartedAt: number
+  peakRequestsPerMinute: number
+  rampFromRequestsPerMinute: number
   requestsPerMinute: number
+}
+
+export interface AlbNodeData extends InfraNodeData {
+  requestsPerMinute: number
+  healthyTargetCount: number
 }
 
 export interface EcsServiceNodeData extends InfraNodeData {
@@ -21,7 +32,7 @@ export interface EcsServiceNodeData extends InfraNodeData {
   totalTaskCount: number
 }
 
-export type AlbFlowNode = Node<InfraNodeData, 'alb'>
+export type AlbFlowNode = Node<AlbNodeData, 'alb'>
 export type EcsServiceFlowNode = Node<EcsServiceNodeData, 'ecsService'>
 export type UserFlowNode = Node<UserNodeData, 'user'>
 

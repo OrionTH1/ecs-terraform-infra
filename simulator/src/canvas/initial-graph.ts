@@ -13,6 +13,7 @@ export const FIT_VIEW_OPTIONS = { padding: 0.22, maxZoom: 1 }
 
 export const TASK_ROW_GAP = 22
 export const FALLBACK_TASK_HEIGHT = 108
+export const NODE_LEAVE_MS = 340
 export const TASK_COLUMN_CENTER_Y = ECS_SERVICE_POSITION.y
 
 export const initialNodes: SimulatorFlowNode[] = [
@@ -20,7 +21,14 @@ export const initialNodes: SimulatorFlowNode[] = [
     id: ALB_NODE_ID,
     type: 'alb',
     position: { x: 360, y: 200 },
-    data: { label: 'Load Balancer', tooltip: 'Distributes incoming requests across healthy ECS tasks.', status: 'idle' },
+    data: {
+      label: 'Load Balancer',
+      tooltip:
+        'The only public entry point. It distributes requests across healthy targets only, and returns 503 when the target group has none — which is why the service keeps a minimum of two tasks.',
+      status: 'idle',
+      requestsPerMinute: 0,
+      healthyTargetCount: 0,
+    },
     draggable: false,
     deletable: false,
   },

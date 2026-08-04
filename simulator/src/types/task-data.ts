@@ -14,6 +14,7 @@ export interface TaskNodeData extends Record<string, unknown> {
   log: TaskLogEntry[]
   createdAt: number
   requestsPerMinute: number
+  isLeaving: boolean
 }
 
 export type TaskFlowNode = Node<TaskNodeData, 'task'>
