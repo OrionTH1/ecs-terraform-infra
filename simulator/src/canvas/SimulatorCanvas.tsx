@@ -3,6 +3,7 @@ import { Background, BackgroundVariant, Controls, ReactFlow, useNodesState, useE
 import { AlbNode } from '../nodes/infra/AlbNode'
 import { EcsServiceNode } from '../nodes/infra/EcsServiceNode'
 import { TaskNode } from '../nodes/infra/TaskNode'
+import { RdsNode } from '../nodes/infra/RdsNode'
 import { UserNode } from '../nodes/interaction/UserNode'
 import { RequestFlowEdge } from '../edges/RequestFlowEdge'
 import { ComponentsPanel } from '../panels/ComponentsPanel'
@@ -19,12 +20,13 @@ import { useToolShortcuts } from '../hooks/useToolShortcuts'
 import { useSettleViewport } from '../hooks/useSettleViewport'
 import { useSimulationStore } from '../store/useSimulationStore'
 import { ALB_NODE_ID, ALB_TO_ECS_EDGE_ID, FIT_VIEW_OPTIONS, initialEdges, initialNodes } from './initial-graph'
-import type { AlbNodeData, EcsServiceNodeData, SimulatorFlowNode } from '../types/node-data'
+import type { AlbNodeData, EcsServiceNodeData, RdsNodeData, SimulatorFlowNode } from '../types/node-data'
 
 const nodeTypes = {
   alb: AlbNode,
   ecsService: EcsServiceNode,
   task: TaskNode,
+  rds: RdsNode,
   user: UserNode,
 }
 
@@ -44,7 +46,7 @@ export function SimulatorCanvas() {
   useSettleViewport(tasks.length)
 
   const { requestsByUserId, requestsByTaskId, totalRequestsAtAlb, healthyTaskCount } = useTrafficRouting({ nodes, edges, tasks })
-  const { taskNodes, taskEdges, healthyTaskEdgeIds } = useTaskGraph({ tasks, requestsByTaskId })
+  const { taskNodes, taskEdges, rdsEdges, healthyTaskEdgeIds } = useTaskGraph({ tasks, requestsByTaskId })
   const { isValidConnection, onConnect } = useCanvasConnections({ nodes, edges, setEdges })
   const { onDragOver, onDrop } = useNodePalette({ onNodesChange })
 
@@ -71,6 +73,11 @@ export function SimulatorCanvas() {
           return { ...node, data }
         }
 
+        if (node.type === 'rds') {
+          const data: RdsNodeData = { ...node.data, requestsPerMinute: totalRequestsAtAlb }
+          return { ...node, data }
+        }
+
         return node
       }),
       ...taskNodes,
@@ -94,8 +101,9 @@ export function SimulatorCanvas() {
         return edge
       }),
       ...taskEdges,
+      ...rdsEdges,
     ],
-    [edges, requestsByUserId, totalRequestsAtAlb, taskEdges],
+    [edges, requestsByUserId, totalRequestsAtAlb, taskEdges, rdsEdges],
   )
 
   return (

@@ -1,4 +1,4 @@
-import { Bomb, Boxes, ChevronDown, Container, Hand, Network, User, type LucideIcon } from 'lucide-react'
+import { Bomb, Boxes, ChevronDown, Container, Database, Hand, Network, User, type LucideIcon } from 'lucide-react'
 
 const STROKE_WIDTH = 1.75
 
@@ -25,6 +25,10 @@ export function EcsServiceIcon({ className }: IconProps) {
 
 export function TaskIcon({ className }: IconProps) {
   return <Glyph icon={Container} size={16} className={className} />
+}
+
+export function RdsIcon({ className }: IconProps) {
+  return <Glyph icon={Database} size={16} className={className} />
 }
 
 export function UserIcon({ className }: IconProps) {

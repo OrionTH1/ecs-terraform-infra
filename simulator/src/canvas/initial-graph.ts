@@ -4,11 +4,13 @@ import type { RequestFlowEdge } from '../types/edge-data'
 
 export const ALB_NODE_ID = 'alb'
 export const ECS_SERVICE_NODE_ID = 'ecs-service'
+export const RDS_NODE_ID = 'rds'
 export const ALB_TO_ECS_EDGE_ID = 'alb-ecs-service'
 
 const ECS_SERVICE_POSITION = { x: 640, y: 200 }
 
 export const TASK_COLUMN_X = 1090
+export const RDS_NODE_POSITION = { x: TASK_COLUMN_X + 300, y: ECS_SERVICE_POSITION.y }
 export const FIT_VIEW_OPTIONS = { padding: 0.22, maxZoom: 1 }
 
 export const TASK_ROW_GAP = 22
@@ -46,6 +48,20 @@ export const initialNodes: SimulatorFlowNode[] = [
       requestsPerMinute: 0,
       healthyTaskCount: 0,
       totalTaskCount: 0,
+    },
+    draggable: false,
+    deletable: false,
+  },
+  {
+    id: RDS_NODE_ID,
+    type: 'rds',
+    position: RDS_NODE_POSITION,
+    data: {
+      label: 'Aurora (RDS)',
+      tooltip:
+        'Aurora Serverless v2 (Postgres). Configured for 0–1 ACU and auto-pauses after an hour idle — a cost-optimized dev config, not a production capacity plan. Traffic shown here is a simplification: the real API is a health-check canary and does not query the database on every request.',
+      status: 'idle',
+      requestsPerMinute: 0,
     },
     draggable: false,
     deletable: false,

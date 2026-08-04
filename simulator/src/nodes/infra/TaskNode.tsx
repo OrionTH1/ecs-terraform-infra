@@ -48,6 +48,7 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
       onTargetClick={blast}
     >
       <Handle type="target" position={Position.Left} id="in" isConnectable={false} />
+      <Handle type="source" position={Position.Right} id="out" isConnectable={false} />
       <div className="flex w-[204px] flex-col gap-1.5">
         <div className="flex items-baseline justify-between gap-3">
           <span className="font-sans text-xs font-medium text-fg">{STATUS_LABEL[data.status]}</span>

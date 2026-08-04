@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import {
   ECS_SERVICE_NODE_ID,
   FALLBACK_TASK_HEIGHT,
+  RDS_NODE_ID,
   TASK_COLUMN_CENTER_Y,
   TASK_COLUMN_X,
   TASK_ROW_GAP,
@@ -74,10 +75,26 @@ export function useTaskGraph({ tasks, requestsByTaskId }: TaskGraphArgs) {
     [orderedTasks, requestsByTaskId],
   )
 
+  const rdsEdges = useMemo(
+    (): RequestFlowEdge[] =>
+      orderedTasks.map((task) => ({
+        id: `${task.id}-${RDS_NODE_ID}`,
+        type: 'requestFlow',
+        source: task.id,
+        sourceHandle: 'out',
+        target: RDS_NODE_ID,
+        targetHandle: 'in',
+        data: { requestsPerMinute: requestsByTaskId.get(task.id) ?? 0 },
+        deletable: false,
+        reconnectable: false,
+      })),
+    [orderedTasks, requestsByTaskId],
+  )
+
   const healthyTaskEdgeIds = useMemo(
     () => tasks.filter((task) => task.status === 'healthy').map((task) => `${ECS_SERVICE_NODE_ID}-${task.id}`),
     [tasks],
   )
 
-  return { taskNodes, taskEdges, healthyTaskEdgeIds }
+  return { taskNodes, taskEdges, rdsEdges, healthyTaskEdgeIds }
 }
