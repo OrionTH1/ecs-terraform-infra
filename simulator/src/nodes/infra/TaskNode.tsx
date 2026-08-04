@@ -6,7 +6,7 @@ import type { TaskFlowNode, TaskStatus } from '../../types/task-data'
 import { NodeCard } from '../shared/NodeCard'
 import { RateReadout } from '../shared/RateReadout'
 import { StageProgress } from '../shared/StageProgress'
-import { EcsServiceIcon } from '../shared/icons/EcsServiceIcon'
+import { TaskIcon } from '../../icons'
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
   provisioning: 'Provisioning',
@@ -31,7 +31,7 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
   return (
     <NodeCard
       variant="infra"
-      icon={<EcsServiceIcon />}
+      icon={<TaskIcon />}
       title={`Task ${data.taskNumber}`}
       tooltip="One ECS Fargate task behind the ALB target group. Only healthy tasks are registered in the target group and receive traffic."
       status={STATUS_TO_CARD_STATUS[data.status]}

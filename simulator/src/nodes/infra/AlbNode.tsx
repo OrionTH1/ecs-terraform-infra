@@ -2,7 +2,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { AlbFlowNode } from '../../types/node-data'
 import { NodeCard } from '../shared/NodeCard'
 import { RateReadout } from '../shared/RateReadout'
-import { LoadBalancerIcon } from '../shared/icons/LoadBalancerIcon'
+import { LoadBalancerIcon } from '../../icons'
 
 export function AlbNode({ data }: NodeProps<AlbFlowNode>) {
   const isRejecting = data.healthyTargetCount === 0 && data.requestsPerMinute > 0

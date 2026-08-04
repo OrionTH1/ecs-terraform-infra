@@ -6,7 +6,7 @@ import { useSimulationStore } from '../../store/useSimulationStore'
 import type { UserFlowNode } from '../../types/node-data'
 import { NodeCard } from '../shared/NodeCard'
 import { Stepper } from '../shared/Stepper'
-import { UserIcon } from '../shared/icons/UserIcon'
+import { UserIcon } from '../../icons'
 
 export function UserNode({ id, data }: NodeProps<UserFlowNode>) {
   const { updateNodeData } = useReactFlow()

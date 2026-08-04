@@ -4,7 +4,7 @@ import type { EcsServiceFlowNode } from '../../types/node-data'
 import { NodeCard } from '../shared/NodeCard'
 import { RateReadout } from '../shared/RateReadout'
 import { TargetUtilization } from '../shared/TargetUtilization'
-import { EcsServiceIcon } from '../shared/icons/EcsServiceIcon'
+import { EcsServiceIcon } from '../../icons'
 
 export function EcsServiceNode({ data }: NodeProps<EcsServiceFlowNode>) {
   const perTask = Math.round(data.requestsPerMinute / Math.max(data.healthyTaskCount, 1))

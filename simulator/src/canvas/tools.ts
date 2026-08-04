@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { HandIcon } from '../icons/HandIcon'
+import { HandIcon } from '../icons'
 
 export type ToolId = 'hand'
 

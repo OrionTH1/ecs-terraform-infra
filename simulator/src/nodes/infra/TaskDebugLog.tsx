@@ -1,4 +1,4 @@
-import { ChevronIcon } from '../../icons/ChevronIcon'
+import { ChevronIcon } from '../../icons'
 import type { TaskLogEntry } from '../../types/task-data'
 
 interface TaskDebugLogProps {

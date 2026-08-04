@@ -114,6 +114,14 @@
   transform: translate(50%, -50%) scale(1.35);
 }
 
+[data-active-tool='hand'] .react-flow__pane {
+  cursor: grab;
+}
+
+[data-active-tool='hand'] .react-flow__pane:active {
+  cursor: grabbing;
+}
+
 html,
 body,
 #root {

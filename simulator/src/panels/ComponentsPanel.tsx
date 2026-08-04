@@ -1,4 +1,4 @@
-import { UserIcon } from '../nodes/shared/icons/UserIcon'
+import { UserIcon } from '../icons'
 import { ComponentPaletteItem } from './ComponentPaletteItem'
 
 const PALETTE_ITEMS = [{ nodeType: 'user', label: 'User', icon: <UserIcon /> }]
