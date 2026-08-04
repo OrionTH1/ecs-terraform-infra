@@ -60,6 +60,7 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
           createdAt={data.createdAt}
           isExpanded={isExpanded}
           onToggle={() => toggleTaskLog(id)}
+          disableToggle={isTargetable}
         />
       </div>
     </NodeCard>

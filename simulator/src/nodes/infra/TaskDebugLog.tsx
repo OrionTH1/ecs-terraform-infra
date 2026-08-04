@@ -6,6 +6,7 @@ interface TaskDebugLogProps {
   createdAt: number
   isExpanded: boolean
   onToggle: () => void
+  disableToggle?: boolean
 }
 
 function formatElapsed(elapsedMs: number): string {
@@ -17,14 +18,17 @@ function formatElapsed(elapsedMs: number): string {
   return seconds === 0 ? `+${minutes}m` : `+${minutes}m ${seconds}s`
 }
 
-export function TaskDebugLog({ log, createdAt, isExpanded, onToggle }: TaskDebugLogProps) {
+export function TaskDebugLog({ log, createdAt, isExpanded, onToggle, disableToggle = false }: TaskDebugLogProps) {
   return (
     <div className="flex flex-col">
       <button
         type="button"
-        className="nodrag flex w-full cursor-pointer items-center justify-between gap-2 border-t border-border pt-2 text-fg-muted/70 transition-colors duration-150 hover:text-fg-muted"
-        onClick={onToggle}
+        className={`nodrag flex w-full items-center justify-between gap-2 border-t border-border pt-2 text-fg-muted/70 transition-colors duration-150 ${
+          disableToggle ? '' : 'cursor-pointer hover:text-fg-muted'
+        }`}
+        onClick={disableToggle ? undefined : onToggle}
         aria-expanded={isExpanded}
+        aria-disabled={disableToggle}
       >
         <span className="font-sans text-[10px] font-medium uppercase tracking-wider">
           {isExpanded ? 'Hide' : 'Show'} debug logs
