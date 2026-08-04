@@ -12,6 +12,7 @@ interface NodeCardProps {
   animateOut?: boolean
   isTargetable?: boolean
   isBlasted?: boolean
+  overlay?: ReactNode
   onTargetClick?: () => void
   children?: ReactNode
 }
@@ -37,6 +38,7 @@ export function NodeCard({
   animateOut = false,
   isTargetable = false,
   isBlasted = false,
+  overlay,
   onTargetClick,
   children,
 }: NodeCardProps) {
@@ -45,7 +47,7 @@ export function NodeCard({
 
   return (
     <div
-      className={`min-w-[170px] overflow-visible rounded-card border bg-surface shadow-card transition-colors duration-300 ${borderClass} ${
+      className={`relative min-w-[170px] overflow-visible rounded-card border bg-surface shadow-card transition-colors duration-300 ${borderClass} ${
         isTargetable ? 'nodrag cursor-crosshair hover:border-status-error hover:shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''
       }`}
       style={
@@ -65,6 +67,7 @@ export function NodeCard({
         <InfoTooltip text={tooltip} />
       </div>
       {children ? <div className="px-3 py-2.5">{children}</div> : null}
+      {overlay}
     </div>
   )
 }

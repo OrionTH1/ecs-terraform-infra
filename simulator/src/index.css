@@ -114,6 +114,37 @@
   transform: translate(50%, -50%) scale(1.35);
 }
 
+@keyframes blast-flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes blast-ring {
+  from {
+    transform: translate(-50%, -50%) scale(0.3);
+    opacity: 0.85;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes blast-particle {
+  from {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translate(calc(-50% + var(--blast-x)), calc(-50% + var(--blast-y))) scale(0.35);
+    opacity: 0;
+  }
+}
+
 @keyframes node-blast {
   0% {
     transform: none;

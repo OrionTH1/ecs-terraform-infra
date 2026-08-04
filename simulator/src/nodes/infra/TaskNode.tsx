@@ -1,4 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { TaskBlastEffect } from './TaskBlastEffect'
 import { TaskDebugLog } from './TaskDebugLog'
 import { useSimulationStore } from '../../store/useSimulationStore'
 import { useTaskBlast } from '../../hooks/useTaskBlast'
@@ -43,6 +44,7 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
       animateOut={data.isLeaving}
       isTargetable={isTargetable}
       isBlasted={data.status === 'failed'}
+      overlay={data.status === 'failed' ? <TaskBlastEffect /> : null}
       onTargetClick={blast}
     >
       <Handle type="target" position={Position.Left} id="in" isConnectable={false} />
