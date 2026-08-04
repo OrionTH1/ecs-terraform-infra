@@ -2,12 +2,12 @@ import { useEffect, useMemo } from 'react'
 import { ALB_NODE_ID } from '../canvas/initial-graph'
 import { distributeRoundRobin } from '../simulation/traffic-distribution'
 import { useSimulationStore, type TaskRuntime } from '../store/useSimulationStore'
-import type { RequestFlowEdge } from '../types/edge-data'
+import type { SimulatorFlowEdge } from '../types/edge-data'
 import type { SimulatorFlowNode, UserFlowNode } from '../types/node-data'
 
 interface TrafficRoutingArgs {
   nodes: SimulatorFlowNode[]
-  edges: RequestFlowEdge[]
+  edges: SimulatorFlowEdge[]
   tasks: TaskRuntime[]
 }
 

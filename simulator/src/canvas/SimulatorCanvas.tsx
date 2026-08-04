@@ -3,9 +3,11 @@ import { Background, BackgroundVariant, Controls, ReactFlow, useNodesState, useE
 import { AlbNode } from '../nodes/infra/AlbNode'
 import { EcsServiceNode } from '../nodes/infra/EcsServiceNode'
 import { TaskNode } from '../nodes/infra/TaskNode'
-import { RdsNode } from '../nodes/infra/RdsNode'
+import { RdsClusterNode } from '../nodes/infra/RdsClusterNode'
+import { RdsInstanceNode } from '../nodes/infra/RdsInstanceNode'
 import { UserNode } from '../nodes/interaction/UserNode'
 import { RequestFlowEdge } from '../edges/RequestFlowEdge'
+import { ReplicationEdge } from '../edges/ReplicationEdge'
 import { ComponentsPanel } from '../panels/ComponentsPanel'
 import { SpeedPanel } from '../panels/SpeedPanel'
 import { Toolbar } from '../panels/Toolbar'
@@ -19,19 +21,36 @@ import { useNodePalette } from '../hooks/useNodePalette'
 import { useToolShortcuts } from '../hooks/useToolShortcuts'
 import { useSettleViewport } from '../hooks/useSettleViewport'
 import { useSimulationStore } from '../store/useSimulationStore'
-import { ALB_NODE_ID, ALB_TO_ECS_EDGE_ID, FIT_VIEW_OPTIONS, initialEdges, initialNodes } from './initial-graph'
-import type { AlbNodeData, EcsServiceNodeData, RdsNodeData, SimulatorFlowNode } from '../types/node-data'
+import { RDS_READ_FRACTION } from '../simulation/simulation-config'
+import { splitReadWrite } from '../simulation/traffic-distribution'
+import {
+  ALB_NODE_ID,
+  ALB_TO_ECS_EDGE_ID,
+  FIT_VIEW_OPTIONS,
+  RDS_CLUSTER_TO_READER_EDGE_ID,
+  RDS_CLUSTER_TO_WRITER_EDGE_ID,
+  initialEdges,
+  initialNodes,
+} from './initial-graph'
+import type { AlbNodeData, EcsServiceNodeData, RdsClusterNodeData, RdsInstanceNodeData, SimulatorFlowNode } from '../types/node-data'
+import type {
+  RequestFlowEdge as RequestFlowEdgeType,
+  ReplicationEdge as ReplicationEdgeType,
+  SimulatorFlowEdge,
+} from '../types/edge-data'
 
 const nodeTypes = {
   alb: AlbNode,
   ecsService: EcsServiceNode,
   task: TaskNode,
-  rds: RdsNode,
+  rdsCluster: RdsClusterNode,
+  rdsInstance: RdsInstanceNode,
   user: UserNode,
 }
 
 const edgeTypes = {
   requestFlow: RequestFlowEdge,
+  replication: ReplicationEdge,
 }
 
 export function SimulatorCanvas() {
@@ -49,6 +68,11 @@ export function SimulatorCanvas() {
   const { taskNodes, taskEdges, rdsEdges, healthyTaskEdgeIds } = useTaskGraph({ tasks, requestsByTaskId })
   const { isValidConnection, onConnect } = useCanvasConnections({ nodes, edges, setEdges })
   const { onDragOver, onDrop } = useNodePalette({ onNodesChange })
+
+  const { reads: rdsReads, writes: rdsWrites } = useMemo(
+    () => splitReadWrite(totalRequestsAtAlb, RDS_READ_FRACTION),
+    [totalRequestsAtAlb],
+  )
 
   const renderNodes = useMemo(
     () => [
@@ -73,8 +97,16 @@ export function SimulatorCanvas() {
           return { ...node, data }
         }
 
-        if (node.type === 'rds') {
-          const data: RdsNodeData = { ...node.data, requestsPerMinute: totalRequestsAtAlb }
+        if (node.type === 'rdsCluster') {
+          const data: RdsClusterNodeData = { ...node.data, requestsPerMinute: totalRequestsAtAlb }
+          return { ...node, data }
+        }
+
+        if (node.type === 'rdsInstance') {
+          const data: RdsInstanceNodeData = {
+            ...node.data,
+            requestsPerMinute: node.data.role === 'writer' ? rdsWrites : rdsReads,
+          }
           return { ...node, data }
         }
 
@@ -82,7 +114,7 @@ export function SimulatorCanvas() {
       }),
       ...taskNodes,
     ],
-    [nodes, totalRequestsAtAlb, healthyTaskCount, tasks.length, taskNodes],
+    [nodes, totalRequestsAtAlb, healthyTaskCount, tasks.length, taskNodes, rdsWrites, rdsReads],
   )
 
   const packetEntries = useMemo(
@@ -95,15 +127,21 @@ export function SimulatorCanvas() {
 
   const renderEdges = useMemo(
     () => [
-      ...edges.map((edge) => {
-        if (edge.id === ALB_TO_ECS_EDGE_ID) return { ...edge, data: { requestsPerMinute: totalRequestsAtAlb } }
-        if (edge.target === ALB_NODE_ID) return { ...edge, data: { requestsPerMinute: requestsByUserId.get(edge.source) ?? 0 } }
+      ...edges.map((edge): SimulatorFlowEdge => {
+        if (edge.type === 'replication') return { ...edge, data: { isActive: rdsWrites > 0 } } as ReplicationEdgeType
+        if (edge.id === ALB_TO_ECS_EDGE_ID) return { ...edge, data: { requestsPerMinute: totalRequestsAtAlb } } as RequestFlowEdgeType
+        if (edge.id === RDS_CLUSTER_TO_WRITER_EDGE_ID)
+          return { ...edge, data: { requestsPerMinute: rdsWrites } } as RequestFlowEdgeType
+        if (edge.id === RDS_CLUSTER_TO_READER_EDGE_ID)
+          return { ...edge, data: { requestsPerMinute: rdsReads } } as RequestFlowEdgeType
+        if (edge.target === ALB_NODE_ID)
+          return { ...edge, data: { requestsPerMinute: requestsByUserId.get(edge.source) ?? 0 } } as RequestFlowEdgeType
         return edge
       }),
       ...taskEdges,
       ...rdsEdges,
     ],
-    [edges, requestsByUserId, totalRequestsAtAlb, taskEdges, rdsEdges],
+    [edges, requestsByUserId, totalRequestsAtAlb, rdsWrites, rdsReads, taskEdges, rdsEdges],
   )
 
   return (

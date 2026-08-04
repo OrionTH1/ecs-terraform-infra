@@ -32,13 +32,27 @@ export interface EcsServiceNodeData extends InfraNodeData {
   totalTaskCount: number
 }
 
-export interface RdsNodeData extends InfraNodeData {
+export interface RdsClusterNodeData extends InfraNodeData {
+  requestsPerMinute: number
+}
+
+export type RdsInstanceRole = 'writer' | 'reader'
+
+export interface RdsInstanceNodeData extends InfraNodeData {
+  role: RdsInstanceRole
   requestsPerMinute: number
 }
 
 export type AlbFlowNode = Node<AlbNodeData, 'alb'>
 export type EcsServiceFlowNode = Node<EcsServiceNodeData, 'ecsService'>
 export type UserFlowNode = Node<UserNodeData, 'user'>
-export type RdsFlowNode = Node<RdsNodeData, 'rds'>
+export type RdsClusterFlowNode = Node<RdsClusterNodeData, 'rdsCluster'>
+export type RdsInstanceFlowNode = Node<RdsInstanceNodeData, 'rdsInstance'>
 
-export type SimulatorFlowNode = AlbFlowNode | EcsServiceFlowNode | UserFlowNode | TaskFlowNode | RdsFlowNode
+export type SimulatorFlowNode =
+  | AlbFlowNode
+  | EcsServiceFlowNode
+  | UserFlowNode
+  | TaskFlowNode
+  | RdsClusterFlowNode
+  | RdsInstanceFlowNode

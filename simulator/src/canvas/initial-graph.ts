@@ -1,17 +1,26 @@
 import { AWS_ALARM_EVALUATION } from '../simulation/simulation-config'
 import type { SimulatorFlowNode } from '../types/node-data'
-import type { RequestFlowEdge } from '../types/edge-data'
+import type { SimulatorFlowEdge } from '../types/edge-data'
 
 export const ALB_NODE_ID = 'alb'
 export const ECS_SERVICE_NODE_ID = 'ecs-service'
-export const RDS_NODE_ID = 'rds'
+export const RDS_CLUSTER_NODE_ID = 'rds-cluster'
+export const RDS_WRITER_NODE_ID = 'rds-writer'
+export const RDS_READER_NODE_ID = 'rds-reader'
 export const ALB_TO_ECS_EDGE_ID = 'alb-ecs-service'
+export const RDS_CLUSTER_TO_WRITER_EDGE_ID = 'rds-cluster-writer'
+export const RDS_CLUSTER_TO_READER_EDGE_ID = 'rds-cluster-reader'
+export const RDS_REPLICATION_EDGE_ID = 'rds-writer-reader-replication'
 
 const ECS_SERVICE_POSITION = { x: 640, y: 200 }
 
 export const TASK_COLUMN_X = 1090
-export const RDS_NODE_POSITION = { x: TASK_COLUMN_X + 300, y: ECS_SERVICE_POSITION.y }
 export const FIT_VIEW_OPTIONS = { padding: 0.22, maxZoom: 1 }
+
+const RDS_CLUSTER_POSITION = { x: TASK_COLUMN_X + 300, y: ECS_SERVICE_POSITION.y }
+const RDS_INSTANCE_X = RDS_CLUSTER_POSITION.x + 260
+export const RDS_WRITER_POSITION = { x: RDS_INSTANCE_X, y: ECS_SERVICE_POSITION.y - 80 }
+export const RDS_READER_POSITION = { x: RDS_INSTANCE_X, y: ECS_SERVICE_POSITION.y + 80 }
 
 export const TASK_ROW_GAP = 22
 export const FALLBACK_TASK_HEIGHT = 108
@@ -53,14 +62,44 @@ export const initialNodes: SimulatorFlowNode[] = [
     deletable: false,
   },
   {
-    id: RDS_NODE_ID,
-    type: 'rds',
-    position: RDS_NODE_POSITION,
+    id: RDS_CLUSTER_NODE_ID,
+    type: 'rdsCluster',
+    position: RDS_CLUSTER_POSITION,
     data: {
-      label: 'Aurora (RDS)',
+      label: 'Aurora Cluster',
       tooltip:
-        'Aurora Serverless v2 (Postgres). Configured for 0–1 ACU and auto-pauses after an hour idle — a cost-optimized dev config, not a production capacity plan. Traffic shown here is a simplification: the real API is a health-check canary and does not query the database on every request.',
+        'Aurora Serverless v2 (Postgres), 0–1 ACU, auto-pauses after an hour idle. The cluster exposes a writer endpoint (all writes, and reads needing read-after-write consistency) and a reader endpoint (read-only, load-balanced across reader instances) — it does not proxy traffic itself, endpoints resolve directly to an instance. Traffic shown here is a simplification: the real API is a health-check canary and does not query the database on every request.',
       status: 'idle',
+      requestsPerMinute: 0,
+    },
+    draggable: false,
+    deletable: false,
+  },
+  {
+    id: RDS_WRITER_NODE_ID,
+    type: 'rdsInstance',
+    position: RDS_WRITER_POSITION,
+    data: {
+      label: 'Writer Instance',
+      tooltip:
+        'The only instance that accepts writes — auto-assigned because it was the first aws_rds_cluster_instance provisioned. If it fails, Aurora automatically promotes the reader to take its place.',
+      status: 'idle',
+      role: 'writer',
+      requestsPerMinute: 0,
+    },
+    draggable: false,
+    deletable: false,
+  },
+  {
+    id: RDS_READER_NODE_ID,
+    type: 'rdsInstance',
+    position: RDS_READER_POSITION,
+    data: {
+      label: 'Reader Instance',
+      tooltip:
+        'Read replica served from Aurora\'s shared storage layer, kept consistent via the writer\'s redo log stream (typically single-digit milliseconds of lag). Serves read-only queries and is promotable to writer on failover.',
+      status: 'idle',
+      role: 'reader',
       requestsPerMinute: 0,
     },
     draggable: false,
@@ -68,7 +107,7 @@ export const initialNodes: SimulatorFlowNode[] = [
   },
 ]
 
-export const initialEdges: RequestFlowEdge[] = [
+export const initialEdges: SimulatorFlowEdge[] = [
   {
     id: ALB_TO_ECS_EDGE_ID,
     type: 'requestFlow',
@@ -77,6 +116,39 @@ export const initialEdges: RequestFlowEdge[] = [
     target: ECS_SERVICE_NODE_ID,
     targetHandle: 'in',
     data: { requestsPerMinute: 0 },
+    deletable: false,
+    reconnectable: false,
+  },
+  {
+    id: RDS_CLUSTER_TO_WRITER_EDGE_ID,
+    type: 'requestFlow',
+    source: RDS_CLUSTER_NODE_ID,
+    sourceHandle: 'out',
+    target: RDS_WRITER_NODE_ID,
+    targetHandle: 'in',
+    data: { requestsPerMinute: 0 },
+    deletable: false,
+    reconnectable: false,
+  },
+  {
+    id: RDS_CLUSTER_TO_READER_EDGE_ID,
+    type: 'requestFlow',
+    source: RDS_CLUSTER_NODE_ID,
+    sourceHandle: 'out',
+    target: RDS_READER_NODE_ID,
+    targetHandle: 'in',
+    data: { requestsPerMinute: 0 },
+    deletable: false,
+    reconnectable: false,
+  },
+  {
+    id: RDS_REPLICATION_EDGE_ID,
+    type: 'replication',
+    source: RDS_WRITER_NODE_ID,
+    sourceHandle: 'replicate-out',
+    target: RDS_READER_NODE_ID,
+    targetHandle: 'replicate-in',
+    data: { isActive: false },
     deletable: false,
     reconnectable: false,
   },

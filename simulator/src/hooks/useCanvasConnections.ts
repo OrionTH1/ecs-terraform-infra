@@ -1,17 +1,17 @@
 import { useCallback } from 'react'
 import { addEdge, type Connection, type IsValidConnection } from '@xyflow/react'
 import { ALB_NODE_ID } from '../canvas/initial-graph'
-import type { RequestFlowEdge } from '../types/edge-data'
+import type { SimulatorFlowEdge } from '../types/edge-data'
 import type { SimulatorFlowNode } from '../types/node-data'
 
 interface CanvasConnectionsArgs {
   nodes: SimulatorFlowNode[]
-  edges: RequestFlowEdge[]
-  setEdges: (updater: (edges: RequestFlowEdge[]) => RequestFlowEdge[]) => void
+  edges: SimulatorFlowEdge[]
+  setEdges: (updater: (edges: SimulatorFlowEdge[]) => SimulatorFlowEdge[]) => void
 }
 
 export function useCanvasConnections({ nodes, edges, setEdges }: CanvasConnectionsArgs) {
-  const isValidConnection = useCallback<IsValidConnection<RequestFlowEdge>>(
+  const isValidConnection = useCallback<IsValidConnection<SimulatorFlowEdge>>(
     (connection) => {
       if (connection.target !== ALB_NODE_ID || connection.targetHandle !== 'in') return false
 

@@ -8,3 +8,8 @@ export function distributeRoundRobin(totalRequests: number, targetIds: string[])
 
   return shares
 }
+
+export function splitReadWrite(totalRequests: number, readFraction: number): { reads: number; writes: number } {
+  const reads = Math.round(totalRequests * readFraction)
+  return { reads, writes: totalRequests - reads }
+}

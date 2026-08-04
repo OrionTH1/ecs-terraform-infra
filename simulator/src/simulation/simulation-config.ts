@@ -55,3 +55,5 @@ export const DEFAULT_USER_REQUEST_RATE = 500
 export const TIME_SCALES = [1, 10, 25, 60]
 export const DEFAULT_TIME_SCALE = 25
 
+export const RDS_READ_FRACTION = 0.8
+
