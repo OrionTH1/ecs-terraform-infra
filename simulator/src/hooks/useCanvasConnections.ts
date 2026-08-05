@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { addEdge, type Connection, type IsValidConnection } from '@xyflow/react'
 import { ALB_NODE_ID } from '../canvas/initial-graph'
+import { isTrafficSource, toTrafficSource } from '../simulation/traffic-source'
 import type { SimulatorFlowEdge } from '../types/edge-data'
 import type { SimulatorFlowNode } from '../types/node-data'
 
@@ -16,7 +17,7 @@ export function useCanvasConnections({ nodes, edges, setEdges }: CanvasConnectio
       if (connection.target !== ALB_NODE_ID || connection.targetHandle !== 'in') return false
 
       const source = nodes.find((node) => node.id === connection.source)
-      if (source?.type !== 'user') return false
+      if (source === undefined || !isTrafficSource(source)) return false
 
       return !edges.some((edge) => edge.source === connection.source && edge.target === ALB_NODE_ID)
     },
@@ -26,7 +27,10 @@ export function useCanvasConnections({ nodes, edges, setEdges }: CanvasConnectio
   const onConnect = useCallback(
     (connection: Connection) => {
       const source = nodes.find((node) => node.id === connection.source)
-      const requestsPerMinute = source?.type === 'user' ? source.data.requestsPerMinute : 0
+      const trafficSource = source === undefined ? null : toTrafficSource(source)
+      const requestsPerMinute = trafficSource
+        ? trafficSource.requestsPerMinute * trafficSource.sourceIps.length
+        : 0
       setEdges((current) => addEdge({ ...connection, type: 'requestFlow', data: { requestsPerMinute } }, current))
     },
     [nodes, setEdges],

@@ -63,6 +63,12 @@ export const WAF_RATE_LIMIT_PER_MINUTE = WAF.rateLimitPer5Min / (WAF.windowMs / 
 export const REQUEST_RATE_STEP = 100
 export const DEFAULT_USER_REQUEST_RATE = 100
 
+export const USER_GROUP_SIZE_STEP = 2
+export const MIN_USER_GROUP_SIZE = 2
+export const MAX_USER_GROUP_SIZE = 40
+export const DEFAULT_USER_GROUP_SIZE = 2
+export const DEFAULT_USER_GROUP_REQUEST_RATE = 100
+
 export const TIME_SCALES = [1, 10, 25, 60]
 export const DEFAULT_TIME_SCALE = 25
 export const BOOT_TIME_SCALE = 60

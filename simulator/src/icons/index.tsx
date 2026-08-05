@@ -9,6 +9,7 @@ import {
   RefreshCw,
   ShieldCheck,
   User,
+  Users,
   X,
   type LucideIcon,
 } from 'lucide-react'
@@ -46,6 +47,10 @@ export function RdsIcon({ className }: IconProps) {
 
 export function UserIcon({ className }: IconProps) {
   return <Glyph icon={User} size={16} className={className} />
+}
+
+export function UserGroupIcon({ className }: IconProps) {
+  return <Glyph icon={Users} size={16} className={className} />
 }
 
 export function WafIcon({ className }: IconProps) {

@@ -1,9 +1,12 @@
-import { UserIcon } from '../icons'
+import { UserGroupIcon, UserIcon } from '../icons'
 import { isCreated } from '../simulation/boot-graph'
 import { useSimulationStore } from '../store/useSimulationStore'
 import { ComponentPaletteItem } from './ComponentPaletteItem'
 
-const PALETTE_ITEMS = [{ nodeType: 'user', label: 'User', icon: <UserIcon /> }]
+const PALETTE_ITEMS = [
+  { nodeType: 'user', label: 'User', icon: <UserIcon /> },
+  { nodeType: 'userGroup', label: 'Group of Users', icon: <UserGroupIcon /> },
+]
 
 const WAITING_FOR_ALB =
   'Waiting for the load balancer — it is the only public entry point, so there is nowhere to send traffic yet.'

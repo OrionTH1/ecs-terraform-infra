@@ -1,9 +1,10 @@
 import { useEffect, useMemo } from 'react'
 import { ALB_NODE_ID } from '../canvas/initial-graph'
 import { distributeRoundRobin } from '../simulation/traffic-distribution'
+import { toTrafficSource, type TrafficSourceNode } from '../simulation/traffic-source'
 import { useSimulationStore, type SourceRate, type TaskRuntime } from '../store/useSimulationStore'
 import type { SimulatorFlowEdge } from '../types/edge-data'
-import type { SimulatorFlowNode, UserFlowNode } from '../types/node-data'
+import type { SimulatorFlowNode } from '../types/node-data'
 
 interface TrafficRoutingArgs {
   nodes: SimulatorFlowNode[]
@@ -13,8 +14,10 @@ interface TrafficRoutingArgs {
 
 export interface TrafficRouting {
   requestsByUserId: Map<string, number>
+  deliveredByUserId: Map<string, number>
   requestsByTaskId: Map<string, number>
   blockedUserIds: Set<string>
+  blockedIpCountByUserId: Map<string, number>
   totalRequestsSent: number
   totalRequestsAtAlb: number
   healthyTaskCount: number
@@ -24,28 +27,33 @@ export function useTrafficRouting({ nodes, edges, tasks }: TrafficRoutingArgs): 
   const setSourceRates = useSimulationStore((state) => state.setSourceRates)
   const blockedIps = useSimulationStore((state) => state.blockedIps)
 
-  const userNodes = useMemo(() => nodes.filter((node): node is UserFlowNode => node.type === 'user'), [nodes])
-
-  const requestsByUserId = useMemo(
-    () => new Map(userNodes.map((node) => [node.id, node.data.requestsPerMinute])),
-    [userNodes],
+  const trafficSources = useMemo(
+    () => nodes.map(toTrafficSource).filter((source): source is TrafficSourceNode => source !== null),
+    [nodes],
   )
 
-  const connectedUserIds = useMemo(
+  const connectedSourceIds = useMemo(
     () => new Set(edges.filter((edge) => edge.target === ALB_NODE_ID).map((edge) => edge.source)),
     [edges],
+  )
+
+  const requestsByUserId = useMemo(
+    () => new Map(trafficSources.map((source) => [source.id, source.requestsPerMinute * source.sourceIps.length])),
+    [trafficSources],
   )
 
   const sourceRates = useMemo<SourceRate[]>(() => {
     const byIp = new Map<string, number>()
 
-    for (const node of userNodes) {
-      const requestsPerMinute = connectedUserIds.has(node.id) ? node.data.requestsPerMinute : 0
-      byIp.set(node.data.sourceIp, (byIp.get(node.data.sourceIp) ?? 0) + requestsPerMinute)
+    for (const source of trafficSources) {
+      const requestsPerMinute = connectedSourceIds.has(source.id) ? source.requestsPerMinute : 0
+      for (const ip of source.sourceIps) {
+        byIp.set(ip, (byIp.get(ip) ?? 0) + requestsPerMinute)
+      }
     }
 
     return [...byIp].map(([ip, requestsPerMinute]) => ({ ip, requestsPerMinute }))
-  }, [userNodes, connectedUserIds])
+  }, [trafficSources, connectedSourceIds])
 
   useEffect(() => {
     setSourceRates(sourceRates)
@@ -53,9 +61,33 @@ export function useTrafficRouting({ nodes, edges, tasks }: TrafficRoutingArgs): 
 
   const blockedIpSet = useMemo(() => new Set(blockedIps), [blockedIps])
 
+  const blockedIpCountByUserId = useMemo(
+    () =>
+      new Map(
+        trafficSources.map((source) => [source.id, source.sourceIps.filter((ip) => blockedIpSet.has(ip)).length]),
+      ),
+    [trafficSources, blockedIpSet],
+  )
+
   const blockedUserIds = useMemo(
-    () => new Set(userNodes.filter((node) => blockedIpSet.has(node.data.sourceIp)).map((node) => node.id)),
-    [userNodes, blockedIpSet],
+    () =>
+      new Set(
+        trafficSources
+          .filter((source) => (blockedIpCountByUserId.get(source.id) ?? 0) === source.sourceIps.length)
+          .map((source) => source.id),
+      ),
+    [trafficSources, blockedIpCountByUserId],
+  )
+
+  const deliveredByUserId = useMemo(
+    () =>
+      new Map(
+        trafficSources.map((source) => [
+          source.id,
+          source.requestsPerMinute * (source.sourceIps.length - (blockedIpCountByUserId.get(source.id) ?? 0)),
+        ]),
+      ),
+    [trafficSources, blockedIpCountByUserId],
   )
 
   const totalRequestsSent = useMemo(
@@ -77,8 +109,10 @@ export function useTrafficRouting({ nodes, edges, tasks }: TrafficRoutingArgs): 
 
   return {
     requestsByUserId,
+    deliveredByUserId,
     requestsByTaskId,
     blockedUserIds,
+    blockedIpCountByUserId,
     totalRequestsSent,
     totalRequestsAtAlb,
     healthyTaskCount: healthyTaskIds.length,

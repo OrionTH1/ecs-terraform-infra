@@ -30,6 +30,19 @@ export interface UserNodeData extends Record<string, unknown> {
   isRateLimited: boolean
 }
 
+export interface UserGroupNodeData extends Record<string, unknown> {
+  label: string
+  tooltip: string
+  pattern: TrafficPattern
+  patternStartedAt: number
+  peakRequestsPerMinute: number
+  rampFromRequestsPerMinute: number
+  requestsPerMinute: number
+  userCount: number
+  sourceIps: string[]
+  rateLimitedIpCount: number
+}
+
 export interface WafNodeData extends InfraNodeData {
   inspectedRequestsPerMinute: number
   blockedRequests: number
@@ -68,6 +81,7 @@ export interface RdsInstanceNodeData extends InfraNodeData {
 export type AlbFlowNode = Node<AlbNodeData, 'alb'>
 export type EcsServiceFlowNode = Node<EcsServiceNodeData, 'ecsService'>
 export type UserFlowNode = Node<UserNodeData, 'user'>
+export type UserGroupFlowNode = Node<UserGroupNodeData, 'userGroup'>
 export type WafFlowNode = Node<WafNodeData, 'waf'>
 export type TargetGroupFlowNode = Node<TargetGroupNodeData, 'targetGroup'>
 export type RdsClusterFlowNode = Node<RdsClusterNodeData, 'rdsCluster'>
@@ -77,6 +91,7 @@ export type SimulatorFlowNode =
   | AlbFlowNode
   | EcsServiceFlowNode
   | UserFlowNode
+  | UserGroupFlowNode
   | WafFlowNode
   | TargetGroupFlowNode
   | TaskFlowNode

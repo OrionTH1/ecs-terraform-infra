@@ -19,3 +19,22 @@ export function generateSourceIp(taken: Iterable<string>): string {
 
   return randomIp()
 }
+
+export function generateSourceIps(count: number, taken: Iterable<string>): string[] {
+  const used = new Set(taken)
+  const drawn: string[] = []
+
+  for (let index = 0; index < count; index += 1) {
+    const ip = generateSourceIp(used)
+    used.add(ip)
+    drawn.push(ip)
+  }
+
+  return drawn
+}
+
+export function resizeSourceIps(current: string[], count: number, taken: Iterable<string>): string[] {
+  if (count <= current.length) return current.slice(0, count)
+
+  return [...current, ...generateSourceIps(count - current.length, [...taken, ...current])]
+}

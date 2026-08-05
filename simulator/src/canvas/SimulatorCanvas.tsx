@@ -8,6 +8,7 @@ import { TaskNode } from '../nodes/infra/TaskNode'
 import { RdsClusterNode } from '../nodes/infra/RdsClusterNode'
 import { RdsInstanceNode } from '../nodes/infra/RdsInstanceNode'
 import { UserNode } from '../nodes/interaction/UserNode'
+import { UserGroupNode } from '../nodes/interaction/UserGroupNode'
 import { RequestFlowEdge } from '../edges/RequestFlowEdge'
 import { ReplicationEdge } from '../edges/ReplicationEdge'
 import { AssociationEdge } from '../edges/AssociationEdge'
@@ -45,6 +46,7 @@ const nodeTypes = {
   rdsCluster: RdsClusterNode,
   rdsInstance: RdsInstanceNode,
   user: UserNode,
+  userGroup: UserGroupNode,
 }
 
 const edgeTypes = {
@@ -98,8 +100,8 @@ export function SimulatorCanvas() {
     () =>
       userEdges
         .filter((edge) => !isRejectedAtAlb(edge.source))
-        .map((edge) => ({ edgeId: edge.id, requestsPerMinute: routing.requestsByUserId.get(edge.source) ?? 0 })),
-    [userEdges, routing.requestsByUserId, isRejectedAtAlb],
+        .map((edge) => ({ edgeId: edge.id, requestsPerMinute: routing.deliveredByUserId.get(edge.source) ?? 0 })),
+    [userEdges, routing.deliveredByUserId, isRejectedAtAlb],
   )
 
   const directPacketEntries = useMemo(

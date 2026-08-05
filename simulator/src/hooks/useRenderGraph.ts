@@ -26,6 +26,7 @@ import type {
   RdsClusterNodeData,
   RdsInstanceNodeData,
   SimulatorFlowNode,
+  UserGroupNodeData,
   UserNodeData,
   WafNodeData,
 } from '../types/node-data'
@@ -123,6 +124,14 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
 
         if (node.type === 'user') {
           const data: UserNodeData = { ...node.data, isRateLimited: routing.blockedUserIds.has(node.id) }
+          return { ...node, data }
+        }
+
+        if (node.type === 'userGroup') {
+          const data: UserGroupNodeData = {
+            ...node.data,
+            rateLimitedIpCount: routing.blockedIpCountByUserId.get(node.id) ?? 0,
+          }
           return { ...node, data }
         }
 
