@@ -12,6 +12,7 @@ export type PacketColor = 'default' | 'write' | 'blocked'
 export interface Packet {
   id: number
   route: string[]
+  legColors: PacketColor[]
   startedAt: number
   stalledSince: number | null
   lastPosition: { x: number; y: number } | null

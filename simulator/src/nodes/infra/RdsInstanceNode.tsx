@@ -16,6 +16,7 @@ export function RdsInstanceNode({ data }: NodeProps<RdsInstanceFlowNode>) {
       handles={
         <>
           <Handle type="target" position={Position.Left} id="in" isConnectable={false} />
+          <Handle type="target" position={Position.Right} id="manages-in" isConnectable={false} />
           {data.role === 'writer' ? (
             <Handle type="source" position={Position.Bottom} id="replicate-out" isConnectable={false} />
           ) : null}

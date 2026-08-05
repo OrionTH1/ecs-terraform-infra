@@ -67,9 +67,7 @@ export interface TargetGroupNodeData extends InfraNodeData {
   healthyTargetCount: number
 }
 
-export interface RdsClusterNodeData extends InfraNodeData {
-  requestsPerMinute: number
-}
+export type RdsClusterNodeData = InfraNodeData
 
 export type RdsInstanceRole = 'writer' | 'reader'
 

@@ -36,7 +36,7 @@ export function AssociationEdge({
   if (data?.variant === 'management') {
     return (
       <path
-        d={managementPath(sourceX, sourceY, targetX, targetY)}
+        d={data.routing === 'bus' ? managementPath(sourceX, sourceY, targetX, targetY) : path}
         fill="none"
         strokeWidth={1}
         strokeDasharray="3 5"

@@ -2,12 +2,16 @@ import { useMemo } from 'react'
 import {
   ALB_NODE_ID,
   ECS_SERVICE_NODE_ID,
-  RDS_CLUSTER_NODE_ID,
+  RDS_READER_NODE_ID,
+  RDS_WRITER_NODE_ID,
   albToTaskEdgeId,
   serviceToTaskEdgeId,
-  taskToRdsEdgeId,
+  taskToReaderEdgeId,
+  taskToWriterEdgeId,
 } from '../canvas/initial-graph'
+import { RDS_READ_FRACTION } from '../simulation/simulation-config'
 import { isRegisteredTarget } from '../simulation/target-group'
+import { splitReadWrite } from '../simulation/traffic-distribution'
 import { useLeavingTasks } from './useLeavingTasks'
 import { useTaskColumnLayout } from './useTaskColumnLayout'
 import type { TaskRuntime } from '../store/useSimulationStore'
@@ -20,7 +24,14 @@ interface TaskGraphArgs {
   requestsByTaskId: Map<string, number>
   isTargetGroupVisible: boolean
   isServiceVisible: boolean
-  isRdsClusterVisible: boolean
+  isWriterVisible: boolean
+  isReaderVisible: boolean
+}
+
+export interface TaskRoute {
+  albEdgeId: string
+  writerEdgeId: string | null
+  readerEdgeId: string | null
 }
 
 export interface TaskGraph {
@@ -28,7 +39,7 @@ export interface TaskGraph {
   servicePosition: { x: number; y: number }
   targetGroupNode: TargetGroupFlowNode | null
   taskEdges: (RequestFlowEdge | AssociationEdge)[]
-  healthyTaskEdgeIds: string[]
+  healthyTaskRoutes: TaskRoute[]
 }
 
 export function useTaskGraph({
@@ -36,7 +47,8 @@ export function useTaskGraph({
   requestsByTaskId,
   isTargetGroupVisible,
   isServiceVisible,
-  isRdsClusterVisible,
+  isWriterVisible,
+  isReaderVisible,
 }: TaskGraphArgs): TaskGraph {
   const leavingTasks = useLeavingTasks(tasks)
 
@@ -104,22 +116,40 @@ export function useTaskGraph({
           sourceHandle: 'manages-out',
           target: task.id,
           targetHandle: 'manages-in',
-          data: { isActive: task.status === 'failed', variant: 'management' },
+          data: { isActive: task.status === 'failed', variant: 'management', routing: 'bus' },
           deletable: false,
           reconnectable: false,
           selectable: false,
         })
       }
 
-      if (isRdsClusterVisible && task.status === 'healthy') {
+      if (task.status !== 'healthy') continue
+
+      const { reads, writes } = splitReadWrite(requestsPerMinute, RDS_READ_FRACTION)
+
+      if (isWriterVisible) {
         edges.push({
-          id: taskToRdsEdgeId(task.id),
+          id: taskToWriterEdgeId(task.id),
           type: 'requestFlow',
           source: task.id,
           sourceHandle: 'out',
-          target: RDS_CLUSTER_NODE_ID,
+          target: RDS_WRITER_NODE_ID,
           targetHandle: 'in',
-          data: { requestsPerMinute },
+          data: { requestsPerMinute: writes },
+          deletable: false,
+          reconnectable: false,
+        })
+      }
+
+      if (isReaderVisible) {
+        edges.push({
+          id: taskToReaderEdgeId(task.id),
+          type: 'requestFlow',
+          source: task.id,
+          sourceHandle: 'out',
+          target: RDS_READER_NODE_ID,
+          targetHandle: 'in',
+          data: { requestsPerMinute: reads },
           deletable: false,
           reconnectable: false,
         })
@@ -127,12 +157,19 @@ export function useTaskGraph({
     }
 
     return edges
-  }, [orderedTasks, requestsByTaskId, isServiceVisible, isRdsClusterVisible])
+  }, [orderedTasks, requestsByTaskId, isServiceVisible, isWriterVisible, isReaderVisible])
 
-  const healthyTaskEdgeIds = useMemo(
-    () => tasks.filter((task) => task.status === 'healthy').map((task) => albToTaskEdgeId(task.id)),
-    [tasks],
+  const healthyTaskRoutes = useMemo(
+    (): TaskRoute[] =>
+      tasks
+        .filter((task) => task.status === 'healthy')
+        .map((task) => ({
+          albEdgeId: albToTaskEdgeId(task.id),
+          writerEdgeId: isWriterVisible ? taskToWriterEdgeId(task.id) : null,
+          readerEdgeId: isReaderVisible ? taskToReaderEdgeId(task.id) : null,
+        })),
+    [tasks, isWriterVisible, isReaderVisible],
   )
 
-  return { taskNodes, servicePosition, targetGroupNode, taskEdges, healthyTaskEdgeIds }
+  return { taskNodes, servicePosition, targetGroupNode, taskEdges, healthyTaskRoutes }
 }

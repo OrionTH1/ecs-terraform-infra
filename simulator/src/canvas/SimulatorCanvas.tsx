@@ -28,14 +28,7 @@ import { useToolShortcuts } from '../hooks/useToolShortcuts'
 import { useSettleViewport } from '../hooks/useSettleViewport'
 import { useSimulationStore } from '../store/useSimulationStore'
 import { isCreated } from '../simulation/boot-graph'
-import {
-  ALB_NODE_ID,
-  FIT_VIEW_OPTIONS,
-  RDS_CLUSTER_TO_READER_EDGE_ID,
-  RDS_CLUSTER_TO_WRITER_EDGE_ID,
-  initialEdges,
-  initialNodes,
-} from './initial-graph'
+import { ALB_NODE_ID, FIT_VIEW_OPTIONS, initialEdges, initialNodes } from './initial-graph'
 
 const nodeTypes = {
   alb: AlbNode,
@@ -73,10 +66,11 @@ export function SimulatorCanvas() {
     requestsByTaskId: routing.requestsByTaskId,
     isTargetGroupVisible: isCreated(resources, 'targetGroup'),
     isServiceVisible: isCreated(resources, 'ecsService'),
-    isRdsClusterVisible: isCreated(resources, 'rdsCluster'),
+    isWriterVisible: isCreated(resources, 'rdsWriter'),
+    isReaderVisible: isCreated(resources, 'rdsReader'),
   })
 
-  const { renderNodes, renderEdges, liveEdgeIds, hasNoHealthyTargets, rdsReads, rdsWrites } = useRenderGraph({
+  const { renderNodes, renderEdges, liveEdgeIds, hasNoHealthyTargets } = useRenderGraph({
     nodes,
     edges,
     taskCount: tasks.length,
@@ -105,18 +99,15 @@ export function SimulatorCanvas() {
   )
 
   const directPacketEntries = useMemo(
-    () => [
-      { edgeId: RDS_CLUSTER_TO_WRITER_EDGE_ID, requestsPerMinute: rdsWrites, color: 'write' as const },
-      { edgeId: RDS_CLUSTER_TO_READER_EDGE_ID, requestsPerMinute: rdsReads, color: 'default' as const },
-      ...userEdges
+    () =>
+      userEdges
         .filter((edge) => isRejectedAtAlb(edge.source))
         .map((edge) => ({
           edgeId: edge.id,
           requestsPerMinute: routing.requestsByUserId.get(edge.source) ?? 0,
           color: 'blocked' as const,
         })),
-    ],
-    [rdsWrites, rdsReads, userEdges, routing.requestsByUserId, isRejectedAtAlb],
+    [userEdges, routing.requestsByUserId, isRejectedAtAlb],
   )
 
   return (
@@ -140,7 +131,7 @@ export function SimulatorCanvas() {
         <Controls />
         <PacketLayer
           entries={packetEntries}
-          taskEdgeIds={taskGraph.healthyTaskEdgeIds}
+          taskRoutes={taskGraph.healthyTaskRoutes}
           directEntries={directPacketEntries}
           liveEdgeIds={liveEdgeIds}
         />

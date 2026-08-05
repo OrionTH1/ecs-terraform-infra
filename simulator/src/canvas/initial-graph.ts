@@ -15,6 +15,14 @@ export const RDS_CLUSTER_TO_WRITER_EDGE_ID = 'rds-cluster-writer'
 export const RDS_CLUSTER_TO_READER_EDGE_ID = 'rds-cluster-reader'
 export const RDS_REPLICATION_EDGE_ID = 'rds-writer-reader-replication'
 
+export function taskToWriterEdgeId(taskId: string): string {
+  return `${taskId}-${RDS_WRITER_NODE_ID}`
+}
+
+export function taskToReaderEdgeId(taskId: string): string {
+  return `${taskId}-${RDS_READER_NODE_ID}`
+}
+
 const ALB_POSITION = { x: 360, y: 200 }
 const CONTROL_PLANE_Y = ALB_POSITION.y - 330
 
@@ -37,11 +45,11 @@ export const MANAGEMENT_HANDLE_TOP_INSET = 26
 export const MANAGEMENT_HANDLE_LEFT_INSET = 22
 
 const ECS_SERVICE_POSITION = { x: TASK_COLUMN_X, y: CONTROL_PLANE_Y }
-const RDS_CLUSTER_POSITION = { x: TASK_COLUMN_X + 460, y: ALB_POSITION.y }
-const RDS_INSTANCE_X = RDS_CLUSTER_POSITION.x + 260
+const RDS_INSTANCE_X = TASK_COLUMN_X + 470
+const RDS_CLUSTER_POSITION = { x: RDS_INSTANCE_X + 330, y: ALB_POSITION.y }
 
-export const RDS_WRITER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y - 80 }
-export const RDS_READER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y + 80 }
+export const RDS_WRITER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y - 100 }
+export const RDS_READER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y + 100 }
 
 export const FIT_VIEW_OPTIONS = { padding: 0.22, maxZoom: 1 }
 
@@ -174,32 +182,34 @@ export const initialEdges: SimulatorFlowEdge[] = [
     sourceHandle: 'acl-out',
     target: ALB_NODE_ID,
     targetHandle: 'acl-in',
-    data: { isActive: false, variant: 'association' },
+    data: { isActive: false, variant: 'association', routing: 'direct' },
     deletable: false,
     reconnectable: false,
     selectable: false,
   },
   {
     id: RDS_CLUSTER_TO_WRITER_EDGE_ID,
-    type: 'requestFlow',
+    type: 'association',
     source: RDS_CLUSTER_NODE_ID,
-    sourceHandle: 'out',
+    sourceHandle: 'manages-out',
     target: RDS_WRITER_NODE_ID,
-    targetHandle: 'in',
-    data: { requestsPerMinute: 0 },
+    targetHandle: 'manages-in',
+    data: { isActive: false, variant: 'management', routing: 'direct' },
     deletable: false,
     reconnectable: false,
+    selectable: false,
   },
   {
     id: RDS_CLUSTER_TO_READER_EDGE_ID,
-    type: 'requestFlow',
+    type: 'association',
     source: RDS_CLUSTER_NODE_ID,
-    sourceHandle: 'out',
+    sourceHandle: 'manages-out',
     target: RDS_READER_NODE_ID,
-    targetHandle: 'in',
-    data: { requestsPerMinute: 0 },
+    targetHandle: 'manages-in',
+    data: { isActive: false, variant: 'management', routing: 'direct' },
     deletable: false,
     reconnectable: false,
+    selectable: false,
   },
   {
     id: RDS_REPLICATION_EDGE_ID,

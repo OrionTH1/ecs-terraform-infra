@@ -3,8 +3,6 @@ import {
   ALB_NODE_ID,
   EDGE_RESOURCE_ID,
   NODE_RESOURCE_ID,
-  RDS_CLUSTER_TO_READER_EDGE_ID,
-  RDS_CLUSTER_TO_WRITER_EDGE_ID,
   WAF_TO_ALB_EDGE_ID,
 } from '../canvas/initial-graph'
 import { BOOT_GRAPH, type ResourceLedger } from '../simulation/boot-graph'
@@ -147,7 +145,7 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
         }
 
         if (node.type === 'rdsCluster') {
-          const data: RdsClusterNodeData = { ...node.data, provisioning, requestsPerMinute: deliveredRequests }
+          const data: RdsClusterNodeData = { ...node.data, provisioning }
           return { ...node, data }
         }
 
@@ -185,13 +183,12 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
       .filter((edge) => isEdgeVisible(resources, edge))
       .map((edge): SimulatorFlowEdge => {
         if (edge.id === WAF_TO_ALB_EDGE_ID) {
-          return { ...edge, data: { isActive: blockedIps.length > 0, variant: 'association' } } as AssociationEdgeType
+          return {
+            ...edge,
+            data: { isActive: blockedIps.length > 0, variant: 'association', routing: 'direct' },
+          } as AssociationEdgeType
         }
         if (edge.type === 'replication') return { ...edge, data: { isActive: rdsWrites > 0 } } as ReplicationEdgeType
-        if (edge.id === RDS_CLUSTER_TO_WRITER_EDGE_ID)
-          return { ...edge, data: { requestsPerMinute: rdsWrites } } as RequestFlowEdgeType
-        if (edge.id === RDS_CLUSTER_TO_READER_EDGE_ID)
-          return { ...edge, data: { requestsPerMinute: rdsReads } } as RequestFlowEdgeType
         if (edge.target === ALB_NODE_ID) {
           return {
             ...edge,
@@ -202,7 +199,7 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
       })
 
     return [...projected, ...taskGraph.taskEdges]
-  }, [edges, resources, routing, rdsWrites, rdsReads, taskGraph, blockedIps])
+  }, [edges, resources, routing, rdsWrites, taskGraph, blockedIps])
 
   const liveEdgeIds = useMemo(() => new Set(renderEdges.map((edge) => edge.id)), [renderEdges])
 

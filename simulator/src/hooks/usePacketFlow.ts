@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { RDS_READ_FRACTION } from '../simulation/simulation-config'
+import type { TaskRoute } from './useTaskGraph'
 import {
   MAX_LIVE_PACKETS,
   MAX_STALL_MS,
@@ -25,17 +27,22 @@ export interface DirectPacketEntry {
 
 interface PacketFlowArgs {
   entries: PacketEntry[]
-  taskEdgeIds: string[]
+  taskRoutes: TaskRoute[]
   directEntries: DirectPacketEntry[]
   liveEdgeIds: Set<string>
 }
+
+const WRITES_EVERY = Math.round(1 / (1 - RDS_READ_FRACTION))
 
 interface PathGeometry {
   element: SVGPathElement
   length: number
 }
 
-type Placement = { kind: 'moving'; x: number; y: number } | { kind: 'stalled' } | { kind: 'arrived' }
+type Placement =
+  | { kind: 'moving'; x: number; y: number; legIndex: number }
+  | { kind: 'stalled' }
+  | { kind: 'arrived' }
 
 function readGeometry(edgeId: string, cache: Map<string, PathGeometry | null>): PathGeometry | null {
   const cached = cache.get(edgeId)
@@ -51,13 +58,13 @@ function readGeometry(edgeId: string, cache: Map<string, PathGeometry | null>): 
 function locate(packet: Packet, now: number, cache: Map<string, PathGeometry | null>): Placement {
   let travelled = ((now - packet.startedAt) / 1000) * PACKET_SPEED_PX_PER_SECOND
 
-  for (const edgeId of packet.route) {
+  for (const [legIndex, edgeId] of packet.route.entries()) {
     const geometry = readGeometry(edgeId, cache)
     if (!geometry) return { kind: 'stalled' }
 
     if (travelled <= geometry.length) {
       const point = geometry.element.getPointAtLength(travelled)
-      return { kind: 'moving', x: point.x, y: point.y }
+      return { kind: 'moving', x: point.x, y: point.y, legIndex }
     }
     travelled -= geometry.length
   }
@@ -65,16 +72,17 @@ function locate(packet: Packet, now: number, cache: Map<string, PathGeometry | n
   return { kind: 'arrived' }
 }
 
-export function usePacketFlow({ entries, taskEdgeIds, directEntries, liveEdgeIds }: PacketFlowArgs): RenderedPacket[] {
+export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds }: PacketFlowArgs): RenderedPacket[] {
   const [rendered, setRendered] = useState<RenderedPacket[]>([])
 
   const packets = useRef<Packet[]>([])
   const pending = useRef(new Map<string, number>())
   const nextPacketId = useRef(0)
   const rotation = useRef(0)
-  const inputs = useRef<PacketFlowArgs>({ entries, taskEdgeIds, directEntries, liveEdgeIds })
+  const writeRotation = useRef(0)
+  const inputs = useRef<PacketFlowArgs>({ entries, taskRoutes, directEntries, liveEdgeIds })
 
-  inputs.current = { entries, taskEdgeIds, directEntries, liveEdgeIds }
+  inputs.current = { entries, taskRoutes, directEntries, liveEdgeIds }
 
   useEffect(() => {
     let frameId = 0
@@ -86,7 +94,7 @@ export function usePacketFlow({ entries, taskEdgeIds, directEntries, liveEdgeIds
       deltaSeconds: number,
       now: number,
       color: PacketColor,
-      buildRoute: () => string[],
+      buildRoute: () => { route: string[]; legColors: PacketColor[] },
       carried: Map<string, number>,
     ) {
       const rate = packetsPerSecond(requestsPerMinute)
@@ -95,7 +103,7 @@ export function usePacketFlow({ entries, taskEdgeIds, directEntries, liveEdgeIds
       while (remaining >= 1 && packets.current.length < MAX_LIVE_PACKETS) {
         packets.current.push({
           id: nextPacketId.current++,
-          route: buildRoute(),
+          ...buildRoute(),
           startedAt: now,
           stalledSince: null,
           lastPosition: null,
@@ -108,10 +116,10 @@ export function usePacketFlow({ entries, taskEdgeIds, directEntries, liveEdgeIds
     }
 
     function spawn(deltaSeconds: number, now: number) {
-      const { entries: currentEntries, taskEdgeIds: currentTaskEdgeIds, directEntries: currentDirectEntries } = inputs.current
+      const { entries: currentEntries, taskRoutes, directEntries: currentDirectEntries } = inputs.current
       const carried = new Map<string, number>()
 
-      if (currentTaskEdgeIds.length > 0) {
+      if (taskRoutes.length > 0) {
         for (const entry of currentEntries) {
           spawnAlong(
             entry.edgeId,
@@ -120,9 +128,21 @@ export function usePacketFlow({ entries, taskEdgeIds, directEntries, liveEdgeIds
             now,
             'default',
             () => {
-              const taskEdgeId = currentTaskEdgeIds[rotation.current % currentTaskEdgeIds.length]
+              const taskRoute = taskRoutes[rotation.current % taskRoutes.length]
               rotation.current += 1
-              return [entry.edgeId, taskEdgeId]
+
+              const isWrite = writeRotation.current % WRITES_EVERY === 0
+              writeRotation.current += 1
+
+              const databaseEdgeId = isWrite ? taskRoute.writerEdgeId : taskRoute.readerEdgeId
+              if (databaseEdgeId === null) {
+                return { route: [entry.edgeId, taskRoute.albEdgeId], legColors: ['default', 'default'] }
+              }
+
+              return {
+                route: [entry.edgeId, taskRoute.albEdgeId, databaseEdgeId],
+                legColors: ['default', 'default', isWrite ? 'write' : 'default'],
+              }
             },
             carried,
           )
@@ -130,7 +150,15 @@ export function usePacketFlow({ entries, taskEdgeIds, directEntries, liveEdgeIds
       }
 
       for (const entry of currentDirectEntries) {
-        spawnAlong(entry.edgeId, entry.requestsPerMinute, deltaSeconds, now, entry.color, () => [entry.edgeId], carried)
+        spawnAlong(
+          entry.edgeId,
+          entry.requestsPerMinute,
+          deltaSeconds,
+          now,
+          entry.color,
+          () => ({ route: [entry.edgeId], legColors: [entry.color] }),
+          carried,
+        )
       }
 
       pending.current = carried
@@ -163,7 +191,12 @@ export function usePacketFlow({ entries, taskEdgeIds, directEntries, liveEdgeIds
         packet.stalledSince = null
         packet.lastPosition = { x: placement.x, y: placement.y }
         alive.push(packet)
-        positions.push({ id: packet.id, x: placement.x, y: placement.y, color: packet.color })
+        positions.push({
+          id: packet.id,
+          x: placement.x,
+          y: placement.y,
+          color: packet.legColors[placement.legIndex] ?? packet.color,
+        })
       }
 
       packets.current = alive
