@@ -28,6 +28,7 @@ import { useToolShortcuts } from '../hooks/useToolShortcuts'
 import { useSettleViewport } from '../hooks/useSettleViewport'
 import { useIsCompactViewport } from '../hooks/useMediaQuery'
 import { useSimulationStore } from '../store/useSimulationStore'
+import { isAcceptingTraffic } from '../simulation/aurora'
 import { isCreated } from '../simulation/boot-graph'
 import { ALB_NODE_ID, FIT_VIEW_OPTIONS, MIN_ZOOM, initialEdges, initialNodes } from './initial-graph'
 
@@ -57,6 +58,7 @@ export function SimulatorCanvas() {
 
   const tasks = useSimulationStore((state) => state.tasks)
   const resources = useSimulationStore((state) => state.resources)
+  const rdsSlots = useSimulationStore((state) => state.rdsSlots)
 
   useSimulationClock()
   useToolShortcuts()
@@ -69,8 +71,8 @@ export function SimulatorCanvas() {
     requestsByTaskId: routing.requestsByTaskId,
     isTargetGroupVisible: isCreated(resources, 'targetGroup'),
     isServiceVisible: isCreated(resources, 'ecsService'),
-    isWriterVisible: isCreated(resources, 'rdsWriter'),
-    isReaderVisible: isCreated(resources, 'rdsReader'),
+    isWriterAvailable: isAcceptingTraffic(rdsSlots.writer?.lifecycle),
+    isReaderAvailable: isAcceptingTraffic(rdsSlots.reader?.lifecycle),
   })
 
   const { renderNodes, renderEdges, liveEdgeIds, hasNoHealthyTargets } = useRenderGraph({

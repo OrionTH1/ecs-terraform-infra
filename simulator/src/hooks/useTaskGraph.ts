@@ -5,6 +5,8 @@ import {
   ECS_SERVICE_NODE_ID,
   JUNCTION_TO_READER_EDGE_ID,
   JUNCTION_TO_WRITER_EDGE_ID,
+  READER_TO_VOLUME_EDGE_ID,
+  WRITER_TO_VOLUME_EDGE_ID,
   albToTaskEdgeId,
   serviceToTaskEdgeId,
   taskToJunctionEdgeId,
@@ -22,15 +24,20 @@ interface TaskGraphArgs {
   requestsByTaskId: Map<string, number>
   isTargetGroupVisible: boolean
   isServiceVisible: boolean
-  isWriterVisible: boolean
-  isReaderVisible: boolean
+  isWriterAvailable: boolean
+  isReaderAvailable: boolean
+}
+
+export interface DatabaseLeg {
+  instanceEdgeId: string
+  volumeEdgeId: string
 }
 
 export interface TaskRoute {
   albEdgeId: string
   junctionEdgeId: string | null
-  writerEdgeId: string | null
-  readerEdgeId: string | null
+  readLeg: DatabaseLeg | null
+  writeLeg: DatabaseLeg | null
 }
 
 export interface TaskGraph {
@@ -46,8 +53,8 @@ export function useTaskGraph({
   requestsByTaskId,
   isTargetGroupVisible,
   isServiceVisible,
-  isWriterVisible,
-  isReaderVisible,
+  isWriterAvailable,
+  isReaderAvailable,
 }: TaskGraphArgs): TaskGraph {
   const leavingTasks = useLeavingTasks(tasks)
 
@@ -56,7 +63,23 @@ export function useTaskGraph({
     [tasks, leavingTasks],
   )
 
-  const isDatabaseReachable = isWriterVisible || isReaderVisible
+  const writeLeg = useMemo(
+    (): DatabaseLeg | null =>
+      isWriterAvailable
+        ? { instanceEdgeId: JUNCTION_TO_WRITER_EDGE_ID, volumeEdgeId: WRITER_TO_VOLUME_EDGE_ID }
+        : null,
+    [isWriterAvailable],
+  )
+
+  const readLeg = useMemo(
+    (): DatabaseLeg | null =>
+      isReaderAvailable
+        ? { instanceEdgeId: JUNCTION_TO_READER_EDGE_ID, volumeEdgeId: READER_TO_VOLUME_EDGE_ID }
+        : writeLeg,
+    [isReaderAvailable, writeLeg],
+  )
+
+  const isDatabaseReachable = writeLeg !== null || readLeg !== null
 
   const leavingIds = useMemo(() => new Set(leavingTasks.map((task) => task.id)), [leavingTasks])
   const healthyTaskCount = useMemo(() => tasks.filter((task) => task.status === 'healthy').length, [tasks])
@@ -149,10 +172,10 @@ export function useTaskGraph({
         .map((task) => ({
           albEdgeId: albToTaskEdgeId(task.id),
           junctionEdgeId: isDatabaseReachable ? taskToJunctionEdgeId(task.id) : null,
-          writerEdgeId: isWriterVisible ? JUNCTION_TO_WRITER_EDGE_ID : null,
-          readerEdgeId: isReaderVisible ? JUNCTION_TO_READER_EDGE_ID : null,
+          readLeg,
+          writeLeg,
         })),
-    [tasks, isDatabaseReachable, isWriterVisible, isReaderVisible],
+    [tasks, isDatabaseReachable, readLeg, writeLeg],
   )
 
   return { taskNodes, servicePosition, targetGroupNode, taskEdges, healthyTaskRoutes }
