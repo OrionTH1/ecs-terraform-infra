@@ -1,4 +1,5 @@
 export const PACKET_SPEED_PX_PER_SECOND = 190
+export const REPLICATION_PACKET_SPEED_PX_PER_SECOND = 1400
 export const MAX_LIVE_PACKETS = 90
 export const MAX_STALL_MS = 600
 
@@ -13,6 +14,7 @@ export interface Packet {
   id: number
   route: string[]
   legColors: PacketColor[]
+  speedPxPerSecond: number
   startedAt: number
   stalledSince: number | null
   lastPosition: { x: number; y: number } | null

@@ -6,6 +6,7 @@ import {
   MAX_LIVE_PACKETS,
   MAX_STALL_MS,
   PACKET_SPEED_PX_PER_SECOND,
+  REPLICATION_PACKET_SPEED_PX_PER_SECOND,
   packetsPerSecond,
   pathElementId,
   type Packet,
@@ -61,7 +62,7 @@ function readGeometry(edgeId: string, cache: Map<string, PathGeometry | null>): 
 }
 
 function locate(packet: Packet, now: number, cache: Map<string, PathGeometry | null>): Placement {
-  let travelled = ((now - packet.startedAt) / 1000) * PACKET_SPEED_PX_PER_SECOND
+  let travelled = ((now - packet.startedAt) / 1000) * packet.speedPxPerSecond
 
   for (const [legIndex, edgeId] of packet.route.entries()) {
     const geometry = readGeometry(edgeId, cache)
@@ -109,6 +110,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
         packets.current.push({
           id: nextPacketId.current++,
           ...buildRoute(),
+          speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND,
           startedAt: now,
           stalledSince: null,
           lastPosition: null,
@@ -187,6 +189,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
               id: nextPacketId.current++,
               route: [RDS_REPLICATION_EDGE_ID],
               legColors: ['write'],
+              speedPxPerSecond: REPLICATION_PACKET_SPEED_PX_PER_SECOND,
               startedAt: now,
               stalledSince: null,
               lastPosition: null,
