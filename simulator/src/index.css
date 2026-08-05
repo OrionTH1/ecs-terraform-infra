@@ -241,10 +241,12 @@ html,
 body,
 #root {
   height: 100%;
+  overflow: hidden;
 }
 
 body {
   @apply bg-canvas text-fg font-sans text-[15px] leading-[1.45];
   color-scheme: dark;
   margin: 0;
+  overscroll-behavior: none;
 }

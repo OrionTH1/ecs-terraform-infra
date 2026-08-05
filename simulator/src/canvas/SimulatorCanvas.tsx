@@ -111,7 +111,7 @@ export function SimulatorCanvas() {
   )
 
   return (
-    <div className="relative h-screen w-screen" data-active-tool={activeTool.id}>
+    <div className="relative h-dvh w-full overflow-hidden" data-active-tool={activeTool.id}>
       <ReactFlow
         nodes={renderNodes}
         edges={renderEdges}
