@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import {
   ALB_NODE_ID,
+  DB_READ_LANE_X,
+  DB_WRITE_LANE_X,
   ECS_SERVICE_NODE_ID,
   RDS_READER_NODE_ID,
   RDS_WRITER_NODE_ID,
@@ -37,8 +39,6 @@ export interface TaskRoute {
 export interface TaskGraph {
   taskNodes: TaskFlowNode[]
   servicePosition: { x: number; y: number }
-  writerPosition: { x: number; y: number }
-  readerPosition: { x: number; y: number }
   targetGroupNode: TargetGroupFlowNode | null
   taskEdges: (RequestFlowEdge | AssociationEdge)[]
   healthyTaskRoutes: TaskRoute[]
@@ -62,7 +62,7 @@ export function useTaskGraph({
   const leavingIds = useMemo(() => new Set(leavingTasks.map((task) => task.id)), [leavingTasks])
   const healthyTaskCount = useMemo(() => tasks.filter((task) => task.status === 'healthy').length, [tasks])
 
-  const { positions, sizes, servicePosition, writerPosition, readerPosition, targetGroupNode } = useTaskColumnLayout({
+  const { positions, sizes, servicePosition, targetGroupNode } = useTaskColumnLayout({
     orderedTasks,
     isTargetGroupVisible,
     healthyTaskCount,
@@ -137,7 +137,7 @@ export function useTaskGraph({
           sourceHandle: 'out',
           target: RDS_WRITER_NODE_ID,
           targetHandle: 'in',
-          data: { requestsPerMinute: writes },
+          data: { requestsPerMinute: writes, laneX: DB_WRITE_LANE_X },
           deletable: false,
           reconnectable: false,
         })
@@ -151,7 +151,7 @@ export function useTaskGraph({
           sourceHandle: 'out',
           target: RDS_READER_NODE_ID,
           targetHandle: 'in',
-          data: { requestsPerMinute: reads },
+          data: { requestsPerMinute: reads, laneX: DB_READ_LANE_X },
           deletable: false,
           reconnectable: false,
         })
@@ -173,5 +173,5 @@ export function useTaskGraph({
     [tasks, isWriterVisible, isReaderVisible],
   )
 
-  return { taskNodes, servicePosition, writerPosition, readerPosition, targetGroupNode, taskEdges, healthyTaskRoutes }
+  return { taskNodes, servicePosition, targetGroupNode, taskEdges, healthyTaskRoutes }
 }

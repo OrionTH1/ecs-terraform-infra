@@ -3,10 +3,6 @@ import {
   ECS_SERVICE_GAP,
   ECS_SERVICE_NODE_ID,
   FALLBACK_ECS_SERVICE_HEIGHT,
-  FALLBACK_RDS_INSTANCE_HEIGHT,
-  RDS_INSTANCE_COLUMN_X,
-  RDS_INSTANCE_GAP,
-  RDS_WRITER_NODE_ID,
   FALLBACK_TASK_HEIGHT,
   FALLBACK_TASK_WIDTH,
   TARGET_GROUP_HEADER_HEIGHT,
@@ -33,8 +29,6 @@ export interface TaskColumnLayout {
   positions: Map<string, { x: number; y: number }>
   sizes: Map<string, MeasuredSize>
   servicePosition: { x: number; y: number }
-  writerPosition: { x: number; y: number }
-  readerPosition: { x: number; y: number }
   targetGroupNode: TargetGroupFlowNode | null
 }
 
@@ -94,10 +88,6 @@ export function useTaskColumnLayout({
     const serviceHeight = sizes.get(ECS_SERVICE_NODE_ID)?.height ?? FALLBACK_ECS_SERVICE_HEIGHT
     const servicePosition = { x: TASK_COLUMN_X, y: columnTop - ECS_SERVICE_GAP - serviceHeight }
 
-    const writerHeight = sizes.get(RDS_WRITER_NODE_ID)?.height ?? FALLBACK_RDS_INSTANCE_HEIGHT
-    const writerPosition = { x: RDS_INSTANCE_COLUMN_X, y: columnTop - RDS_INSTANCE_GAP - writerHeight }
-    const readerPosition = { x: RDS_INSTANCE_COLUMN_X, y: columnTop + columnHeight + RDS_INSTANCE_GAP }
-
     const targetGroupNode: TargetGroupFlowNode | null = isTargetGroupVisible
       ? {
           id: TARGET_GROUP_NODE_ID,
@@ -119,6 +109,6 @@ export function useTaskColumnLayout({
         }
       : null
 
-    return { positions, sizes, servicePosition, writerPosition, readerPosition, targetGroupNode }
+    return { positions, sizes, servicePosition, targetGroupNode }
   }, [orderedTasks, sizes, isTargetGroupVisible, healthyTaskCount])
 }

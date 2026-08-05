@@ -156,7 +156,7 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
             provisioning,
             requestsPerMinute: isWriter ? rdsWrites : rdsReads,
           }
-          return { ...node, position: isWriter ? taskGraph.writerPosition : taskGraph.readerPosition, data }
+          return { ...node, data }
         }
 
         return node
