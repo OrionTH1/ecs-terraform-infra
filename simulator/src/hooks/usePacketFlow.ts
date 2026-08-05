@@ -28,6 +28,7 @@ interface PacketFlowArgs {
   entries: PacketEntry[]
   taskEdgeIds: string[]
   directEntries: DirectPacketEntry[]
+  liveEdgeIds: Set<string>
 }
 
 interface PathGeometry {
@@ -65,16 +66,16 @@ function locate(packet: Packet, now: number, cache: Map<string, PathGeometry | n
   return { kind: 'arrived' }
 }
 
-export function usePacketFlow({ entries, taskEdgeIds, directEntries }: PacketFlowArgs): RenderedPacket[] {
+export function usePacketFlow({ entries, taskEdgeIds, directEntries, liveEdgeIds }: PacketFlowArgs): RenderedPacket[] {
   const [rendered, setRendered] = useState<RenderedPacket[]>([])
 
   const packets = useRef<Packet[]>([])
   const pending = useRef(new Map<string, number>())
   const nextPacketId = useRef(0)
   const rotation = useRef(0)
-  const inputs = useRef<PacketFlowArgs>({ entries, taskEdgeIds, directEntries })
+  const inputs = useRef<PacketFlowArgs>({ entries, taskEdgeIds, directEntries, liveEdgeIds })
 
-  inputs.current = { entries, taskEdgeIds, directEntries }
+  inputs.current = { entries, taskEdgeIds, directEntries, liveEdgeIds }
 
   useEffect(() => {
     let frameId = 0
@@ -140,8 +141,12 @@ export function usePacketFlow({ entries, taskEdgeIds, directEntries }: PacketFlo
       const cache = new Map<string, PathGeometry | null>()
       const alive: Packet[] = []
       const positions: RenderedPacket[] = []
+      const { liveEdgeIds: currentLiveEdgeIds } = inputs.current
 
       for (const packet of packets.current) {
+        const isRouteIntact = packet.route.every((edgeId) => currentLiveEdgeIds.has(edgeId))
+        if (!isRouteIntact) continue
+
         const placement = locate(packet, now, cache)
 
         if (placement.kind === 'arrived') continue

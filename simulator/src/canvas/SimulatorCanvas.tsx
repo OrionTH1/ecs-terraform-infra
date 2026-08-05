@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { Background, BackgroundVariant, Controls, ReactFlow, useNodesState, useEdgesState } from '@xyflow/react'
 import { AlbNode } from '../nodes/infra/AlbNode'
 import { WafNode } from '../nodes/infra/WafNode'
@@ -86,9 +86,12 @@ export function SimulatorCanvas() {
   const { isValidConnection, onConnect } = useCanvasConnections({ nodes, edges, setEdges })
   const { onDragOver, onDrop } = useNodePalette({ nodes, onNodesChange })
 
+  const hasNoHealthyTargets = healthyTaskCount === 0
+  const deliveredRequests = hasNoHealthyTargets ? 0 : totalRequestsAtAlb
+
   const { reads: rdsReads, writes: rdsWrites } = useMemo(
-    () => splitReadWrite(totalRequestsAtAlb, RDS_READ_FRACTION),
-    [totalRequestsAtAlb],
+    () => splitReadWrite(deliveredRequests, RDS_READ_FRACTION),
+    [deliveredRequests],
   )
 
   const renderNodes = useMemo(
@@ -99,7 +102,7 @@ export function SimulatorCanvas() {
             ...node.data,
             requestsPerMinute: totalRequestsAtAlb,
             healthyTargetCount: healthyTaskCount,
-            status: healthyTaskCount === 0 && totalRequestsAtAlb > 0 ? 'error' : 'idle',
+            status: hasNoHealthyTargets && totalRequestsAtAlb > 0 ? 'error' : 'idle',
           }
           return { ...node, data }
         }
@@ -123,7 +126,7 @@ export function SimulatorCanvas() {
         if (node.type === 'ecsService') {
           const data: EcsServiceNodeData = {
             ...node.data,
-            requestsPerMinute: totalRequestsAtAlb,
+            requestsPerMinute: deliveredRequests,
             healthyTaskCount,
             totalTaskCount: tasks.length,
           }
@@ -131,7 +134,7 @@ export function SimulatorCanvas() {
         }
 
         if (node.type === 'rdsCluster') {
-          const data: RdsClusterNodeData = { ...node.data, requestsPerMinute: totalRequestsAtAlb }
+          const data: RdsClusterNodeData = { ...node.data, requestsPerMinute: deliveredRequests }
           return { ...node, data }
         }
 
@@ -151,6 +154,8 @@ export function SimulatorCanvas() {
       nodes,
       totalRequestsSent,
       totalRequestsAtAlb,
+      deliveredRequests,
+      hasNoHealthyTargets,
       healthyTaskCount,
       tasks.length,
       taskNodes,
@@ -162,27 +167,34 @@ export function SimulatorCanvas() {
     ],
   )
 
-  const packetEntries = useMemo(
-    () =>
-      edges
-        .filter((edge) => edge.target === ALB_NODE_ID && !blockedUserIds.has(edge.source))
-        .map((edge) => ({ edgeId: edge.id, requestsPerMinute: requestsByUserId.get(edge.source) ?? 0 })),
-    [edges, requestsByUserId, blockedUserIds],
+  const userEdges = useMemo(() => edges.filter((edge) => edge.target === ALB_NODE_ID), [edges])
+
+  const isRejectedAtAlb = useCallback(
+    (sourceId: string) => hasNoHealthyTargets || blockedUserIds.has(sourceId),
+    [hasNoHealthyTargets, blockedUserIds],
   )
 
-  const rdsPacketEntries = useMemo(
+  const packetEntries = useMemo(
+    () =>
+      userEdges
+        .filter((edge) => !isRejectedAtAlb(edge.source))
+        .map((edge) => ({ edgeId: edge.id, requestsPerMinute: requestsByUserId.get(edge.source) ?? 0 })),
+    [userEdges, requestsByUserId, isRejectedAtAlb],
+  )
+
+  const directPacketEntries = useMemo(
     () => [
       { edgeId: RDS_CLUSTER_TO_WRITER_EDGE_ID, requestsPerMinute: rdsWrites, color: 'write' as const },
       { edgeId: RDS_CLUSTER_TO_READER_EDGE_ID, requestsPerMinute: rdsReads, color: 'default' as const },
-      ...edges
-        .filter((edge) => edge.target === ALB_NODE_ID && blockedUserIds.has(edge.source))
+      ...userEdges
+        .filter((edge) => isRejectedAtAlb(edge.source))
         .map((edge) => ({
           edgeId: edge.id,
           requestsPerMinute: requestsByUserId.get(edge.source) ?? 0,
           color: 'blocked' as const,
         })),
     ],
-    [rdsWrites, rdsReads, edges, requestsByUserId, blockedUserIds],
+    [rdsWrites, rdsReads, userEdges, requestsByUserId, isRejectedAtAlb],
   )
 
   const renderEdges = useMemo(
@@ -190,7 +202,7 @@ export function SimulatorCanvas() {
       ...edges.map((edge): SimulatorFlowEdge => {
         if (edge.id === WAF_TO_ALB_EDGE_ID) return { ...edge, data: { isActive: blockedIps.length > 0 } } as AssociationEdgeType
         if (edge.type === 'replication') return { ...edge, data: { isActive: rdsWrites > 0 } } as ReplicationEdgeType
-        if (edge.id === ALB_TO_ECS_EDGE_ID) return { ...edge, data: { requestsPerMinute: totalRequestsAtAlb } } as RequestFlowEdgeType
+        if (edge.id === ALB_TO_ECS_EDGE_ID) return { ...edge, data: { requestsPerMinute: deliveredRequests } } as RequestFlowEdgeType
         if (edge.id === RDS_CLUSTER_TO_WRITER_EDGE_ID)
           return { ...edge, data: { requestsPerMinute: rdsWrites } } as RequestFlowEdgeType
         if (edge.id === RDS_CLUSTER_TO_READER_EDGE_ID)
@@ -202,8 +214,10 @@ export function SimulatorCanvas() {
       ...taskEdges,
       ...rdsEdges,
     ],
-    [edges, requestsByUserId, totalRequestsAtAlb, rdsWrites, rdsReads, taskEdges, rdsEdges, blockedIps],
+    [edges, requestsByUserId, deliveredRequests, rdsWrites, rdsReads, taskEdges, rdsEdges, blockedIps],
   )
+
+  const liveEdgeIds = useMemo(() => new Set(renderEdges.map((edge) => edge.id)), [renderEdges])
 
   return (
     <div className="relative h-screen w-screen" data-active-tool={activeTool.id}>
@@ -224,7 +238,12 @@ export function SimulatorCanvas() {
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#2a3a6b" />
         <Controls />
-        <PacketLayer entries={packetEntries} taskEdgeIds={healthyTaskEdgeIds} directEntries={rdsPacketEntries} />
+        <PacketLayer
+          entries={packetEntries}
+          taskEdgeIds={healthyTaskEdgeIds}
+          directEntries={directPacketEntries}
+          liveEdgeIds={liveEdgeIds}
+        />
       </ReactFlow>
       <div className="absolute top-4 left-4 z-10 flex w-[196px] flex-col gap-3">
         <ComponentsPanel />

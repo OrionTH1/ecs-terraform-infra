@@ -61,10 +61,9 @@ export const WAF_BUCKET_COUNT = WAF.windowMs / WAF.bucketMs
 export const WAF_RATE_LIMIT_PER_MINUTE = WAF.rateLimitPer5Min / (WAF.windowMs / 60_000)
 
 export const REQUEST_RATE_STEP = 100
-export const DEFAULT_USER_REQUEST_RATE = 0
+export const DEFAULT_USER_REQUEST_RATE = 100
 
 export const TIME_SCALES = [1, 10, 25, 60]
 export const DEFAULT_TIME_SCALE = 25
 
 export const RDS_READ_FRACTION = 0.8
-

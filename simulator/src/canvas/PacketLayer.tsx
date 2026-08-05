@@ -6,6 +6,7 @@ interface PacketLayerProps {
   entries: PacketEntry[]
   taskEdgeIds: string[]
   directEntries: DirectPacketEntry[]
+  liveEdgeIds: Set<string>
 }
 
 const PACKET_COLOR_CLASS: Record<PacketColor, string> = {
@@ -14,8 +15,8 @@ const PACKET_COLOR_CLASS: Record<PacketColor, string> = {
   blocked: 'bg-status-error shadow-[0_0_8px_2px_rgba(239,68,68,0.45)]',
 }
 
-export function PacketLayer({ entries, taskEdgeIds, directEntries }: PacketLayerProps) {
-  const packets = usePacketFlow({ entries, taskEdgeIds, directEntries })
+export function PacketLayer({ entries, taskEdgeIds, directEntries, liveEdgeIds }: PacketLayerProps) {
+  const packets = usePacketFlow({ entries, taskEdgeIds, directEntries, liveEdgeIds })
 
   return (
     <ViewportPortal>
