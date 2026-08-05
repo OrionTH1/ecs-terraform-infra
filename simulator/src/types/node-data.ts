@@ -4,7 +4,8 @@ import type { TaskFlowNode } from './task-data'
 export type NodeStatus = 'idle' | 'healthy' | 'warning' | 'error'
 
 export interface ProvisioningInfo {
-  terraformAddress: string
+  detail: string
+  label?: string
   startedAt: number
   durationMs: number
 }
@@ -75,9 +76,11 @@ export interface AuroraClusterNodeData extends InfraNodeData {
 export type ClusterVolumeNodeData = InfraNodeData
 
 export type RdsInstanceRole = 'writer' | 'reader'
+export type RdsInstanceLifecycle = 'provisioning' | 'promoting' | 'available' | 'failed'
 
 export interface RdsInstanceNodeData extends InfraNodeData {
   role: RdsInstanceRole
+  lifecycle: RdsInstanceLifecycle
   requestsPerMinute: number
   isCacheInvalidating: boolean
 }

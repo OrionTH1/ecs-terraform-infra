@@ -1,14 +1,24 @@
 import { create } from 'zustand'
-import { AUTOSCALING, BOOT_TIME_SCALE, DEFAULT_TIME_SCALE, TASK_LIFECYCLE } from '../simulation/simulation-config'
+import {
+  AURORA_FAILOVER_MS,
+  AURORA_REBUILD_WRITER_MS,
+  AUTOSCALING,
+  BOOT_TIME_SCALE,
+  DEFAULT_TIME_SCALE,
+  RDS_INSTANCE_FAILED_LINGER_MS,
+  TASK_LIFECYCLE,
+} from '../simulation/simulation-config'
 import {
   advanceResourceLedger,
   areAllCreated,
   createResourceLedger,
   isCreated,
+  BOOT_GRAPH,
   type ResourceLedger,
 } from '../simulation/boot-graph'
 import { advanceWafSource, createWafSource, windowRequestCount, type WafSourceState } from '../simulation/waf'
 import type { TaskLogEntry, TaskStatus } from '../types/task-data'
+import type { RdsInstanceLifecycle, RdsInstanceRole } from '../types/node-data'
 
 const SCALE_IN_MARGIN = 0.7
 
@@ -24,6 +34,18 @@ export interface TaskRuntime {
   stageEnteredAt: number
   createdAt: number
   log: TaskLogEntry[]
+}
+
+export interface RdsInstanceRuntime {
+  instanceId: number
+  lifecycle: RdsInstanceLifecycle
+  stageEnteredAt: number
+  durationMs: number | null
+}
+
+export interface RdsSlots {
+  writer: RdsInstanceRuntime | null
+  reader: RdsInstanceRuntime | null
 }
 
 interface SimulationState {
@@ -45,7 +67,12 @@ interface SimulationState {
   desiredCount: number
   nextInstanceId: number
   expandedTaskIds: string[]
+  rdsSlots: RdsSlots
+  hasSeededRdsWriter: boolean
+  hasSeededRdsReader: boolean
+  nextRdsInstanceId: number
   killTask: (taskId: string) => void
+  killRdsInstance: (role: RdsInstanceRole) => void
   toggleTaskLog: (taskId: string) => void
   setSourceRates: (rates: SourceRate[]) => void
   setTimeScale: (timeScale: number) => void
@@ -106,6 +133,13 @@ function advanceTask(task: TaskRuntime, now: number): TaskRuntime | null {
   return task
 }
 
+function advanceRdsSlot(slot: RdsInstanceRuntime | null, now: number): RdsInstanceRuntime | null {
+  if (!slot || slot.durationMs === null) return slot
+  if (now - slot.stageEnteredAt < slot.durationMs) return slot
+  if (slot.lifecycle === 'failed') return null
+  return { ...slot, lifecycle: 'available', stageEnteredAt: now, durationMs: null }
+}
+
 export const useSimulationStore = create<SimulationState>((set, get) => ({
   tasks: [],
   resources: createResourceLedger(),
@@ -125,6 +159,28 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   desiredCount: AUTOSCALING.minCapacity,
   nextInstanceId: 1,
   expandedTaskIds: [],
+  rdsSlots: { writer: null, reader: null },
+  hasSeededRdsWriter: false,
+  hasSeededRdsReader: false,
+  nextRdsInstanceId: 3,
+
+  killRdsInstance: (role) =>
+    set((state) => {
+      const slot = state.rdsSlots[role]
+      if (!slot || slot.lifecycle === 'failed') return state
+
+      return {
+        rdsSlots: {
+          ...state.rdsSlots,
+          [role]: {
+            ...slot,
+            lifecycle: 'failed' as const,
+            stageEnteredAt: state.clock,
+            durationMs: RDS_INSTANCE_FAILED_LINGER_MS,
+          },
+        },
+      }
+    }),
 
   killTask: (taskId) =>
     set((state) => ({
@@ -239,6 +295,36 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     const hasJustFinishedApplying = isApplyComplete && !state.isApplyComplete
 
+    let writer = advanceRdsSlot(state.rdsSlots.writer, now)
+    let reader = advanceRdsSlot(state.rdsSlots.reader, now)
+    let hasSeededRdsWriter = state.hasSeededRdsWriter
+    let hasSeededRdsReader = state.hasSeededRdsReader
+    let nextRdsInstanceId = state.nextRdsInstanceId
+
+    if (writer === null && isCreated(resources, 'rdsWriter')) {
+      if (!hasSeededRdsWriter) {
+        writer = { instanceId: 1, lifecycle: 'available', stageEnteredAt: now, durationMs: null }
+        hasSeededRdsWriter = true
+      } else if (reader && reader.lifecycle === 'available') {
+        writer = { instanceId: reader.instanceId, lifecycle: 'promoting', stageEnteredAt: now, durationMs: AURORA_FAILOVER_MS }
+        reader = { instanceId: nextRdsInstanceId, lifecycle: 'provisioning', stageEnteredAt: now, durationMs: BOOT_GRAPH.rdsReader.durationMs }
+        nextRdsInstanceId += 1
+      } else {
+        writer = { instanceId: nextRdsInstanceId, lifecycle: 'provisioning', stageEnteredAt: now, durationMs: AURORA_REBUILD_WRITER_MS }
+        nextRdsInstanceId += 1
+      }
+    }
+
+    if (reader === null && isCreated(resources, 'rdsReader')) {
+      if (!hasSeededRdsReader) {
+        reader = { instanceId: 2, lifecycle: 'available', stageEnteredAt: now, durationMs: null }
+        hasSeededRdsReader = true
+      } else {
+        reader = { instanceId: nextRdsInstanceId, lifecycle: 'provisioning', stageEnteredAt: now, durationMs: BOOT_GRAPH.rdsReader.durationMs }
+        nextRdsInstanceId += 1
+      }
+    }
+
     set({
       clock: now,
       resources,
@@ -256,6 +342,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       scaleOutBreachAt,
       scaleInBreachAt,
       expandedTaskIds: expandedTaskIds.length === state.expandedTaskIds.length ? state.expandedTaskIds : expandedTaskIds,
+      rdsSlots: writer === state.rdsSlots.writer && reader === state.rdsSlots.reader ? state.rdsSlots : { writer, reader },
+      hasSeededRdsWriter,
+      hasSeededRdsReader,
+      nextRdsInstanceId,
     })
   },
 }))

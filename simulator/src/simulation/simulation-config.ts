@@ -74,3 +74,7 @@ export const DEFAULT_TIME_SCALE = 25
 export const BOOT_TIME_SCALE = 60
 
 export const RDS_READ_FRACTION = 0.8
+
+export const AURORA_FAILOVER_MS = 30_000
+export const AURORA_REBUILD_WRITER_MS = 10 * 60_000
+export const RDS_INSTANCE_FAILED_LINGER_MS = 4_000

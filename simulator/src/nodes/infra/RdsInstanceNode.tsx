@@ -1,10 +1,14 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { TaskBlastEffect } from './TaskBlastEffect'
+import { useRdsInstanceBlast } from '../../hooks/useRdsInstanceBlast'
 import type { RdsInstanceFlowNode } from '../../types/node-data'
 import { NodeCard } from '../shared/NodeCard'
 import { RateReadout } from '../shared/RateReadout'
 import { RdsIcon } from '../../icons'
 
 export function RdsInstanceNode({ data }: NodeProps<RdsInstanceFlowNode>) {
+  const { isTargetable, blast } = useRdsInstanceBlast({ role: data.role, lifecycle: data.lifecycle })
+
   return (
     <NodeCard
       variant="infra"
@@ -13,6 +17,10 @@ export function RdsInstanceNode({ data }: NodeProps<RdsInstanceFlowNode>) {
       tooltip={data.tooltip}
       status={data.status}
       provisioning={data.provisioning}
+      isTargetable={isTargetable}
+      isBlasted={data.lifecycle === 'failed'}
+      overlay={data.lifecycle === 'failed' ? <TaskBlastEffect /> : null}
+      onTargetClick={blast}
       handles={
         <>
           <Handle type="target" position={Position.Left} id="in" isConnectable={false} />

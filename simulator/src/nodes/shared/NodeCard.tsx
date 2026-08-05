@@ -87,9 +87,9 @@ export function NodeCard({
       {provisioning ? (
         <div className="px-3 py-2.5">
           <div className="flex w-[186px] flex-col gap-1.5">
-            <span className="font-sans text-xs font-medium text-fg">Creating</span>
+            <span className="font-sans text-xs font-medium text-fg">{provisioning.label ?? 'Creating'}</span>
             <StageProgress durationMs={provisioning.durationMs} startedAt={provisioning.startedAt} tone="creating" />
-            <span className="truncate font-mono text-[11px] text-fg-muted">{provisioning.terraformAddress}</span>
+            <span className="truncate font-mono text-[11px] text-fg-muted">{provisioning.detail}</span>
           </div>
         </div>
       ) : children ? (

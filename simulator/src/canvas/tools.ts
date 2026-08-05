@@ -10,7 +10,7 @@ export interface ToolDefinition {
   description: string
   icon: ComponentType<{ className?: string }>
   panOnDrag: boolean
-  targetsTasks: boolean
+  targetsInstances: boolean
 }
 
 export const TOOLS: readonly ToolDefinition[] = [
@@ -21,16 +21,16 @@ export const TOOLS: readonly ToolDefinition[] = [
     description: 'Drag the canvas to pan around the infrastructure',
     icon: HandIcon,
     panOnDrag: true,
-    targetsTasks: false,
+    targetsInstances: false,
   },
   {
     id: 'blast',
     label: 'Blast',
     shortcut: 'b',
-    description: 'Blow up an ECS task and watch the service scheduler replace it',
+    description: 'Blow up an ECS task or an RDS instance and watch it get replaced automatically',
     icon: BlastIcon,
     panOnDrag: true,
-    targetsTasks: true,
+    targetsInstances: true,
   },
 ]
 

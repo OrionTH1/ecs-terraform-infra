@@ -12,7 +12,7 @@ import {
 import { BOOT_GRAPH, type ResourceLedger } from '../simulation/boot-graph'
 import { RDS_READ_FRACTION } from '../simulation/simulation-config'
 import { splitReadWrite } from '../simulation/traffic-distribution'
-import { useSimulationStore } from '../store/useSimulationStore'
+import { useSimulationStore, type RdsInstanceRuntime } from '../store/useSimulationStore'
 import type { TaskGraph } from './useTaskGraph'
 import type { TrafficRouting } from './useTrafficRouting'
 import type {
@@ -68,10 +68,26 @@ function provisioningInfo(ledger: ResourceLedger, nodeId: string): ProvisioningI
   if (resource.status !== 'creating') return null
 
   return {
-    terraformAddress: BOOT_GRAPH[resourceId].terraformAddress,
+    detail: BOOT_GRAPH[resourceId].terraformAddress,
     startedAt: resource.startedAt ?? 0,
     durationMs: BOOT_GRAPH[resourceId].durationMs,
   }
+}
+
+function rdsInstanceProvisioning(slot: RdsInstanceRuntime | null, terraformAddress: string): ProvisioningInfo | null {
+  if (!slot || slot.durationMs === null) return null
+  if (slot.lifecycle === 'promoting') {
+    return {
+      label: 'Promoting to writer',
+      detail: 'AWS-managed failover — not a Terraform action',
+      startedAt: slot.stageEnteredAt,
+      durationMs: slot.durationMs,
+    }
+  }
+  if (slot.lifecycle === 'provisioning') {
+    return { detail: terraformAddress, startedAt: slot.stageEnteredAt, durationMs: slot.durationMs }
+  }
+  return null
 }
 
 function isEdgeVisible(ledger: ResourceLedger, edge: SimulatorFlowEdge): boolean {
@@ -85,6 +101,7 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
   const resources = useSimulationStore((state) => state.resources)
   const wafBlockedRequests = useSimulationStore((state) => state.wafBlockedRequests)
   const blockedIps = useSimulationStore((state) => state.blockedIps)
+  const rdsSlots = useSimulationStore((state) => state.rdsSlots)
 
   const hasNoHealthyTargets = routing.healthyTaskCount === 0
   const deliveredRequests = hasNoHealthyTargets ? 0 : routing.totalRequestsAtAlb
@@ -149,9 +166,17 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
 
         if (node.type === 'rdsInstance') {
           const isWriter = node.data.role === 'writer'
+          const slot = isWriter ? rdsSlots.writer : rdsSlots.reader
+          const slotProvisioning = rdsInstanceProvisioning(
+            slot,
+            BOOT_GRAPH[isWriter ? 'rdsWriter' : 'rdsReader'].terraformAddress,
+          )
+
           const data: RdsInstanceNodeData = {
             ...node.data,
-            provisioning,
+            provisioning: slotProvisioning ?? provisioning,
+            lifecycle: slot?.lifecycle ?? 'available',
+            status: slot?.lifecycle === 'failed' ? 'error' : slotProvisioning ?? provisioning ? 'warning' : 'healthy',
             requestsPerMinute: isWriter ? rdsWrites : rdsReads,
             isCacheInvalidating: !isWriter && rdsWrites > 0,
           }
@@ -176,6 +201,7 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
     rdsReads,
     wafBlockedRequests,
     blockedIps,
+    rdsSlots,
   ])
 
   const renderEdges = useMemo(() => {

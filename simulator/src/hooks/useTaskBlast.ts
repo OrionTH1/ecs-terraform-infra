@@ -12,7 +12,7 @@ export function useTaskBlast({ taskId, status }: TaskBlastArgs) {
   const activeTool = useActiveTool()
   const killTask = useSimulationStore((state) => state.killTask)
 
-  const isTargetable = activeTool.targetsTasks && status !== 'failed' && status !== 'draining'
+  const isTargetable = activeTool.targetsInstances && status !== 'failed' && status !== 'draining'
 
   const blast = useCallback(() => {
     if (!isTargetable) return
