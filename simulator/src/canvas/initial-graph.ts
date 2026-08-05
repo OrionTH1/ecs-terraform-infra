@@ -51,6 +51,9 @@ const RDS_CLUSTER_POSITION = { x: RDS_INSTANCE_X + 330, y: ALB_POSITION.y }
 export const RDS_WRITER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y - 100 }
 export const RDS_READER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y + 100 }
 
+export const DB_WRITE_LANE_X = RDS_INSTANCE_X - 150
+export const DB_READ_LANE_X = RDS_INSTANCE_X - 96
+
 export const FIT_VIEW_OPTIONS = { padding: 0.22, maxZoom: 1 }
 
 export function albToTaskEdgeId(taskId: string): string {

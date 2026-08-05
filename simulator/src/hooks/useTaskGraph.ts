@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import {
   ALB_NODE_ID,
+  DB_READ_LANE_X,
+  DB_WRITE_LANE_X,
   ECS_SERVICE_NODE_ID,
   RDS_READER_NODE_ID,
   RDS_WRITER_NODE_ID,
@@ -135,7 +137,7 @@ export function useTaskGraph({
           sourceHandle: 'out',
           target: RDS_WRITER_NODE_ID,
           targetHandle: 'in',
-          data: { requestsPerMinute: writes },
+          data: { requestsPerMinute: writes, laneX: DB_WRITE_LANE_X },
           deletable: false,
           reconnectable: false,
         })
@@ -149,7 +151,7 @@ export function useTaskGraph({
           sourceHandle: 'out',
           target: RDS_READER_NODE_ID,
           targetHandle: 'in',
-          data: { requestsPerMinute: reads },
+          data: { requestsPerMinute: reads, laneX: DB_READ_LANE_X },
           deletable: false,
           reconnectable: false,
         })
