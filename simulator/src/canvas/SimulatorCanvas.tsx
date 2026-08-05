@@ -4,6 +4,7 @@ import { AlbNode } from '../nodes/infra/AlbNode'
 import { WafNode } from '../nodes/infra/WafNode'
 import { EcsServiceNode } from '../nodes/infra/EcsServiceNode'
 import { TargetGroupNode } from '../nodes/infra/TargetGroupNode'
+import { DbJunctionNode } from '../nodes/infra/DbJunctionNode'
 import { TaskNode } from '../nodes/infra/TaskNode'
 import { RdsClusterNode } from '../nodes/infra/RdsClusterNode'
 import { RdsInstanceNode } from '../nodes/infra/RdsInstanceNode'
@@ -34,6 +35,7 @@ const nodeTypes = {
   waf: WafNode,
   ecsService: EcsServiceNode,
   targetGroup: TargetGroupNode,
+  dbJunction: DbJunctionNode,
   task: TaskNode,
   rdsCluster: RdsClusterNode,
   rdsInstance: RdsInstanceNode,

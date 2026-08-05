@@ -82,6 +82,7 @@ export type UserFlowNode = Node<UserNodeData, 'user'>
 export type UserGroupFlowNode = Node<UserGroupNodeData, 'userGroup'>
 export type WafFlowNode = Node<WafNodeData, 'waf'>
 export type TargetGroupFlowNode = Node<TargetGroupNodeData, 'targetGroup'>
+export type DbJunctionFlowNode = Node<Record<string, unknown>, 'dbJunction'>
 export type RdsClusterFlowNode = Node<RdsClusterNodeData, 'rdsCluster'>
 export type RdsInstanceFlowNode = Node<RdsInstanceNodeData, 'rdsInstance'>
 
@@ -92,6 +93,7 @@ export type SimulatorFlowNode =
   | UserGroupFlowNode
   | WafFlowNode
   | TargetGroupFlowNode
+  | DbJunctionFlowNode
   | TaskFlowNode
   | RdsClusterFlowNode
   | RdsInstanceFlowNode

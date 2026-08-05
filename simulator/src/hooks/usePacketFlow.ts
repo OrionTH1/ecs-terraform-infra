@@ -142,13 +142,13 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
               writeRotation.current += 1
 
               const databaseEdgeId = isWrite ? taskRoute.writerEdgeId : taskRoute.readerEdgeId
-              if (databaseEdgeId === null) {
+              if (taskRoute.junctionEdgeId === null || databaseEdgeId === null) {
                 return { route: [entry.edgeId, taskRoute.albEdgeId], legColors: ['default', 'default'] }
               }
 
               return {
-                route: [entry.edgeId, taskRoute.albEdgeId, databaseEdgeId],
-                legColors: ['default', 'default', isWrite ? 'write' : 'default'],
+                route: [entry.edgeId, taskRoute.albEdgeId, taskRoute.junctionEdgeId, databaseEdgeId],
+                legColors: ['default', 'default', 'default', isWrite ? 'write' : 'default'],
               }
             },
             carried,

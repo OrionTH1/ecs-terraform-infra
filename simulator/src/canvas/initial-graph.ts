@@ -15,14 +15,6 @@ export const RDS_CLUSTER_TO_WRITER_EDGE_ID = 'rds-cluster-writer'
 export const RDS_CLUSTER_TO_READER_EDGE_ID = 'rds-cluster-reader'
 export const RDS_REPLICATION_EDGE_ID = 'rds-writer-reader-replication'
 
-export function taskToWriterEdgeId(taskId: string): string {
-  return `${taskId}-${RDS_WRITER_NODE_ID}`
-}
-
-export function taskToReaderEdgeId(taskId: string): string {
-  return `${taskId}-${RDS_READER_NODE_ID}`
-}
-
 const ALB_POSITION = { x: 360, y: 200 }
 const CONTROL_PLANE_Y = ALB_POSITION.y - 330
 
@@ -51,8 +43,19 @@ const RDS_CLUSTER_POSITION = { x: RDS_INSTANCE_X + 330, y: ALB_POSITION.y }
 export const RDS_WRITER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y - 130 }
 export const RDS_READER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y + 130 }
 
-export const DB_WRITE_LANE_X = RDS_INSTANCE_X - 150
-export const DB_READ_LANE_X = RDS_INSTANCE_X - 88
+export const DB_JUNCTION_NODE_ID = 'db-junction'
+export const DB_JUNCTION_SIZE = 12
+export const DB_JUNCTION_POSITION = {
+  x: TASK_COLUMN_X + 320,
+  y: ALB_POSITION.y - DB_JUNCTION_SIZE / 2,
+}
+
+export const JUNCTION_TO_WRITER_EDGE_ID = 'db-junction-writer'
+export const JUNCTION_TO_READER_EDGE_ID = 'db-junction-reader'
+
+export function taskToJunctionEdgeId(taskId: string): string {
+  return `${taskId}-${DB_JUNCTION_NODE_ID}`
+}
 
 export const FIT_VIEW_OPTIONS = { padding: 0.22, maxZoom: 1 }
 export const MIN_ZOOM = 0.08
@@ -65,14 +68,11 @@ export function serviceToTaskEdgeId(taskId: string): string {
   return `${ECS_SERVICE_NODE_ID}-${taskId}`
 }
 
-export function taskToRdsEdgeId(taskId: string): string {
-  return `${taskId}-${RDS_CLUSTER_NODE_ID}`
-}
-
 export const NODE_RESOURCE_ID: Record<string, ResourceId> = {
   [WAF_NODE_ID]: 'wafWebAcl',
   [ALB_NODE_ID]: 'alb',
   [ECS_SERVICE_NODE_ID]: 'ecsService',
+  [DB_JUNCTION_NODE_ID]: 'ecsService',
   [RDS_CLUSTER_NODE_ID]: 'rdsCluster',
   [RDS_WRITER_NODE_ID]: 'rdsWriter',
   [RDS_READER_NODE_ID]: 'rdsReader',
@@ -141,10 +141,18 @@ export const initialNodes: SimulatorFlowNode[] = [
       tooltip:
         'Aurora Serverless v2 (Postgres), 0–1 ACU, auto-pauses after an hour idle. The cluster exposes a writer endpoint (all writes, and reads needing read-after-write consistency) and a reader endpoint (read-only, load-balanced across reader instances) — it does not proxy traffic itself, endpoints resolve directly to an instance. Traffic shown here is a simplification: the real API is a health-check canary and does not query the database on every request.',
       status: 'idle',
-      requestsPerMinute: 0,
     },
     draggable: false,
     deletable: false,
+  },
+  {
+    id: DB_JUNCTION_NODE_ID,
+    type: 'dbJunction',
+    position: DB_JUNCTION_POSITION,
+    data: {},
+    draggable: false,
+    deletable: false,
+    selectable: false,
   },
   {
     id: RDS_WRITER_NODE_ID,
@@ -190,6 +198,28 @@ export const initialEdges: SimulatorFlowEdge[] = [
     deletable: false,
     reconnectable: false,
     selectable: false,
+  },
+  {
+    id: JUNCTION_TO_WRITER_EDGE_ID,
+    type: 'requestFlow',
+    source: DB_JUNCTION_NODE_ID,
+    sourceHandle: 'out',
+    target: RDS_WRITER_NODE_ID,
+    targetHandle: 'in',
+    data: { requestsPerMinute: 0 },
+    deletable: false,
+    reconnectable: false,
+  },
+  {
+    id: JUNCTION_TO_READER_EDGE_ID,
+    type: 'requestFlow',
+    source: DB_JUNCTION_NODE_ID,
+    sourceHandle: 'out',
+    target: RDS_READER_NODE_ID,
+    targetHandle: 'in',
+    data: { requestsPerMinute: 0 },
+    deletable: false,
+    reconnectable: false,
   },
   {
     id: RDS_CLUSTER_TO_WRITER_EDGE_ID,

@@ -2,6 +2,8 @@ import { useMemo } from 'react'
 import {
   ALB_NODE_ID,
   EDGE_RESOURCE_ID,
+  JUNCTION_TO_READER_EDGE_ID,
+  JUNCTION_TO_WRITER_EDGE_ID,
   NODE_RESOURCE_ID,
   WAF_TO_ALB_EDGE_ID,
 } from '../canvas/initial-graph'
@@ -190,6 +192,10 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
           } as AssociationEdgeType
         }
         if (edge.type === 'replication') return { ...edge, data: { isActive: rdsWrites > 0 } } as ReplicationEdgeType
+        if (edge.id === JUNCTION_TO_WRITER_EDGE_ID)
+          return { ...edge, data: { requestsPerMinute: rdsWrites } } as RequestFlowEdgeType
+        if (edge.id === JUNCTION_TO_READER_EDGE_ID)
+          return { ...edge, data: { requestsPerMinute: rdsReads } } as RequestFlowEdgeType
         if (edge.target === ALB_NODE_ID) {
           return {
             ...edge,
@@ -200,7 +206,7 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
       })
 
     return [...projected, ...taskGraph.taskEdges]
-  }, [edges, resources, routing, rdsWrites, taskGraph, blockedIps])
+  }, [edges, resources, routing, rdsWrites, rdsReads, taskGraph, blockedIps])
 
   const liveEdgeIds = useMemo(() => new Set(renderEdges.map((edge) => edge.id)), [renderEdges])
 

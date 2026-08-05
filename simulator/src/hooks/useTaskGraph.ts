@@ -1,19 +1,15 @@
 import { useMemo } from 'react'
 import {
   ALB_NODE_ID,
-  DB_READ_LANE_X,
-  DB_WRITE_LANE_X,
+  DB_JUNCTION_NODE_ID,
   ECS_SERVICE_NODE_ID,
-  RDS_READER_NODE_ID,
-  RDS_WRITER_NODE_ID,
+  JUNCTION_TO_READER_EDGE_ID,
+  JUNCTION_TO_WRITER_EDGE_ID,
   albToTaskEdgeId,
   serviceToTaskEdgeId,
-  taskToReaderEdgeId,
-  taskToWriterEdgeId,
+  taskToJunctionEdgeId,
 } from '../canvas/initial-graph'
-import { RDS_READ_FRACTION } from '../simulation/simulation-config'
 import { isRegisteredTarget } from '../simulation/target-group'
-import { splitReadWrite } from '../simulation/traffic-distribution'
 import { useLeavingTasks } from './useLeavingTasks'
 import { useTaskColumnLayout } from './useTaskColumnLayout'
 import type { TaskRuntime } from '../store/useSimulationStore'
@@ -32,6 +28,7 @@ interface TaskGraphArgs {
 
 export interface TaskRoute {
   albEdgeId: string
+  junctionEdgeId: string | null
   writerEdgeId: string | null
   readerEdgeId: string | null
 }
@@ -58,6 +55,8 @@ export function useTaskGraph({
     () => [...tasks, ...leavingTasks].sort((a, b) => a.createdAt - b.createdAt || a.instanceId - b.instanceId),
     [tasks, leavingTasks],
   )
+
+  const isDatabaseReachable = isWriterVisible || isReaderVisible
 
   const leavingIds = useMemo(() => new Set(leavingTasks.map((task) => task.id)), [leavingTasks])
   const healthyTaskCount = useMemo(() => tasks.filter((task) => task.status === 'healthy').length, [tasks])
@@ -125,41 +124,23 @@ export function useTaskGraph({
         })
       }
 
-      if (task.status !== 'healthy') continue
+      if (task.status !== 'healthy' || !isDatabaseReachable) continue
 
-      const { reads, writes } = splitReadWrite(requestsPerMinute, RDS_READ_FRACTION)
-
-      if (isWriterVisible) {
-        edges.push({
-          id: taskToWriterEdgeId(task.id),
-          type: 'requestFlow',
-          source: task.id,
-          sourceHandle: 'out',
-          target: RDS_WRITER_NODE_ID,
-          targetHandle: 'in',
-          data: { requestsPerMinute: writes, laneX: DB_WRITE_LANE_X },
-          deletable: false,
-          reconnectable: false,
-        })
-      }
-
-      if (isReaderVisible) {
-        edges.push({
-          id: taskToReaderEdgeId(task.id),
-          type: 'requestFlow',
-          source: task.id,
-          sourceHandle: 'out',
-          target: RDS_READER_NODE_ID,
-          targetHandle: 'in',
-          data: { requestsPerMinute: reads, laneX: DB_READ_LANE_X },
-          deletable: false,
-          reconnectable: false,
-        })
-      }
+      edges.push({
+        id: taskToJunctionEdgeId(task.id),
+        type: 'requestFlow',
+        source: task.id,
+        sourceHandle: 'out',
+        target: DB_JUNCTION_NODE_ID,
+        targetHandle: 'in',
+        data: { requestsPerMinute },
+        deletable: false,
+        reconnectable: false,
+      })
     }
 
     return edges
-  }, [orderedTasks, requestsByTaskId, isServiceVisible, isWriterVisible, isReaderVisible])
+  }, [orderedTasks, requestsByTaskId, isServiceVisible, isDatabaseReachable])
 
   const healthyTaskRoutes = useMemo(
     (): TaskRoute[] =>
@@ -167,10 +148,11 @@ export function useTaskGraph({
         .filter((task) => task.status === 'healthy')
         .map((task) => ({
           albEdgeId: albToTaskEdgeId(task.id),
-          writerEdgeId: isWriterVisible ? taskToWriterEdgeId(task.id) : null,
-          readerEdgeId: isReaderVisible ? taskToReaderEdgeId(task.id) : null,
+          junctionEdgeId: isDatabaseReachable ? taskToJunctionEdgeId(task.id) : null,
+          writerEdgeId: isWriterVisible ? JUNCTION_TO_WRITER_EDGE_ID : null,
+          readerEdgeId: isReaderVisible ? JUNCTION_TO_READER_EDGE_ID : null,
         })),
-    [tasks, isWriterVisible, isReaderVisible],
+    [tasks, isDatabaseReachable, isWriterVisible, isReaderVisible],
   )
 
   return { taskNodes, servicePosition, targetGroupNode, taskEdges, healthyTaskRoutes }
