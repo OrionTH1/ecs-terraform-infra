@@ -9,6 +9,7 @@ export function AlbNode({ data }: NodeProps<AlbFlowNode>) {
 
   return (
     <NodeCard variant="infra" icon={<LoadBalancerIcon />} title={data.label} tooltip={data.tooltip} status={data.status}>
+      <Handle type="target" position={Position.Top} id="acl-in" isConnectable={false} />
       <Handle type="target" position={Position.Left} id="in" />
       <Handle type="source" position={Position.Right} id="out" isConnectable={false} />
       <div className="flex w-[164px] flex-col gap-1">

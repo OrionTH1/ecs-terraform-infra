@@ -1,4 +1,16 @@
-import { Bomb, Boxes, ChevronDown, Container, Database, Hand, Network, User, type LucideIcon } from 'lucide-react'
+import {
+  Bomb,
+  Boxes,
+  ChevronDown,
+  Container,
+  Database,
+  Hand,
+  Network,
+  RefreshCw,
+  ShieldCheck,
+  User,
+  type LucideIcon,
+} from 'lucide-react'
 
 const STROKE_WIDTH = 1.75
 
@@ -33,6 +45,14 @@ export function RdsIcon({ className }: IconProps) {
 
 export function UserIcon({ className }: IconProps) {
   return <Glyph icon={User} size={16} className={className} />
+}
+
+export function WafIcon({ className }: IconProps) {
+  return <Glyph icon={ShieldCheck} size={16} className={className} />
+}
+
+export function RegenerateIcon({ className }: IconProps) {
+  return <Glyph icon={RefreshCw} size={11} className={className} />
 }
 
 export function ChevronIcon({ className }: IconProps) {

@@ -1,14 +1,16 @@
 import { useCallback, useRef, type DragEvent } from 'react'
 import { useReactFlow, type NodeChange } from '@xyflow/react'
 import { DEFAULT_USER_REQUEST_RATE } from '../simulation/simulation-config'
+import { generateSourceIp } from '../simulation/source-ip'
 import { useSimulationStore } from '../store/useSimulationStore'
 import type { SimulatorFlowNode } from '../types/node-data'
 
 interface NodePaletteArgs {
+  nodes: SimulatorFlowNode[]
   onNodesChange: (changes: NodeChange<SimulatorFlowNode>[]) => void
 }
 
-export function useNodePalette({ onNodesChange }: NodePaletteArgs) {
+export function useNodePalette({ nodes, onNodesChange }: NodePaletteArgs) {
   const { screenToFlowPosition } = useReactFlow()
   const userNodeCount = useRef(0)
 
@@ -31,18 +33,22 @@ export function useNodePalette({ onNodesChange }: NodePaletteArgs) {
         data: {
           label: 'User',
           tooltip:
-            'Simulates traffic reaching the load balancer, in requests per minute. Constant holds the rate, Ramp climbs to it over 5 simulated minutes, Burst alternates between spikes and a quiet floor.',
+            'Simulates traffic reaching the load balancer, in requests per minute. Constant holds the rate, Ramp climbs to it over 5 simulated minutes, Burst alternates between spikes and a quiet floor. Every user sends from a single source IP, which is the unit the WAF rate limit is counted against.',
           pattern: 'constant',
           patternStartedAt: useSimulationStore.getState().clock,
           peakRequestsPerMinute: DEFAULT_USER_REQUEST_RATE,
           rampFromRequestsPerMinute: 0,
           requestsPerMinute: DEFAULT_USER_REQUEST_RATE,
+          sourceIp: generateSourceIp(
+            nodes.filter((node) => node.type === 'user').map((node) => node.data.sourceIp),
+          ),
+          isRateLimited: false,
         },
       }
 
       onNodesChange([{ type: 'add', item: newNode }])
     },
-    [screenToFlowPosition, onNodesChange],
+    [screenToFlowPosition, onNodesChange, nodes],
   )
 
   return { onDragOver, onDrop }

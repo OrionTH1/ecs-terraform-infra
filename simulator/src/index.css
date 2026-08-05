@@ -63,6 +63,16 @@
   }
 }
 
+@keyframes acl-dash {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+.acl-dash {
+  animation: acl-dash 600ms linear infinite;
+}
+
 .react-flow .react-flow__handle {
   width: 11px;
   height: 11px;

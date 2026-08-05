@@ -5,8 +5,9 @@ import { InfoTooltip } from './InfoTooltip'
 interface NodeCardProps {
   variant: 'infra' | 'interaction'
   icon: ReactNode
-  title: string
+  title: ReactNode
   tooltip: string
+  headerAction?: ReactNode
   status?: NodeStatus
   animateIn?: boolean
   animateOut?: boolean
@@ -33,6 +34,7 @@ export function NodeCard({
   icon,
   title,
   tooltip,
+  headerAction,
   status = 'idle',
   animateIn = false,
   animateOut = false,
@@ -64,6 +66,7 @@ export function NodeCard({
       <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
         <span className="inline-flex text-fg-muted">{icon}</span>
         <span className="flex-1 font-sans text-[13px] font-medium text-fg">{title}</span>
+        {headerAction}
         <InfoTooltip text={tooltip} />
       </div>
       {children ? <div className="px-3 py-2.5">{children}</div> : null}

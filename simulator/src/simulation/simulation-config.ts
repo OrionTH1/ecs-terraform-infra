@@ -49,8 +49,19 @@ export const BURST_PERIOD_MS = 2 * 60_000
 export const BURST_PEAK_FRACTION = 0.3
 export const BURST_FLOOR_FRACTION = 0.15
 
-export const REQUEST_RATE_STEP = 250
-export const DEFAULT_USER_REQUEST_RATE = 500
+export const WAF = {
+  rateLimitPer5Min: 2000,
+  windowMs: 5 * 60_000,
+  bucketMs: 30_000,
+  evaluationIntervalMs: 30_000,
+}
+
+export const WAF_BUCKET_COUNT = WAF.windowMs / WAF.bucketMs
+
+export const WAF_RATE_LIMIT_PER_MINUTE = WAF.rateLimitPer5Min / (WAF.windowMs / 60_000)
+
+export const REQUEST_RATE_STEP = 100
+export const DEFAULT_USER_REQUEST_RATE = 0
 
 export const TIME_SCALES = [1, 10, 25, 60]
 export const DEFAULT_TIME_SCALE = 25

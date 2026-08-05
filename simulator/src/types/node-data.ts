@@ -19,6 +19,14 @@ export interface UserNodeData extends Record<string, unknown> {
   peakRequestsPerMinute: number
   rampFromRequestsPerMinute: number
   requestsPerMinute: number
+  sourceIp: string
+  isRateLimited: boolean
+}
+
+export interface WafNodeData extends InfraNodeData {
+  inspectedRequestsPerMinute: number
+  blockedRequests: number
+  blockedIps: string[]
 }
 
 export interface AlbNodeData extends InfraNodeData {
@@ -46,6 +54,7 @@ export interface RdsInstanceNodeData extends InfraNodeData {
 export type AlbFlowNode = Node<AlbNodeData, 'alb'>
 export type EcsServiceFlowNode = Node<EcsServiceNodeData, 'ecsService'>
 export type UserFlowNode = Node<UserNodeData, 'user'>
+export type WafFlowNode = Node<WafNodeData, 'waf'>
 export type RdsClusterFlowNode = Node<RdsClusterNodeData, 'rdsCluster'>
 export type RdsInstanceFlowNode = Node<RdsInstanceNodeData, 'rdsInstance'>
 
@@ -53,6 +62,7 @@ export type SimulatorFlowNode =
   | AlbFlowNode
   | EcsServiceFlowNode
   | UserFlowNode
+  | WafFlowNode
   | TaskFlowNode
   | RdsClusterFlowNode
   | RdsInstanceFlowNode

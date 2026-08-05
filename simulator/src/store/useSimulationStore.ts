@@ -1,8 +1,14 @@
 import { create } from 'zustand'
 import { AUTOSCALING, DEFAULT_TIME_SCALE, TASK_LIFECYCLE } from '../simulation/simulation-config'
+import { advanceWafSource, createWafSource, windowRequestCount, type WafSourceState } from '../simulation/waf'
 import type { TaskLogEntry, TaskStatus } from '../types/task-data'
 
 const SCALE_IN_MARGIN = 0.7
+
+export interface SourceRate {
+  ip: string
+  requestsPerMinute: number
+}
 
 export interface TaskRuntime {
   id: string
@@ -16,6 +22,10 @@ export interface TaskRuntime {
 interface SimulationState {
   tasks: TaskRuntime[]
   currentRequestRate: number
+  sourceRates: SourceRate[]
+  wafSources: Record<string, WafSourceState>
+  blockedIps: string[]
+  wafBlockedRequests: number
   clock: number
   timeScale: number
   lastScaleOutAt: number
@@ -29,7 +39,7 @@ interface SimulationState {
   markStarted: () => void
   killTask: (taskId: string) => void
   toggleTaskLog: (taskId: string) => void
-  setCurrentRequestRate: (requestsPerMinute: number) => void
+  setSourceRates: (rates: SourceRate[]) => void
   setTimeScale: (timeScale: number) => void
   tick: (elapsedRealMs: number) => void
 }
@@ -67,6 +77,17 @@ function launchTasks(count: number, firstInstanceId: number, now: number): TaskR
   })
 }
 
+function sameRates(current: SourceRate[], next: SourceRate[]): boolean {
+  return (
+    current.length === next.length &&
+    current.every((rate, index) => rate.ip === next[index].ip && rate.requestsPerMinute === next[index].requestsPerMinute)
+  )
+}
+
+function sameIds(current: string[], next: string[]): boolean {
+  return current.length === next.length && current.every((id, index) => id === next[index])
+}
+
 function advanceTask(task: TaskRuntime, now: number): TaskRuntime | null {
   const elapsed = now - task.stageEnteredAt
 
@@ -91,6 +112,10 @@ function advanceTask(task: TaskRuntime, now: number): TaskRuntime | null {
 export const useSimulationStore = create<SimulationState>((set, get) => ({
   tasks: [],
   currentRequestRate: 0,
+  sourceRates: [],
+  wafSources: {},
+  blockedIps: [],
+  wafBlockedRequests: 0,
   clock: 0,
   timeScale: DEFAULT_TIME_SCALE,
   lastScaleOutAt: -Infinity,
@@ -125,7 +150,8 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
         : [...state.expandedTaskIds, taskId],
     })),
 
-  setCurrentRequestRate: (requestsPerMinute) => set({ currentRequestRate: requestsPerMinute }),
+  setSourceRates: (rates) =>
+    set((state) => (sameRates(state.sourceRates, rates) ? state : { sourceRates: rates })),
 
   setTimeScale: (timeScale) => set({ timeScale }),
 
@@ -143,8 +169,31 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     let lastScaleInAt = state.lastScaleInAt
     let nextInstanceId = state.nextInstanceId
 
-    const scaleOutTarget = desiredTaskCount(state.currentRequestRate, AUTOSCALING.targetRequestsPerMinutePerTask)
-    const scaleInTarget = desiredTaskCount(state.currentRequestRate, AUTOSCALING.targetRequestsPerMinutePerTask * SCALE_IN_MARGIN)
+    const wafSources: Record<string, WafSourceState> = {}
+    const blockedIps: string[] = []
+    let wafBlockedRequests = state.wafBlockedRequests
+    let currentRequestRate = 0
+
+    const activeRates = new Map(state.sourceRates.map((rate) => [rate.ip, rate.requestsPerMinute]))
+
+    const trackedIps = new Set([...Object.keys(state.wafSources), ...activeRates.keys()])
+
+    for (const ip of trackedIps) {
+      const requestsPerMinute = activeRates.get(ip) ?? 0
+      const previous = state.wafSources[ip]
+      const source = advanceWafSource(previous ?? createWafSource(now), requestsPerMinute, now - state.clock, now)
+
+      wafBlockedRequests += source.blockedRequests - (previous?.blockedRequests ?? 0)
+
+      if (source.isBlocked) blockedIps.push(ip)
+      else currentRequestRate += requestsPerMinute
+
+      const isStillRemembered = activeRates.has(ip) || source.isBlocked || windowRequestCount(source) > 0
+      if (isStillRemembered) wafSources[ip] = source
+    }
+
+    const scaleOutTarget = desiredTaskCount(currentRequestRate, AUTOSCALING.targetRequestsPerMinutePerTask)
+    const scaleInTarget = desiredTaskCount(currentRequestRate, AUTOSCALING.targetRequestsPerMinutePerTask * SCALE_IN_MARGIN)
 
     let scaleOutBreachAt = scaleOutTarget > desiredCount ? (state.scaleOutBreachAt ?? now) : null
     let scaleInBreachAt = scaleInTarget < desiredCount ? (state.scaleInBreachAt ?? now) : null
@@ -190,6 +239,10 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     set({
       clock: now,
       tasks: tasksChanged ? tasks : state.tasks,
+      currentRequestRate,
+      wafSources,
+      wafBlockedRequests,
+      blockedIps: sameIds(state.blockedIps, blockedIps) ? state.blockedIps : blockedIps,
       desiredCount,
       lastScaleOutAt,
       lastScaleInAt,

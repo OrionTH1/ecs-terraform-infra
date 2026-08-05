@@ -3,6 +3,8 @@ import type { SimulatorFlowNode } from '../types/node-data'
 import type { SimulatorFlowEdge } from '../types/edge-data'
 
 export const ALB_NODE_ID = 'alb'
+export const WAF_NODE_ID = 'waf'
+export const WAF_TO_ALB_EDGE_ID = 'waf-alb-association'
 export const ECS_SERVICE_NODE_ID = 'ecs-service'
 export const RDS_CLUSTER_NODE_ID = 'rds-cluster'
 export const RDS_WRITER_NODE_ID = 'rds-writer'
@@ -27,11 +29,29 @@ export const FALLBACK_TASK_HEIGHT = 108
 export const NODE_LEAVE_MS = 340
 export const TASK_COLUMN_CENTER_Y = ECS_SERVICE_POSITION.y
 
+const ALB_POSITION = { x: 360, y: 200 }
+
 export const initialNodes: SimulatorFlowNode[] = [
+  {
+    id: WAF_NODE_ID,
+    type: 'waf',
+    position: { x: ALB_POSITION.x, y: ALB_POSITION.y - 330 },
+    data: {
+      label: 'Web ACL',
+      tooltip:
+        'AWS WAF is not a hop in front of the load balancer — the Web ACL is associated with the ALB, which evaluates it on every request before routing. Clients always talk to the ALB directly. The rate-based rule counts requests per source IP over a sliding 5-minute window, re-evaluated every 30 seconds, and blocked requests keep counting toward that window: lowering your rate does not unblock you until the window drains.',
+      status: 'idle',
+      inspectedRequestsPerMinute: 0,
+      blockedRequests: 0,
+      blockedIps: [],
+    },
+    draggable: false,
+    deletable: false,
+  },
   {
     id: ALB_NODE_ID,
     type: 'alb',
-    position: { x: 360, y: 200 },
+    position: ALB_POSITION,
     data: {
       label: 'Load Balancer',
       tooltip:
@@ -108,6 +128,18 @@ export const initialNodes: SimulatorFlowNode[] = [
 ]
 
 export const initialEdges: SimulatorFlowEdge[] = [
+  {
+    id: WAF_TO_ALB_EDGE_ID,
+    type: 'association',
+    source: WAF_NODE_ID,
+    sourceHandle: 'acl-out',
+    target: ALB_NODE_ID,
+    targetHandle: 'acl-in',
+    data: { isActive: false },
+    deletable: false,
+    reconnectable: false,
+    selectable: false,
+  },
   {
     id: ALB_TO_ECS_EDGE_ID,
     type: 'requestFlow',
