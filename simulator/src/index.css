@@ -88,6 +88,41 @@
   transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.react-flow .react-flow__controls {
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.react-flow .react-flow__controls-button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  fill: var(--color-fg-muted);
+}
+
+.react-flow .react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+
+.react-flow .react-flow__controls-button:hover {
+  background: var(--color-surface-raised);
+  fill: var(--color-fg);
+}
+
+.react-flow .react-flow__controls-button:disabled {
+  opacity: 0.4;
+}
+
+@media (max-width: 767px) {
+  .react-flow .react-flow__controls-button {
+    width: 40px;
+    height: 40px;
+  }
+}
+
 .react-flow .react-flow__handle {
   width: 11px;
   height: 11px;

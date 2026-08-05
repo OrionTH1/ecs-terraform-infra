@@ -56,6 +56,7 @@ export const RDS_WRITER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y - 160 
 export const RDS_READER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y + 160 }
 
 export const FIT_VIEW_OPTIONS = { padding: 0.22, maxZoom: 1 }
+export const MIN_ZOOM = 0.08
 
 export function albToTaskEdgeId(taskId: string): string {
   return `${ALB_NODE_ID}-${taskId}`

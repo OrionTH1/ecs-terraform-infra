@@ -2,8 +2,13 @@ import { UserGroupIcon, UserIcon } from '../icons'
 import { isCreated } from '../simulation/boot-graph'
 import { useSimulationStore } from '../store/useSimulationStore'
 import { ComponentPaletteItem } from './ComponentPaletteItem'
+import type { TrafficNodeType } from '../canvas/traffic-nodes'
 
-const PALETTE_ITEMS = [
+interface ComponentsPanelProps {
+  onSelect: (nodeType: TrafficNodeType) => void
+}
+
+const PALETTE_ITEMS: { nodeType: TrafficNodeType; label: string; icon: React.ReactNode }[] = [
   { nodeType: 'user', label: 'User', icon: <UserIcon /> },
   { nodeType: 'userGroup', label: 'Group of Users', icon: <UserGroupIcon /> },
 ]
@@ -11,7 +16,7 @@ const PALETTE_ITEMS = [
 const WAITING_FOR_ALB =
   'Waiting for the load balancer — it is the only public entry point, so there is nowhere to send traffic yet.'
 
-export function ComponentsPanel() {
+export function ComponentsPanel({ onSelect }: ComponentsPanelProps) {
   const isAlbReady = useSimulationStore((state) => isCreated(state.resources, 'alb'))
 
   return (
@@ -27,6 +32,7 @@ export function ComponentsPanel() {
           icon={item.icon}
           isDisabled={!isAlbReady}
           disabledReason={WAITING_FOR_ALB}
+          onSelect={() => onSelect(item.nodeType)}
         />
       ))}
     </div>

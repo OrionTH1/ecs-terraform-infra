@@ -33,14 +33,14 @@ export function ApplyConsole() {
 
   return (
     <div
-      className="absolute right-4 bottom-4 z-10 w-[420px] rounded-card border border-border bg-surface/95 shadow-card transition-opacity duration-700"
+      className="absolute top-3 right-3 left-3 z-10 rounded-card border border-border bg-surface/95 shadow-card transition-opacity duration-700 md:top-auto md:bottom-4 md:left-auto md:w-[420px]"
       style={{ opacity: isApplyComplete ? 0.85 : 1 }}
     >
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <span className="font-mono text-[11px] text-fg-muted">$</span>
         <span className="font-mono text-[11px] text-fg">terraform apply</span>
       </div>
-      <div ref={scrollRef} className="max-h-[168px] overflow-y-auto px-3 py-2">
+      <div ref={scrollRef} className="max-h-[104px] overflow-y-auto px-3 py-2 md:max-h-[168px]">
         {lines.map((line) => (
           <div
             key={line.id}

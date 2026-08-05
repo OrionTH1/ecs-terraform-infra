@@ -13,9 +13,7 @@ import { RequestFlowEdge } from '../edges/RequestFlowEdge'
 import { ReplicationEdge } from '../edges/ReplicationEdge'
 import { AssociationEdge } from '../edges/AssociationEdge'
 import { ApplyConsole } from '../panels/ApplyConsole'
-import { ComponentsPanel } from '../panels/ComponentsPanel'
-import { SpeedPanel } from '../panels/SpeedPanel'
-import { Toolbar } from '../panels/Toolbar'
+import { CanvasControls } from '../panels/CanvasControls'
 import { PacketLayer } from './PacketLayer'
 import { useSimulationClock } from '../hooks/useSimulationClock'
 import { useTrafficRouting } from '../hooks/useTrafficRouting'
@@ -26,9 +24,10 @@ import { useActiveTool } from '../hooks/useActiveTool'
 import { useNodePalette } from '../hooks/useNodePalette'
 import { useToolShortcuts } from '../hooks/useToolShortcuts'
 import { useSettleViewport } from '../hooks/useSettleViewport'
+import { useIsCompactViewport } from '../hooks/useMediaQuery'
 import { useSimulationStore } from '../store/useSimulationStore'
 import { isCreated } from '../simulation/boot-graph'
-import { ALB_NODE_ID, FIT_VIEW_OPTIONS, initialEdges, initialNodes } from './initial-graph'
+import { ALB_NODE_ID, FIT_VIEW_OPTIONS, MIN_ZOOM, initialEdges, initialNodes } from './initial-graph'
 
 const nodeTypes = {
   alb: AlbNode,
@@ -81,7 +80,8 @@ export function SimulatorCanvas() {
   useSettleViewport(renderNodes.length)
 
   const { isValidConnection, onConnect } = useCanvasConnections({ nodes, edges, setEdges })
-  const { onDragOver, onDrop } = useNodePalette({ nodes, onNodesChange })
+  const { onDragOver, onDrop, addNodeAtViewportCenter } = useNodePalette({ nodes, onNodesChange })
+  const isCompact = useIsCompactViewport()
 
   const userEdges = useMemo(() => edges.filter((edge) => edge.target === ALB_NODE_ID), [edges])
 
@@ -124,11 +124,12 @@ export function SimulatorCanvas() {
         onDragOver={onDragOver}
         onDrop={onDrop}
         panOnDrag={activeTool.panOnDrag}
+        minZoom={MIN_ZOOM}
         fitView
         fitViewOptions={FIT_VIEW_OPTIONS}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#2a3a6b" />
-        <Controls />
+        <Controls position={isCompact ? 'top-left' : 'bottom-left'} showInteractive={false} />
         <PacketLayer
           entries={packetEntries}
           taskRoutes={taskGraph.healthyTaskRoutes}
@@ -136,12 +137,8 @@ export function SimulatorCanvas() {
           liveEdgeIds={liveEdgeIds}
         />
       </ReactFlow>
-      <div className="absolute top-4 left-4 z-10 flex w-[196px] flex-col gap-3">
-        <ComponentsPanel />
-        <SpeedPanel />
-      </div>
       <ApplyConsole />
-      <Toolbar />
+      <CanvasControls onAddNode={addNodeAtViewportCenter} />
     </div>
   )
 }

@@ -11,7 +11,7 @@ export function Toolbar() {
       role="toolbar"
       aria-label="Canvas tools"
       aria-orientation="horizontal"
-      className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 gap-1 rounded-card border border-border bg-surface p-1 shadow-card"
+      className="flex gap-1 rounded-card border border-border bg-surface p-1 shadow-card"
     >
       {TOOLS.map((tool) => (
         <ToolbarButton
