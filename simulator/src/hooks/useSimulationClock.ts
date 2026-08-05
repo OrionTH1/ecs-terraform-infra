@@ -6,14 +6,11 @@ const TICK_MS = 250
 
 export function useSimulationClock() {
   const tick = useSimulationStore((state) => state.tick)
-  const markStarted = useSimulationStore((state) => state.markStarted)
 
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | undefined
 
     const timeoutId = setTimeout(() => {
-      markStarted()
-
       let previous = performance.now()
       intervalId = setInterval(() => {
         const now = performance.now()
@@ -26,5 +23,5 @@ export function useSimulationClock() {
       clearTimeout(timeoutId)
       if (intervalId !== undefined) clearInterval(intervalId)
     }
-  }, [tick, markStarted])
+  }, [tick])
 }

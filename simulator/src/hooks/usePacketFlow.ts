@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { ALB_TO_ECS_EDGE_ID } from '../canvas/initial-graph'
 import {
   MAX_LIVE_PACKETS,
   MAX_STALL_MS,
@@ -123,7 +122,7 @@ export function usePacketFlow({ entries, taskEdgeIds, directEntries, liveEdgeIds
             () => {
               const taskEdgeId = currentTaskEdgeIds[rotation.current % currentTaskEdgeIds.length]
               rotation.current += 1
-              return [entry.edgeId, ALB_TO_ECS_EDGE_ID, taskEdgeId]
+              return [entry.edgeId, taskEdgeId]
             },
             carried,
           )

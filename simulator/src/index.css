@@ -73,6 +73,11 @@
   animation: acl-dash 600ms linear infinite;
 }
 
+.react-flow .react-flow__node-task,
+.react-flow .react-flow__node-targetGroup {
+  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .react-flow .react-flow__handle {
   width: 11px;
   height: 11px;

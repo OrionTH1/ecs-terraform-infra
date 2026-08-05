@@ -12,8 +12,11 @@ export interface ReplicationEdgeData extends Record<string, unknown> {
 
 export type ReplicationEdge = Edge<ReplicationEdgeData, 'replication'>
 
+export type AssociationVariant = 'association' | 'management'
+
 export interface AssociationEdgeData extends Record<string, unknown> {
   isActive: boolean
+  variant: AssociationVariant
 }
 
 export type AssociationEdge = Edge<AssociationEdgeData, 'association'>

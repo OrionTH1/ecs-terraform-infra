@@ -16,8 +16,15 @@ export function WafNode({ data }: NodeProps<WafFlowNode>) {
   const hiddenIpCount = blockedIpCount - listedIps.length
 
   return (
-    <NodeCard variant="infra" icon={<WafIcon />} title={data.label} tooltip={data.tooltip} status={data.status}>
-      <Handle type="source" position={Position.Bottom} id="acl-out" isConnectable={false} />
+    <NodeCard
+      variant="infra"
+      icon={<WafIcon />}
+      title={data.label}
+      tooltip={data.tooltip}
+      status={data.status}
+      provisioning={data.provisioning}
+      handles={<Handle type="source" position={Position.Bottom} id="acl-out" isConnectable={false} />}
+    >
       <div className={`flex w-[196px] flex-col gap-1.5 ${RESERVED_CONTENT_HEIGHT}`}>
         <RateReadout value={data.inspectedRequestsPerMinute} />
         <span className="font-mono text-[11px] text-fg-muted">inspected at the load balancer</span>

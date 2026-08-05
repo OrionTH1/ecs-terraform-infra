@@ -1,5 +1,12 @@
 import { create } from 'zustand'
-import { AUTOSCALING, DEFAULT_TIME_SCALE, TASK_LIFECYCLE } from '../simulation/simulation-config'
+import { AUTOSCALING, BOOT_TIME_SCALE, DEFAULT_TIME_SCALE, TASK_LIFECYCLE } from '../simulation/simulation-config'
+import {
+  advanceResourceLedger,
+  areAllCreated,
+  createResourceLedger,
+  isCreated,
+  type ResourceLedger,
+} from '../simulation/boot-graph'
 import { advanceWafSource, createWafSource, windowRequestCount, type WafSourceState } from '../simulation/waf'
 import type { TaskLogEntry, TaskStatus } from '../types/task-data'
 
@@ -21,6 +28,9 @@ export interface TaskRuntime {
 
 interface SimulationState {
   tasks: TaskRuntime[]
+  resources: ResourceLedger
+  isApplyComplete: boolean
+  hasChosenTimeScale: boolean
   currentRequestRate: number
   sourceRates: SourceRate[]
   wafSources: Record<string, WafSourceState>
@@ -35,24 +45,11 @@ interface SimulationState {
   desiredCount: number
   nextInstanceId: number
   expandedTaskIds: string[]
-  hasStarted: boolean
-  markStarted: () => void
   killTask: (taskId: string) => void
   toggleTaskLog: (taskId: string) => void
   setSourceRates: (rates: SourceRate[]) => void
   setTimeScale: (timeScale: number) => void
   tick: (elapsedRealMs: number) => void
-}
-
-function createInitialTasks(): TaskRuntime[] {
-  return Array.from({ length: AUTOSCALING.minCapacity }, (_, index) => ({
-    id: `task-${index + 1}`,
-    instanceId: index + 1,
-    status: 'provisioning' as const,
-    stageEnteredAt: 0,
-    createdAt: 0,
-    log: [{ message: 'Pulling image from ECR', atMs: 0 }],
-  }))
 }
 
 function desiredTaskCount(requestsPerMinute: number, targetPerTask: number): number {
@@ -111,23 +108,23 @@ function advanceTask(task: TaskRuntime, now: number): TaskRuntime | null {
 
 export const useSimulationStore = create<SimulationState>((set, get) => ({
   tasks: [],
+  resources: createResourceLedger(),
+  isApplyComplete: false,
+  hasChosenTimeScale: false,
   currentRequestRate: 0,
   sourceRates: [],
   wafSources: {},
   blockedIps: [],
   wafBlockedRequests: 0,
   clock: 0,
-  timeScale: DEFAULT_TIME_SCALE,
+  timeScale: BOOT_TIME_SCALE,
   lastScaleOutAt: -Infinity,
   lastScaleInAt: -Infinity,
   scaleOutBreachAt: null,
   scaleInBreachAt: null,
   desiredCount: AUTOSCALING.minCapacity,
-  nextInstanceId: AUTOSCALING.minCapacity + 1,
+  nextInstanceId: 1,
   expandedTaskIds: [],
-  hasStarted: false,
-
-  markStarted: () => set((state) => (state.hasStarted ? state : { hasStarted: true, tasks: createInitialTasks() })),
 
   killTask: (taskId) =>
     set((state) => ({
@@ -153,11 +150,15 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   setSourceRates: (rates) =>
     set((state) => (sameRates(state.sourceRates, rates) ? state : { sourceRates: rates })),
 
-  setTimeScale: (timeScale) => set({ timeScale }),
+  setTimeScale: (timeScale) => set({ timeScale, hasChosenTimeScale: true }),
 
   tick: (elapsedRealMs) => {
     const state = get()
     const now = state.clock + elapsedRealMs * state.timeScale
+
+    const resources = advanceResourceLedger(state.resources, now)
+    const isApplyComplete = areAllCreated(resources)
+    const hasServiceStarted = isCreated(resources, 'ecsService')
 
     const advanced = state.tasks.map((task) => advanceTask(task, now)).filter((task): task is TaskRuntime => task !== null)
     const lifecycleChanged =
@@ -226,7 +227,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       }
     }
 
-    const missingCount = desiredCount - tasks.filter(isRunning).length
+    const missingCount = hasServiceStarted ? desiredCount - tasks.filter(isRunning).length : 0
     if (missingCount > 0) {
       tasks = [...tasks, ...launchTasks(missingCount, nextInstanceId, now)]
       nextInstanceId += missingCount
@@ -236,8 +237,13 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     const liveTaskIds = new Set(tasks.map((task) => task.id))
     const expandedTaskIds = state.expandedTaskIds.filter((id) => liveTaskIds.has(id))
 
+    const hasJustFinishedApplying = isApplyComplete && !state.isApplyComplete
+
     set({
       clock: now,
+      resources,
+      isApplyComplete,
+      timeScale: hasJustFinishedApplying && !state.hasChosenTimeScale ? DEFAULT_TIME_SCALE : state.timeScale,
       tasks: tasksChanged ? tasks : state.tasks,
       currentRequestRate,
       wafSources,

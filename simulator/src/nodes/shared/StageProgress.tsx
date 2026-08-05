@@ -1,43 +1,39 @@
 import { useMemo } from 'react'
-import { STAGE_DURATION_MS } from '../../simulation/simulation-config'
 import { useSimulationStore } from '../../store/useSimulationStore'
-import type { TaskStatus } from '../../types/task-data'
+
+export type StageTone = 'warning' | 'error' | 'creating'
 
 interface StageProgressProps {
-  status: TaskStatus
-  stageEnteredAt: number
+  durationMs: number | null
+  startedAt: number
+  tone: StageTone
 }
 
-const STAGE_BAR_CLASS: Record<TaskStatus, string> = {
-  provisioning: 'bg-status-warning',
-  starting: 'bg-status-warning',
-  registering: 'bg-status-warning',
-  healthy: '',
-  draining: 'bg-status-error',
-  failed: '',
+const TONE_BAR_CLASS: Record<StageTone, string> = {
+  warning: 'bg-status-warning',
+  error: 'bg-status-error',
+  creating: 'bg-border-interaction',
 }
 
-export function StageProgress({ status, stageEnteredAt }: StageProgressProps) {
+export function StageProgress({ durationMs, startedAt, tone }: StageProgressProps) {
   const timeScale = useSimulationStore((state) => state.timeScale)
-  const hasStarted = useSimulationStore((state) => state.hasStarted)
-  const stageDurationMs = STAGE_DURATION_MS[status]
 
   const style = useMemo(() => {
-    if (stageDurationMs === null || !hasStarted) return { width: 0 }
+    if (durationMs === null) return { width: 0 }
 
-    const elapsedMs = Math.min(Math.max(useSimulationStore.getState().clock - stageEnteredAt, 0), stageDurationMs)
+    const elapsedMs = Math.min(Math.max(useSimulationStore.getState().clock - startedAt, 0), durationMs)
 
     return {
-      animation: `stage-progress ${stageDurationMs / timeScale}ms linear forwards`,
+      animation: `stage-progress ${durationMs / timeScale}ms linear forwards`,
       animationDelay: `-${elapsedMs / timeScale}ms`,
     }
-  }, [stageDurationMs, hasStarted, timeScale, stageEnteredAt])
+  }, [durationMs, timeScale, startedAt])
 
-  if (stageDurationMs === null) return <div className="h-[3px] w-full" />
+  if (durationMs === null) return <div className="h-[3px] w-full" />
 
   return (
     <div className="h-[3px] w-full overflow-hidden rounded-full bg-surface-raised">
-      <div key={`${status}-${timeScale}-${hasStarted}`} className={`h-full ${STAGE_BAR_CLASS[status]}`} style={style} />
+      <div key={`${startedAt}-${durationMs}-${timeScale}`} className={`h-full ${TONE_BAR_CLASS[tone]}`} style={style} />
     </div>
   )
 }

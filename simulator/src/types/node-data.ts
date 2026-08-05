@@ -3,10 +3,17 @@ import type { TaskFlowNode } from './task-data'
 
 export type NodeStatus = 'idle' | 'healthy' | 'warning' | 'error'
 
+export interface ProvisioningInfo {
+  terraformAddress: string
+  startedAt: number
+  durationMs: number
+}
+
 export interface InfraNodeData extends Record<string, unknown> {
   label: string
   tooltip: string
   status: NodeStatus
+  provisioning?: ProvisioningInfo | null
 }
 
 export type TrafficPattern = 'constant' | 'ramp' | 'burst'
@@ -40,6 +47,13 @@ export interface EcsServiceNodeData extends InfraNodeData {
   totalTaskCount: number
 }
 
+export interface TargetGroupNodeData extends InfraNodeData {
+  width: number
+  height: number
+  registeredTargetCount: number
+  healthyTargetCount: number
+}
+
 export interface RdsClusterNodeData extends InfraNodeData {
   requestsPerMinute: number
 }
@@ -55,6 +69,7 @@ export type AlbFlowNode = Node<AlbNodeData, 'alb'>
 export type EcsServiceFlowNode = Node<EcsServiceNodeData, 'ecsService'>
 export type UserFlowNode = Node<UserNodeData, 'user'>
 export type WafFlowNode = Node<WafNodeData, 'waf'>
+export type TargetGroupFlowNode = Node<TargetGroupNodeData, 'targetGroup'>
 export type RdsClusterFlowNode = Node<RdsClusterNodeData, 'rdsCluster'>
 export type RdsInstanceFlowNode = Node<RdsInstanceNodeData, 'rdsInstance'>
 
@@ -63,6 +78,7 @@ export type SimulatorFlowNode =
   | EcsServiceFlowNode
   | UserFlowNode
   | WafFlowNode
+  | TargetGroupFlowNode
   | TaskFlowNode
   | RdsClusterFlowNode
   | RdsInstanceFlowNode

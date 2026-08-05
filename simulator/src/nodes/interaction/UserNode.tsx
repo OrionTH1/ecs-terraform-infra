@@ -54,6 +54,7 @@ export function UserNode({ id, data }: NodeProps<UserFlowNode>) {
       status={data.isRateLimited ? 'error' : 'idle'}
       onRemove={() => deleteElements({ nodes: [{ id }] })}
       removeLabel="Remove this user"
+      handles={<Handle type="source" position={Position.Right} id="out" />}
     >
       <div className="flex w-[196px] flex-col gap-2">
         <Stepper
@@ -102,7 +103,6 @@ export function UserNode({ id, data }: NodeProps<UserFlowNode>) {
           </span>
         ) : null}
       </div>
-      <Handle type="source" position={Position.Right} id="out" />
     </NodeCard>
   )
 }

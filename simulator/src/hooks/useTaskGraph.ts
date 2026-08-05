@@ -1,24 +1,43 @@
 import { useMemo } from 'react'
 import {
+  ALB_NODE_ID,
   ECS_SERVICE_NODE_ID,
-  FALLBACK_TASK_HEIGHT,
   RDS_CLUSTER_NODE_ID,
-  TASK_COLUMN_CENTER_Y,
-  TASK_COLUMN_X,
-  TASK_ROW_GAP,
+  albToTaskEdgeId,
+  serviceToTaskEdgeId,
+  taskToRdsEdgeId,
 } from '../canvas/initial-graph'
+import { isRegisteredTarget } from '../simulation/target-group'
 import { useLeavingTasks } from './useLeavingTasks'
-import { useMeasuredTaskSizes } from './useMeasuredTaskSizes'
+import { useTaskColumnLayout } from './useTaskColumnLayout'
 import type { TaskRuntime } from '../store/useSimulationStore'
-import type { RequestFlowEdge } from '../types/edge-data'
+import type { AssociationEdge, RequestFlowEdge } from '../types/edge-data'
+import type { TargetGroupFlowNode } from '../types/node-data'
 import type { TaskFlowNode } from '../types/task-data'
 
 interface TaskGraphArgs {
   tasks: TaskRuntime[]
   requestsByTaskId: Map<string, number>
+  isTargetGroupVisible: boolean
+  isServiceVisible: boolean
+  isRdsClusterVisible: boolean
 }
 
-export function useTaskGraph({ tasks, requestsByTaskId }: TaskGraphArgs) {
+export interface TaskGraph {
+  taskNodes: TaskFlowNode[]
+  servicePosition: { x: number; y: number }
+  targetGroupNode: TargetGroupFlowNode | null
+  taskEdges: (RequestFlowEdge | AssociationEdge)[]
+  healthyTaskEdgeIds: string[]
+}
+
+export function useTaskGraph({
+  tasks,
+  requestsByTaskId,
+  isTargetGroupVisible,
+  isServiceVisible,
+  isRdsClusterVisible,
+}: TaskGraphArgs): TaskGraph {
   const leavingTasks = useLeavingTasks(tasks)
 
   const orderedTasks = useMemo(
@@ -27,23 +46,21 @@ export function useTaskGraph({ tasks, requestsByTaskId }: TaskGraphArgs) {
   )
 
   const leavingIds = useMemo(() => new Set(leavingTasks.map((task) => task.id)), [leavingTasks])
-  const measuredSizes = useMeasuredTaskSizes()
+  const healthyTaskCount = useMemo(() => tasks.filter((task) => task.status === 'healthy').length, [tasks])
 
-  const taskNodes = useMemo((): TaskFlowNode[] => {
-    const heights = orderedTasks.map((task) => measuredSizes.get(task.id)?.height ?? FALLBACK_TASK_HEIGHT)
-    const columnHeight = heights.reduce((sum, height) => sum + height, 0) + TASK_ROW_GAP * (heights.length - 1)
+  const { positions, sizes, servicePosition, targetGroupNode } = useTaskColumnLayout({
+    orderedTasks,
+    isTargetGroupVisible,
+    healthyTaskCount,
+  })
 
-    let offset = TASK_COLUMN_CENTER_Y - columnHeight / 2
-
-    return orderedTasks.map((task, index) => {
-      const y = offset
-      offset += heights[index] + TASK_ROW_GAP
-
-      return {
+  const taskNodes = useMemo(
+    (): TaskFlowNode[] =>
+      orderedTasks.map((task, index) => ({
         id: task.id,
         type: 'task',
-        position: { x: TASK_COLUMN_X, y },
-        measured: measuredSizes.get(task.id),
+        position: positions.get(task.id) ?? { x: 0, y: 0 },
+        measured: sizes.get(task.id),
         data: {
           taskNumber: index + 1,
           status: task.status,
@@ -55,46 +72,67 @@ export function useTaskGraph({ tasks, requestsByTaskId }: TaskGraphArgs) {
         },
         draggable: false,
         deletable: false,
+      })),
+    [orderedTasks, positions, sizes, requestsByTaskId, leavingIds],
+  )
+
+  const taskEdges = useMemo((): (RequestFlowEdge | AssociationEdge)[] => {
+    const edges: (RequestFlowEdge | AssociationEdge)[] = []
+
+    for (const task of orderedTasks) {
+      const requestsPerMinute = requestsByTaskId.get(task.id) ?? 0
+
+      if (isRegisteredTarget(task.status)) {
+        edges.push({
+          id: albToTaskEdgeId(task.id),
+          type: 'requestFlow',
+          source: ALB_NODE_ID,
+          sourceHandle: 'out',
+          target: task.id,
+          targetHandle: 'in',
+          data: { requestsPerMinute },
+          deletable: false,
+          reconnectable: false,
+        })
       }
-    })
-  }, [orderedTasks, requestsByTaskId, measuredSizes, leavingIds])
 
-  const taskEdges = useMemo(
-    (): RequestFlowEdge[] =>
-      orderedTasks.map((task) => ({
-        id: `${ECS_SERVICE_NODE_ID}-${task.id}`,
-        type: 'requestFlow',
-        source: ECS_SERVICE_NODE_ID,
-        sourceHandle: 'out',
-        target: task.id,
-        targetHandle: 'in',
-        data: { requestsPerMinute: requestsByTaskId.get(task.id) ?? 0 },
-        deletable: false,
-        reconnectable: false,
-      })),
-    [orderedTasks, requestsByTaskId],
-  )
+      if (isServiceVisible) {
+        edges.push({
+          id: serviceToTaskEdgeId(task.id),
+          type: 'association',
+          source: ECS_SERVICE_NODE_ID,
+          sourceHandle: 'manages-out',
+          target: task.id,
+          targetHandle: 'manages-in',
+          data: { isActive: task.status === 'failed', variant: 'management' },
+          deletable: false,
+          reconnectable: false,
+          selectable: false,
+        })
+      }
 
-  const rdsEdges = useMemo(
-    (): RequestFlowEdge[] =>
-      orderedTasks.map((task) => ({
-        id: `${task.id}-${RDS_CLUSTER_NODE_ID}`,
-        type: 'requestFlow',
-        source: task.id,
-        sourceHandle: 'out',
-        target: RDS_CLUSTER_NODE_ID,
-        targetHandle: 'in',
-        data: { requestsPerMinute: requestsByTaskId.get(task.id) ?? 0 },
-        deletable: false,
-        reconnectable: false,
-      })),
-    [orderedTasks, requestsByTaskId],
-  )
+      if (isRdsClusterVisible && task.status === 'healthy') {
+        edges.push({
+          id: taskToRdsEdgeId(task.id),
+          type: 'requestFlow',
+          source: task.id,
+          sourceHandle: 'out',
+          target: RDS_CLUSTER_NODE_ID,
+          targetHandle: 'in',
+          data: { requestsPerMinute },
+          deletable: false,
+          reconnectable: false,
+        })
+      }
+    }
+
+    return edges
+  }, [orderedTasks, requestsByTaskId, isServiceVisible, isRdsClusterVisible])
 
   const healthyTaskEdgeIds = useMemo(
-    () => tasks.filter((task) => task.status === 'healthy').map((task) => `${ECS_SERVICE_NODE_ID}-${task.id}`),
+    () => tasks.filter((task) => task.status === 'healthy').map((task) => albToTaskEdgeId(task.id)),
     [tasks],
   )
 
-  return { taskNodes, taskEdges, rdsEdges, healthyTaskEdgeIds }
+  return { taskNodes, servicePosition, targetGroupNode, taskEdges, healthyTaskEdgeIds }
 }

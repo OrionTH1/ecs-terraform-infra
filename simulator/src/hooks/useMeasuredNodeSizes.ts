@@ -6,11 +6,13 @@ export interface MeasuredSize {
   height: number
 }
 
-export function useMeasuredTaskSizes(): Map<string, MeasuredSize> {
+const MEASURED_TYPES = new Set(['task', 'ecsService'])
+
+export function useMeasuredNodeSizes(): Map<string, MeasuredSize> {
   const serialized = useStore((state) => {
     const entries: string[] = []
     state.nodeLookup.forEach((node, id) => {
-      if (node.type !== 'task') return
+      if (!MEASURED_TYPES.has(node.type ?? '')) return
       entries.push(`${id}:${Math.round(node.measured?.width ?? 0)}:${Math.round(node.measured?.height ?? 0)}`)
     })
     return entries.join(',')

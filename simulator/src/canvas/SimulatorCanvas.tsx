@@ -3,6 +3,7 @@ import { Background, BackgroundVariant, Controls, ReactFlow, useNodesState, useE
 import { AlbNode } from '../nodes/infra/AlbNode'
 import { WafNode } from '../nodes/infra/WafNode'
 import { EcsServiceNode } from '../nodes/infra/EcsServiceNode'
+import { TargetGroupNode } from '../nodes/infra/TargetGroupNode'
 import { TaskNode } from '../nodes/infra/TaskNode'
 import { RdsClusterNode } from '../nodes/infra/RdsClusterNode'
 import { RdsInstanceNode } from '../nodes/infra/RdsInstanceNode'
@@ -10,6 +11,7 @@ import { UserNode } from '../nodes/interaction/UserNode'
 import { RequestFlowEdge } from '../edges/RequestFlowEdge'
 import { ReplicationEdge } from '../edges/ReplicationEdge'
 import { AssociationEdge } from '../edges/AssociationEdge'
+import { ApplyConsole } from '../panels/ApplyConsole'
 import { ComponentsPanel } from '../panels/ComponentsPanel'
 import { SpeedPanel } from '../panels/SpeedPanel'
 import { Toolbar } from '../panels/Toolbar'
@@ -17,44 +19,28 @@ import { PacketLayer } from './PacketLayer'
 import { useSimulationClock } from '../hooks/useSimulationClock'
 import { useTrafficRouting } from '../hooks/useTrafficRouting'
 import { useTaskGraph } from '../hooks/useTaskGraph'
+import { useRenderGraph } from '../hooks/useRenderGraph'
 import { useCanvasConnections } from '../hooks/useCanvasConnections'
 import { useActiveTool } from '../hooks/useActiveTool'
 import { useNodePalette } from '../hooks/useNodePalette'
 import { useToolShortcuts } from '../hooks/useToolShortcuts'
 import { useSettleViewport } from '../hooks/useSettleViewport'
 import { useSimulationStore } from '../store/useSimulationStore'
-import { RDS_READ_FRACTION } from '../simulation/simulation-config'
-import { splitReadWrite } from '../simulation/traffic-distribution'
+import { isCreated } from '../simulation/boot-graph'
 import {
   ALB_NODE_ID,
-  ALB_TO_ECS_EDGE_ID,
   FIT_VIEW_OPTIONS,
   RDS_CLUSTER_TO_READER_EDGE_ID,
   RDS_CLUSTER_TO_WRITER_EDGE_ID,
-  WAF_TO_ALB_EDGE_ID,
   initialEdges,
   initialNodes,
 } from './initial-graph'
-import type {
-  AlbNodeData,
-  EcsServiceNodeData,
-  RdsClusterNodeData,
-  RdsInstanceNodeData,
-  SimulatorFlowNode,
-  UserNodeData,
-  WafNodeData,
-} from '../types/node-data'
-import type {
-  AssociationEdge as AssociationEdgeType,
-  RequestFlowEdge as RequestFlowEdgeType,
-  ReplicationEdge as ReplicationEdgeType,
-  SimulatorFlowEdge,
-} from '../types/edge-data'
 
 const nodeTypes = {
   alb: AlbNode,
   waf: WafNode,
   ecsService: EcsServiceNode,
+  targetGroup: TargetGroupNode,
   task: TaskNode,
   rdsCluster: RdsClusterNode,
   rdsInstance: RdsInstanceNode,
@@ -72,114 +58,48 @@ export function SimulatorCanvas() {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
 
   const tasks = useSimulationStore((state) => state.tasks)
-  const wafBlockedRequests = useSimulationStore((state) => state.wafBlockedRequests)
-  const blockedIps = useSimulationStore((state) => state.blockedIps)
+  const resources = useSimulationStore((state) => state.resources)
 
   useSimulationClock()
   useToolShortcuts()
   const activeTool = useActiveTool()
-  useSettleViewport(tasks.length)
 
-  const { requestsByUserId, requestsByTaskId, blockedUserIds, totalRequestsSent, totalRequestsAtAlb, healthyTaskCount } =
-    useTrafficRouting({ nodes, edges, tasks })
-  const { taskNodes, taskEdges, rdsEdges, healthyTaskEdgeIds } = useTaskGraph({ tasks, requestsByTaskId })
+  const routing = useTrafficRouting({ nodes, edges, tasks })
+
+  const taskGraph = useTaskGraph({
+    tasks,
+    requestsByTaskId: routing.requestsByTaskId,
+    isTargetGroupVisible: isCreated(resources, 'targetGroup'),
+    isServiceVisible: isCreated(resources, 'ecsService'),
+    isRdsClusterVisible: isCreated(resources, 'rdsCluster'),
+  })
+
+  const { renderNodes, renderEdges, liveEdgeIds, hasNoHealthyTargets, rdsReads, rdsWrites } = useRenderGraph({
+    nodes,
+    edges,
+    taskCount: tasks.length,
+    routing,
+    taskGraph,
+  })
+
+  useSettleViewport(renderNodes.length)
+
   const { isValidConnection, onConnect } = useCanvasConnections({ nodes, edges, setEdges })
   const { onDragOver, onDrop } = useNodePalette({ nodes, onNodesChange })
-
-  const hasNoHealthyTargets = healthyTaskCount === 0
-  const deliveredRequests = hasNoHealthyTargets ? 0 : totalRequestsAtAlb
-
-  const { reads: rdsReads, writes: rdsWrites } = useMemo(
-    () => splitReadWrite(deliveredRequests, RDS_READ_FRACTION),
-    [deliveredRequests],
-  )
-
-  const renderNodes = useMemo(
-    () => [
-      ...nodes.map((node): SimulatorFlowNode => {
-        if (node.type === 'alb') {
-          const data: AlbNodeData = {
-            ...node.data,
-            requestsPerMinute: totalRequestsAtAlb,
-            healthyTargetCount: healthyTaskCount,
-            status: hasNoHealthyTargets && totalRequestsAtAlb > 0 ? 'error' : 'idle',
-          }
-          return { ...node, data }
-        }
-
-        if (node.type === 'waf') {
-          const data: WafNodeData = {
-            ...node.data,
-            inspectedRequestsPerMinute: totalRequestsSent,
-            blockedRequests: wafBlockedRequests,
-            blockedIps,
-            status: blockedIps.length > 0 ? 'warning' : 'idle',
-          }
-          return { ...node, data }
-        }
-
-        if (node.type === 'user') {
-          const data: UserNodeData = { ...node.data, isRateLimited: blockedUserIds.has(node.id) }
-          return { ...node, data }
-        }
-
-        if (node.type === 'ecsService') {
-          const data: EcsServiceNodeData = {
-            ...node.data,
-            requestsPerMinute: deliveredRequests,
-            healthyTaskCount,
-            totalTaskCount: tasks.length,
-          }
-          return { ...node, data }
-        }
-
-        if (node.type === 'rdsCluster') {
-          const data: RdsClusterNodeData = { ...node.data, requestsPerMinute: deliveredRequests }
-          return { ...node, data }
-        }
-
-        if (node.type === 'rdsInstance') {
-          const data: RdsInstanceNodeData = {
-            ...node.data,
-            requestsPerMinute: node.data.role === 'writer' ? rdsWrites : rdsReads,
-          }
-          return { ...node, data }
-        }
-
-        return node
-      }),
-      ...taskNodes,
-    ],
-    [
-      nodes,
-      totalRequestsSent,
-      totalRequestsAtAlb,
-      deliveredRequests,
-      hasNoHealthyTargets,
-      healthyTaskCount,
-      tasks.length,
-      taskNodes,
-      rdsWrites,
-      rdsReads,
-      wafBlockedRequests,
-      blockedIps,
-      blockedUserIds,
-    ],
-  )
 
   const userEdges = useMemo(() => edges.filter((edge) => edge.target === ALB_NODE_ID), [edges])
 
   const isRejectedAtAlb = useCallback(
-    (sourceId: string) => hasNoHealthyTargets || blockedUserIds.has(sourceId),
-    [hasNoHealthyTargets, blockedUserIds],
+    (sourceId: string) => hasNoHealthyTargets || routing.blockedUserIds.has(sourceId),
+    [hasNoHealthyTargets, routing.blockedUserIds],
   )
 
   const packetEntries = useMemo(
     () =>
       userEdges
         .filter((edge) => !isRejectedAtAlb(edge.source))
-        .map((edge) => ({ edgeId: edge.id, requestsPerMinute: requestsByUserId.get(edge.source) ?? 0 })),
-    [userEdges, requestsByUserId, isRejectedAtAlb],
+        .map((edge) => ({ edgeId: edge.id, requestsPerMinute: routing.requestsByUserId.get(edge.source) ?? 0 })),
+    [userEdges, routing.requestsByUserId, isRejectedAtAlb],
   )
 
   const directPacketEntries = useMemo(
@@ -190,34 +110,12 @@ export function SimulatorCanvas() {
         .filter((edge) => isRejectedAtAlb(edge.source))
         .map((edge) => ({
           edgeId: edge.id,
-          requestsPerMinute: requestsByUserId.get(edge.source) ?? 0,
+          requestsPerMinute: routing.requestsByUserId.get(edge.source) ?? 0,
           color: 'blocked' as const,
         })),
     ],
-    [rdsWrites, rdsReads, userEdges, requestsByUserId, isRejectedAtAlb],
+    [rdsWrites, rdsReads, userEdges, routing.requestsByUserId, isRejectedAtAlb],
   )
-
-  const renderEdges = useMemo(
-    () => [
-      ...edges.map((edge): SimulatorFlowEdge => {
-        if (edge.id === WAF_TO_ALB_EDGE_ID) return { ...edge, data: { isActive: blockedIps.length > 0 } } as AssociationEdgeType
-        if (edge.type === 'replication') return { ...edge, data: { isActive: rdsWrites > 0 } } as ReplicationEdgeType
-        if (edge.id === ALB_TO_ECS_EDGE_ID) return { ...edge, data: { requestsPerMinute: deliveredRequests } } as RequestFlowEdgeType
-        if (edge.id === RDS_CLUSTER_TO_WRITER_EDGE_ID)
-          return { ...edge, data: { requestsPerMinute: rdsWrites } } as RequestFlowEdgeType
-        if (edge.id === RDS_CLUSTER_TO_READER_EDGE_ID)
-          return { ...edge, data: { requestsPerMinute: rdsReads } } as RequestFlowEdgeType
-        if (edge.target === ALB_NODE_ID)
-          return { ...edge, data: { requestsPerMinute: requestsByUserId.get(edge.source) ?? 0 } } as RequestFlowEdgeType
-        return edge
-      }),
-      ...taskEdges,
-      ...rdsEdges,
-    ],
-    [edges, requestsByUserId, deliveredRequests, rdsWrites, rdsReads, taskEdges, rdsEdges, blockedIps],
-  )
-
-  const liveEdgeIds = useMemo(() => new Set(renderEdges.map((edge) => edge.id)), [renderEdges])
 
   return (
     <div className="relative h-screen w-screen" data-active-tool={activeTool.id}>
@@ -240,7 +138,7 @@ export function SimulatorCanvas() {
         <Controls />
         <PacketLayer
           entries={packetEntries}
-          taskEdgeIds={healthyTaskEdgeIds}
+          taskEdgeIds={taskGraph.healthyTaskEdgeIds}
           directEntries={directPacketEntries}
           liveEdgeIds={liveEdgeIds}
         />
@@ -249,6 +147,7 @@ export function SimulatorCanvas() {
         <ComponentsPanel />
         <SpeedPanel />
       </div>
+      <ApplyConsole />
       <Toolbar />
     </div>
   )
