@@ -73,6 +73,16 @@
   animation: acl-dash 600ms linear infinite;
 }
 
+@keyframes replication-dash {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+.replication-dash {
+  animation: replication-dash 700ms linear infinite;
+}
+
 .react-flow .react-flow__node-task,
 .react-flow .react-flow__node-targetGroup {
   transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);

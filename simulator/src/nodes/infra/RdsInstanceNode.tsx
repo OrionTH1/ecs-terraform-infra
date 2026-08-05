@@ -5,7 +5,6 @@ import { RateReadout } from '../shared/RateReadout'
 import { RdsIcon } from '../../icons'
 
 const ENDPOINT_HANDLE_TOP = 30
-const REPLICATION_HANDLE_TOP = 62
 
 export function RdsInstanceNode({ data }: NodeProps<RdsInstanceFlowNode>) {
   return (
@@ -27,22 +26,10 @@ export function RdsInstanceNode({ data }: NodeProps<RdsInstanceFlowNode>) {
             style={{ top: ENDPOINT_HANDLE_TOP }}
           />
           {data.role === 'writer' ? (
-            <Handle
-              type="source"
-              position={Position.Right}
-              id="replicate-out"
-              isConnectable={false}
-              style={{ top: REPLICATION_HANDLE_TOP }}
-            />
+            <Handle type="source" position={Position.Bottom} id="replicate-out" isConnectable={false} />
           ) : null}
           {data.role === 'reader' ? (
-            <Handle
-              type="target"
-              position={Position.Right}
-              id="replicate-in"
-              isConnectable={false}
-              style={{ top: REPLICATION_HANDLE_TOP }}
-            />
+            <Handle type="target" position={Position.Top} id="replicate-in" isConnectable={false} />
           ) : null}
         </>
       }
