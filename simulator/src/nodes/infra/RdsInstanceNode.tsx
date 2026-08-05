@@ -4,6 +4,9 @@ import { NodeCard } from '../shared/NodeCard'
 import { RateReadout } from '../shared/RateReadout'
 import { RdsIcon } from '../../icons'
 
+const ENDPOINT_HANDLE_TOP = 30
+const REPLICATION_HANDLE_TOP = 62
+
 export function RdsInstanceNode({ data }: NodeProps<RdsInstanceFlowNode>) {
   return (
     <NodeCard
@@ -16,12 +19,30 @@ export function RdsInstanceNode({ data }: NodeProps<RdsInstanceFlowNode>) {
       handles={
         <>
           <Handle type="target" position={Position.Left} id="in" isConnectable={false} />
-          <Handle type="target" position={Position.Right} id="manages-in" isConnectable={false} />
+          <Handle
+            type="target"
+            position={Position.Right}
+            id="manages-in"
+            isConnectable={false}
+            style={{ top: ENDPOINT_HANDLE_TOP }}
+          />
           {data.role === 'writer' ? (
-            <Handle type="source" position={Position.Bottom} id="replicate-out" isConnectable={false} />
+            <Handle
+              type="source"
+              position={Position.Right}
+              id="replicate-out"
+              isConnectable={false}
+              style={{ top: REPLICATION_HANDLE_TOP }}
+            />
           ) : null}
           {data.role === 'reader' ? (
-            <Handle type="target" position={Position.Top} id="replicate-in" isConnectable={false} />
+            <Handle
+              type="target"
+              position={Position.Right}
+              id="replicate-in"
+              isConnectable={false}
+              style={{ top: REPLICATION_HANDLE_TOP }}
+            />
           ) : null}
         </>
       }

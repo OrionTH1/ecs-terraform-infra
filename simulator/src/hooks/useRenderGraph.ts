@@ -150,12 +150,13 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
         }
 
         if (node.type === 'rdsInstance') {
+          const isWriter = node.data.role === 'writer'
           const data: RdsInstanceNodeData = {
             ...node.data,
             provisioning,
-            requestsPerMinute: node.data.role === 'writer' ? rdsWrites : rdsReads,
+            requestsPerMinute: isWriter ? rdsWrites : rdsReads,
           }
-          return { ...node, data }
+          return { ...node, position: isWriter ? taskGraph.writerPosition : taskGraph.readerPosition, data }
         }
 
         return node

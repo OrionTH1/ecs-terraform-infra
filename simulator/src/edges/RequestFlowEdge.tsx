@@ -1,8 +1,6 @@
-import { getBezierPath, getSmoothStepPath, type EdgeProps } from '@xyflow/react'
+import { getBezierPath, type EdgeProps } from '@xyflow/react'
 import { pathElementId } from '../simulation/packets'
 import type { RequestFlowEdge as RequestFlowEdgeType } from '../types/edge-data'
-
-const LANE_CORNER_RADIUS = 12
 
 export function RequestFlowEdge({
   id,
@@ -14,13 +12,7 @@ export function RequestFlowEdge({
   targetPosition,
   data,
 }: EdgeProps<RequestFlowEdgeType>) {
-  const geometry = { sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition }
-
-  const [path] =
-    data?.laneX === undefined
-      ? getBezierPath(geometry)
-      : getSmoothStepPath({ ...geometry, borderRadius: LANE_CORNER_RADIUS, centerX: data.laneX })
-
+  const [path] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition })
   const isCarryingTraffic = (data?.requestsPerMinute ?? 0) > 0
 
   return (
