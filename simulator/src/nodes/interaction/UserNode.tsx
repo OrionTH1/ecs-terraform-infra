@@ -10,7 +10,7 @@ import { Stepper } from '../shared/Stepper'
 import { RegenerateIcon, UserIcon } from '../../icons'
 
 export function UserNode({ id, data }: NodeProps<UserFlowNode>) {
-  const { updateNodeData, getNodes } = useReactFlow<SimulatorFlowNode>()
+  const { updateNodeData, getNodes, deleteElements } = useReactFlow<SimulatorFlowNode>()
 
   const regenerateIp = () =>
     updateNodeData(id, {
@@ -52,6 +52,8 @@ export function UserNode({ id, data }: NodeProps<UserFlowNode>) {
         </button>
       }
       status={data.isRateLimited ? 'error' : 'idle'}
+      onRemove={() => deleteElements({ nodes: [{ id }] })}
+      removeLabel="Remove this user"
     >
       <div className="flex w-[196px] flex-col gap-2">
         <Stepper

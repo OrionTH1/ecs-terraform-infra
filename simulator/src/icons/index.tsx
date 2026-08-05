@@ -9,6 +9,7 @@ import {
   RefreshCw,
   ShieldCheck,
   User,
+  X,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -53,6 +54,10 @@ export function WafIcon({ className }: IconProps) {
 
 export function RegenerateIcon({ className }: IconProps) {
   return <Glyph icon={RefreshCw} size={11} className={className} />
+}
+
+export function RemoveIcon({ className }: IconProps) {
+  return <Glyph icon={X} size={11} className={className} />
 }
 
 export function ChevronIcon({ className }: IconProps) {

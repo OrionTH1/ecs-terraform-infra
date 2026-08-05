@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { NodeStatus } from '../../types/node-data'
 import { InfoTooltip } from './InfoTooltip'
+import { RemoveIcon } from '../../icons'
 
 interface NodeCardProps {
   variant: 'infra' | 'interaction'
@@ -15,6 +16,8 @@ interface NodeCardProps {
   isBlasted?: boolean
   overlay?: ReactNode
   onTargetClick?: () => void
+  onRemove?: () => void
+  removeLabel?: string
   children?: ReactNode
 }
 
@@ -42,6 +45,8 @@ export function NodeCard({
   isBlasted = false,
   overlay,
   onTargetClick,
+  onRemove,
+  removeLabel = 'Remove node',
   children,
 }: NodeCardProps) {
   const borderClass =
@@ -49,7 +54,7 @@ export function NodeCard({
 
   return (
     <div
-      className={`relative min-w-[170px] overflow-visible rounded-card border bg-surface shadow-card transition-colors duration-300 ${borderClass} ${
+      className={`group/card relative min-w-[170px] overflow-visible rounded-card border bg-surface shadow-card transition-colors duration-300 ${borderClass} ${
         isTargetable ? 'nodrag cursor-crosshair hover:border-status-error hover:shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''
       }`}
       style={
@@ -70,6 +75,20 @@ export function NodeCard({
         <InfoTooltip text={tooltip} />
       </div>
       {children ? <div className="px-3 py-2.5">{children}</div> : null}
+      {onRemove ? (
+        <button
+          type="button"
+          title={removeLabel}
+          aria-label={removeLabel}
+          className="nodrag absolute -top-2.5 -right-2.5 z-10 inline-flex h-[20px] w-[20px] cursor-pointer items-center justify-center rounded-full border border-border bg-surface-raised text-fg-muted opacity-0 shadow-card transition-[opacity,color,border-color] duration-150 hover:border-status-error hover:text-status-error focus-visible:opacity-100 group-hover/card:opacity-100"
+          onClick={(event) => {
+            event.stopPropagation()
+            onRemove()
+          }}
+        >
+          <RemoveIcon />
+        </button>
+      ) : null}
       {overlay}
     </div>
   )
