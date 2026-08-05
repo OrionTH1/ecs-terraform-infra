@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { RDS_REPLICATION_EDGE_ID } from '../canvas/initial-graph'
+import {
+  PAGE_CACHE_EDGE_ID,
+  READER_TO_VOLUME_EDGE_ID,
+  WRITER_TO_VOLUME_EDGE_ID,
+} from '../canvas/initial-graph'
 import { RDS_READ_FRACTION } from '../simulation/simulation-config'
 import type { TaskRoute } from './useTaskGraph'
 import {
@@ -37,7 +41,7 @@ interface PacketFlowArgs {
 const WRITES_EVERY = Math.round(1 / (1 - RDS_READ_FRACTION))
 
 function isCommittedWrite(packet: Packet): boolean {
-  return packet.route.at(-1) !== RDS_REPLICATION_EDGE_ID && packet.legColors.at(-1) === 'write'
+  return packet.route.at(-1) !== PAGE_CACHE_EDGE_ID && packet.legColors.at(-1) === 'write'
 }
 
 interface PathGeometry {
@@ -146,10 +150,17 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
                 return { route: [entry.edgeId, taskRoute.albEdgeId], legColors: ['default', 'default'] }
               }
 
-              return {
-                route: [entry.edgeId, taskRoute.albEdgeId, taskRoute.junctionEdgeId, databaseEdgeId],
-                legColors: ['default', 'default', 'default', isWrite ? 'write' : 'default'],
+              const databaseColor: PacketColor = isWrite ? 'write' : 'default'
+              const route = [entry.edgeId, taskRoute.albEdgeId, taskRoute.junctionEdgeId, databaseEdgeId]
+              const legColors: PacketColor[] = ['default', 'default', 'default', databaseColor]
+
+              const volumeEdgeId = isWrite ? WRITER_TO_VOLUME_EDGE_ID : READER_TO_VOLUME_EDGE_ID
+              if (inputs.current.liveEdgeIds.has(volumeEdgeId)) {
+                route.push(volumeEdgeId)
+                legColors.push(databaseColor)
               }
+
+              return { route, legColors }
             },
             carried,
           )
@@ -184,10 +195,10 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
         const placement = locate(packet, now, cache)
 
         if (placement.kind === 'arrived') {
-          if (isCommittedWrite(packet) && currentLiveEdgeIds.has(RDS_REPLICATION_EDGE_ID) && alive.length < MAX_LIVE_PACKETS) {
+          if (isCommittedWrite(packet) && currentLiveEdgeIds.has(PAGE_CACHE_EDGE_ID) && alive.length < MAX_LIVE_PACKETS) {
             alive.push({
               id: nextPacketId.current++,
-              route: [RDS_REPLICATION_EDGE_ID],
+              route: [PAGE_CACHE_EDGE_ID],
               legColors: ['write'],
               speedPxPerSecond: REPLICATION_PACKET_SPEED_PX_PER_SECOND,
               startedAt: now,

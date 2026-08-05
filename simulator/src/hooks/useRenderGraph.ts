@@ -4,6 +4,8 @@ import {
   EDGE_RESOURCE_ID,
   JUNCTION_TO_READER_EDGE_ID,
   JUNCTION_TO_WRITER_EDGE_ID,
+  READER_TO_VOLUME_EDGE_ID,
+  WRITER_TO_VOLUME_EDGE_ID,
   NODE_RESOURCE_ID,
   WAF_TO_ALB_EDGE_ID,
 } from '../canvas/initial-graph'
@@ -23,7 +25,6 @@ import type {
   AlbNodeData,
   EcsServiceNodeData,
   ProvisioningInfo,
-  RdsClusterNodeData,
   RdsInstanceNodeData,
   SimulatorFlowNode,
   UserGroupNodeData,
@@ -146,11 +147,6 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
           return { ...node, position: taskGraph.servicePosition, data }
         }
 
-        if (node.type === 'rdsCluster') {
-          const data: RdsClusterNodeData = { ...node.data, provisioning }
-          return { ...node, data }
-        }
-
         if (node.type === 'rdsInstance') {
           const isWriter = node.data.role === 'writer'
           const data: RdsInstanceNodeData = {
@@ -195,6 +191,10 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
         if (edge.id === JUNCTION_TO_WRITER_EDGE_ID)
           return { ...edge, data: { requestsPerMinute: rdsWrites } } as RequestFlowEdgeType
         if (edge.id === JUNCTION_TO_READER_EDGE_ID)
+          return { ...edge, data: { requestsPerMinute: rdsReads } } as RequestFlowEdgeType
+        if (edge.id === WRITER_TO_VOLUME_EDGE_ID)
+          return { ...edge, data: { requestsPerMinute: rdsWrites } } as RequestFlowEdgeType
+        if (edge.id === READER_TO_VOLUME_EDGE_ID)
           return { ...edge, data: { requestsPerMinute: rdsReads } } as RequestFlowEdgeType
         if (edge.target === ALB_NODE_ID) {
           return {

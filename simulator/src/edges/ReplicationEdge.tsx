@@ -25,7 +25,7 @@ export function ReplicationEdge({ id, sourceX, sourceY, targetX, targetY, data }
         dominantBaseline="central"
         className="fill-fg-muted font-sans text-[9px] font-medium uppercase tracking-wider"
       >
-        replication
+        page cache
       </text>
     </>
   )

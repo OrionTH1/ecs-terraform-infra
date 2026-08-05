@@ -11,9 +11,10 @@ export const TARGET_GROUP_NODE_ID = 'target-group'
 export const RDS_CLUSTER_NODE_ID = 'rds-cluster'
 export const RDS_WRITER_NODE_ID = 'rds-writer'
 export const RDS_READER_NODE_ID = 'rds-reader'
-export const RDS_CLUSTER_TO_WRITER_EDGE_ID = 'rds-cluster-writer'
-export const RDS_CLUSTER_TO_READER_EDGE_ID = 'rds-cluster-reader'
-export const RDS_REPLICATION_EDGE_ID = 'rds-writer-reader-replication'
+export const CLUSTER_VOLUME_NODE_ID = 'cluster-volume'
+export const WRITER_TO_VOLUME_EDGE_ID = 'rds-writer-volume'
+export const READER_TO_VOLUME_EDGE_ID = 'rds-reader-volume'
+export const PAGE_CACHE_EDGE_ID = 'rds-writer-reader-page-cache'
 
 const ALB_POSITION = { x: 360, y: 200 }
 const CONTROL_PLANE_Y = ALB_POSITION.y - 330
@@ -38,10 +39,18 @@ export const MANAGEMENT_HANDLE_LEFT_INSET = 22
 
 const ECS_SERVICE_POSITION = { x: TASK_COLUMN_X, y: CONTROL_PLANE_Y }
 const RDS_INSTANCE_X = TASK_COLUMN_X + 470
-const RDS_CLUSTER_POSITION = { x: RDS_INSTANCE_X + 330, y: ALB_POSITION.y }
 
 export const RDS_WRITER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y - 130 }
 export const RDS_READER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y + 130 }
+export const CLUSTER_VOLUME_POSITION = { x: RDS_INSTANCE_X + 310, y: ALB_POSITION.y - 46 }
+
+export const AURORA_FRAME_PADDING = 26
+export const AURORA_FRAME_HEADER_HEIGHT = 30
+export const AURORA_FRAME_POSITION = {
+  x: RDS_INSTANCE_X - AURORA_FRAME_PADDING,
+  y: RDS_WRITER_POSITION.y - AURORA_FRAME_HEADER_HEIGHT - AURORA_FRAME_PADDING,
+}
+export const AURORA_FRAME_SIZE = { width: 620, height: 430 }
 
 export const DB_JUNCTION_NODE_ID = 'db-junction'
 export const DB_JUNCTION_SIZE = 12
@@ -74,6 +83,7 @@ export const NODE_RESOURCE_ID: Record<string, ResourceId> = {
   [ECS_SERVICE_NODE_ID]: 'ecsService',
   [DB_JUNCTION_NODE_ID]: 'ecsService',
   [RDS_CLUSTER_NODE_ID]: 'rdsCluster',
+  [CLUSTER_VOLUME_NODE_ID]: 'rdsCluster',
   [RDS_WRITER_NODE_ID]: 'rdsWriter',
   [RDS_READER_NODE_ID]: 'rdsReader',
 }
@@ -134,12 +144,29 @@ export const initialNodes: SimulatorFlowNode[] = [
   },
   {
     id: RDS_CLUSTER_NODE_ID,
-    type: 'rdsCluster',
-    position: RDS_CLUSTER_POSITION,
+    type: 'auroraCluster',
+    position: AURORA_FRAME_POSITION,
     data: {
       label: 'Aurora Cluster',
       tooltip:
-        'Aurora Serverless v2 (Postgres), 0–1 ACU, auto-pauses after an hour idle. The cluster exposes a writer endpoint (all writes, and reads needing read-after-write consistency) and a reader endpoint (read-only, load-balanced across reader instances) — it does not proxy traffic itself, endpoints resolve directly to an instance. Traffic shown here is a simplification: the real API is a health-check canary and does not query the database on every request.',
+        'A DB cluster is compute plus storage: the instances below and one shared cluster volume. Aurora Serverless v2 (Postgres), 0–1 ACU with auto-pause after an hour idle — one ACU is roughly 2 GiB of memory plus matching CPU, and capacity moves in 0.5 ACU steps without dropping connections. The cluster publishes the writer and reader endpoints; it never proxies a query itself, and each endpoint resolves straight to an instance.',
+      status: 'idle',
+      width: AURORA_FRAME_SIZE.width,
+      height: AURORA_FRAME_SIZE.height,
+    },
+    draggable: false,
+    deletable: false,
+    selectable: false,
+    zIndex: -1,
+  },
+  {
+    id: CLUSTER_VOLUME_NODE_ID,
+    type: 'clusterVolume',
+    position: CLUSTER_VOLUME_POSITION,
+    data: {
+      label: 'Cluster Volume',
+      tooltip:
+        'The single virtual volume that holds every table, index and the WAL. Aurora writes each change synchronously to six storage nodes spread across three Availability Zones, and that replication factor is independent of how many DB instances the cluster has. Because storage is shared, adding a reader copies no data at all — the new instance simply attaches to the volume that already holds everything.',
       status: 'idle',
     },
     draggable: false,
@@ -161,7 +188,7 @@ export const initialNodes: SimulatorFlowNode[] = [
     data: {
       label: 'Writer Instance',
       tooltip:
-        'The only instance that accepts writes — auto-assigned because it was the first aws_rds_cluster_instance provisioned. If it fails, Aurora automatically promotes the reader to take its place.',
+        'The only instance that accepts writes — auto-assigned because it was the first aws_rds_cluster_instance provisioned. It does not own the data: every change goes down to the shared cluster volume. If it fails, Aurora promotes the reader, which typically restores service in under 60 seconds and often under 30. With no reader to promote, Aurora has to build a new primary instead, which takes up to 10 minutes — that gap is the whole reason this cluster runs two instances.',
       status: 'idle',
       role: 'writer',
       requestsPerMinute: 0,
@@ -176,7 +203,7 @@ export const initialNodes: SimulatorFlowNode[] = [
     data: {
       label: 'Reader Instance',
       tooltip:
-        'Read replica served from Aurora\'s shared storage layer, kept consistent via the writer\'s redo log stream (typically single-digit milliseconds of lag). Serves read-only queries and is promotable to writer on failover.',
+        'Reads the exact same cluster volume as the writer — Aurora never copies data between instances, so this replica held no data of its own to build. What does stream from the writer is page cache invalidation, which is what the ReplicaLag metric actually measures. Serves read-only queries and is the promotion target on failover.',
       status: 'idle',
       role: 'reader',
       requestsPerMinute: 0,
@@ -222,31 +249,29 @@ export const initialEdges: SimulatorFlowEdge[] = [
     reconnectable: false,
   },
   {
-    id: RDS_CLUSTER_TO_WRITER_EDGE_ID,
-    type: 'association',
-    source: RDS_CLUSTER_NODE_ID,
-    sourceHandle: 'manages-out',
-    target: RDS_WRITER_NODE_ID,
-    targetHandle: 'manages-in',
-    data: { isActive: false, variant: 'management', routing: 'direct' },
+    id: WRITER_TO_VOLUME_EDGE_ID,
+    type: 'requestFlow',
+    source: RDS_WRITER_NODE_ID,
+    sourceHandle: 'storage-out',
+    target: CLUSTER_VOLUME_NODE_ID,
+    targetHandle: 'in',
+    data: { requestsPerMinute: 0 },
     deletable: false,
     reconnectable: false,
-    selectable: false,
   },
   {
-    id: RDS_CLUSTER_TO_READER_EDGE_ID,
-    type: 'association',
-    source: RDS_CLUSTER_NODE_ID,
-    sourceHandle: 'manages-out',
-    target: RDS_READER_NODE_ID,
-    targetHandle: 'manages-in',
-    data: { isActive: false, variant: 'management', routing: 'direct' },
+    id: READER_TO_VOLUME_EDGE_ID,
+    type: 'requestFlow',
+    source: RDS_READER_NODE_ID,
+    sourceHandle: 'storage-out',
+    target: CLUSTER_VOLUME_NODE_ID,
+    targetHandle: 'in',
+    data: { requestsPerMinute: 0 },
     deletable: false,
     reconnectable: false,
-    selectable: false,
   },
   {
-    id: RDS_REPLICATION_EDGE_ID,
+    id: PAGE_CACHE_EDGE_ID,
     type: 'replication',
     source: RDS_WRITER_NODE_ID,
     sourceHandle: 'replicate-out',

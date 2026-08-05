@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Container,
   Database,
+  HardDrive,
   Hand,
   Network,
   RefreshCw,
@@ -47,6 +48,10 @@ export function RdsIcon({ className }: IconProps) {
 
 export function UserIcon({ className }: IconProps) {
   return <Glyph icon={User} size={16} className={className} />
+}
+
+export function StorageIcon({ className }: IconProps) {
+  return <Glyph icon={HardDrive} size={16} className={className} />
 }
 
 export function UserGroupIcon({ className }: IconProps) {

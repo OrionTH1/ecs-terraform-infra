@@ -6,7 +6,8 @@ import { EcsServiceNode } from '../nodes/infra/EcsServiceNode'
 import { TargetGroupNode } from '../nodes/infra/TargetGroupNode'
 import { DbJunctionNode } from '../nodes/infra/DbJunctionNode'
 import { TaskNode } from '../nodes/infra/TaskNode'
-import { RdsClusterNode } from '../nodes/infra/RdsClusterNode'
+import { AuroraClusterNode } from '../nodes/infra/AuroraClusterNode'
+import { ClusterVolumeNode } from '../nodes/infra/ClusterVolumeNode'
 import { RdsInstanceNode } from '../nodes/infra/RdsInstanceNode'
 import { UserNode } from '../nodes/interaction/UserNode'
 import { UserGroupNode } from '../nodes/interaction/UserGroupNode'
@@ -37,7 +38,8 @@ const nodeTypes = {
   targetGroup: TargetGroupNode,
   dbJunction: DbJunctionNode,
   task: TaskNode,
-  rdsCluster: RdsClusterNode,
+  auroraCluster: AuroraClusterNode,
+  clusterVolume: ClusterVolumeNode,
   rdsInstance: RdsInstanceNode,
   user: UserNode,
   userGroup: UserGroupNode,
