@@ -79,6 +79,7 @@ export type RdsInstanceRole = 'writer' | 'reader'
 export interface RdsInstanceNodeData extends InfraNodeData {
   role: RdsInstanceRole
   requestsPerMinute: number
+  isCacheInvalidating: boolean
 }
 
 export type AlbFlowNode = Node<AlbNodeData, 'alb'>

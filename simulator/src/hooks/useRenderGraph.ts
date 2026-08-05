@@ -153,6 +153,7 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
             ...node.data,
             provisioning,
             requestsPerMinute: isWriter ? rdsWrites : rdsReads,
+            isCacheInvalidating: !isWriter && rdsWrites > 0,
           }
           return { ...node, data }
         }

@@ -192,6 +192,7 @@ export const initialNodes: SimulatorFlowNode[] = [
       status: 'idle',
       role: 'writer',
       requestsPerMinute: 0,
+      isCacheInvalidating: false,
     },
     draggable: false,
     deletable: false,
@@ -203,10 +204,11 @@ export const initialNodes: SimulatorFlowNode[] = [
     data: {
       label: 'Reader Instance',
       tooltip:
-        'Reads the exact same cluster volume as the writer — Aurora never copies data between instances, so this replica held no data of its own to build. What does stream from the writer is page cache invalidation, which is what the ReplicaLag metric actually measures. Serves read-only queries and is the promotion target on failover.',
+        'Reads the exact same cluster volume as the writer — Aurora never copies data between instances, so this replica had no data of its own to build. The writer sends its redo log stream to the storage nodes and, in parallel, to every reader. This instance applies each record that touches a page it already has cached and discards the rest, which is what the ReplicaLag metric measures: typically 100 ms or less. Serves read-only queries and is the promotion target on failover.',
       status: 'idle',
       role: 'reader',
       requestsPerMinute: 0,
+      isCacheInvalidating: false,
     },
     draggable: false,
     deletable: false,

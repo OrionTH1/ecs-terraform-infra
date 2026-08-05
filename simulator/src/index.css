@@ -73,6 +73,20 @@
   animation: acl-dash 600ms linear infinite;
 }
 
+@keyframes cache-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.cache-pulse {
+  animation: cache-pulse 700ms linear infinite;
+}
+
 @keyframes replication-dash {
   to {
     stroke-dashoffset: -16;
