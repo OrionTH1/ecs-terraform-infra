@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { RDS_REPLICATION_EDGE_ID } from '../canvas/initial-graph'
 import { RDS_READ_FRACTION } from '../simulation/simulation-config'
 import type { TaskRoute } from './useTaskGraph'
 import {
@@ -33,6 +34,10 @@ interface PacketFlowArgs {
 }
 
 const WRITES_EVERY = Math.round(1 / (1 - RDS_READ_FRACTION))
+
+function isCommittedWrite(packet: Packet): boolean {
+  return packet.route.at(-1) !== RDS_REPLICATION_EDGE_ID && packet.legColors.at(-1) === 'write'
+}
 
 interface PathGeometry {
   element: SVGPathElement
@@ -176,7 +181,20 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
 
         const placement = locate(packet, now, cache)
 
-        if (placement.kind === 'arrived') continue
+        if (placement.kind === 'arrived') {
+          if (isCommittedWrite(packet) && currentLiveEdgeIds.has(RDS_REPLICATION_EDGE_ID) && alive.length < MAX_LIVE_PACKETS) {
+            alive.push({
+              id: nextPacketId.current++,
+              route: [RDS_REPLICATION_EDGE_ID],
+              legColors: ['write'],
+              startedAt: now,
+              stalledSince: null,
+              lastPosition: null,
+              color: 'write',
+            })
+          }
+          continue
+        }
 
         if (placement.kind === 'stalled') {
           const stalledSince = packet.stalledSince ?? now
