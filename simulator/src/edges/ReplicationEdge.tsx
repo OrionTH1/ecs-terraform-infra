@@ -1,40 +1,38 @@
-import { getSmoothStepPath, type EdgeProps } from '@xyflow/react'
+import { type EdgeProps } from '@xyflow/react'
 import { REPLICATION_LANE_OFFSET } from '../canvas/initial-graph'
 import { pathElementId } from '../simulation/packets'
 import type { ReplicationEdge as ReplicationEdgeType } from '../types/edge-data'
 
-const LABEL_DISTANCE_FROM_SOURCE = 34
+const CORNER_RADIUS = 12
+const LABEL_DISTANCE_FROM_SOURCE = 40
+
+function replicationPath(sourceX: number, sourceY: number, targetX: number, targetY: number, laneX: number): string {
+  return [
+    `M ${sourceX} ${sourceY}`,
+    `H ${laneX - CORNER_RADIUS}`,
+    `Q ${laneX} ${sourceY} ${laneX} ${sourceY + CORNER_RADIUS}`,
+    `V ${targetY - CORNER_RADIUS}`,
+    `Q ${laneX} ${targetY} ${laneX - CORNER_RADIUS} ${targetY}`,
+    `H ${targetX}`,
+  ].join(' ')
+}
 
 export function ReplicationEdge({
   id,
   sourceX,
   sourceY,
-  sourcePosition,
   targetX,
   targetY,
-  targetPosition,
   data,
 }: EdgeProps<ReplicationEdgeType>) {
   const laneX = Math.max(sourceX, targetX) + REPLICATION_LANE_OFFSET
-
-  const [path] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    borderRadius: 12,
-    centerX: laneX,
-  })
-
   const isActive = data?.isActive ?? false
 
   return (
     <>
       <path
         id={pathElementId(id)}
-        d={path}
+        d={replicationPath(sourceX, sourceY, targetX, targetY, laneX)}
         fill="none"
         strokeWidth={1.5}
         strokeDasharray="4 4"
