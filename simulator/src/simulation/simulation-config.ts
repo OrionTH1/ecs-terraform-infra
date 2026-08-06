@@ -75,6 +75,22 @@ export const BOOT_TIME_SCALE = 60
 
 export const RDS_READ_FRACTION = 0.8
 
+export const LATENCY = {
+  appServiceTimeMs: 24,
+  dbServiceTimeMs: 12,
+  maxUtilization: 0.98,
+  smoothingTimeConstantMs: 12_000,
+  historySampleMs: 5_000,
+  historyLength: 60,
+}
+
+export const TASK_CAPACITY_PER_MINUTE = 60_000 / LATENCY.appServiceTimeMs
+
+export const DB_INSTANCE_CAPACITY_PER_MINUTE = 60_000 / LATENCY.dbServiceTimeMs
+
+export const LATENCY_WARNING_MS = 80
+export const LATENCY_ERROR_MS = 250
+
 export const AURORA_FAILOVER_MS = 30_000
 export const AURORA_REBUILD_WRITER_MS = 10 * 60_000
 export const RDS_INSTANCE_FAILED_LINGER_MS = 4_000

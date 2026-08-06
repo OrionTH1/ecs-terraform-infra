@@ -7,6 +7,7 @@ import { useTaskBlast } from '../../hooks/useTaskBlast'
 import type { NodeStatus } from '../../types/node-data'
 import type { TaskFlowNode, TaskStatus } from '../../types/task-data'
 import { NodeCard } from '../shared/NodeCard'
+import { LatencyReadout } from '../shared/LatencyReadout'
 import { RateReadout } from '../shared/RateReadout'
 import { StageProgress, type StageTone } from '../shared/StageProgress'
 import { TaskIcon } from '../../icons'
@@ -70,6 +71,7 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
           </span>
           <RateReadout value={data.requestsPerMinute} />
         </div>
+        {data.status === 'healthy' ? <LatencyReadout meanMs={data.latencyMs} showTail={false} /> : null}
         <StageProgress
           durationMs={STAGE_DURATION_MS[data.status]}
           startedAt={data.stageEnteredAt}

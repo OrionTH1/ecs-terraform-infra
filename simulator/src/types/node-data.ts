@@ -54,6 +54,8 @@ export interface WafNodeData extends InfraNodeData {
 export interface AlbNodeData extends InfraNodeData {
   requestsPerMinute: number
   healthyTargetCount: number
+  latencyMs: number
+  latencyHistory: number[]
 }
 
 export interface EcsServiceNodeData extends InfraNodeData {
@@ -94,6 +96,7 @@ export interface RdsInstanceNodeData extends InfraNodeData {
   role: RdsInstanceRole
   lifecycle: RdsInstanceLifecycle
   requestsPerMinute: number
+  latencyMs: number
   isCacheInvalidating: boolean
 }
 

@@ -24,6 +24,7 @@ interface TaskGraphArgs {
   isTargetGroupVisible: boolean
   isWriterAvailable: boolean
   isReaderAvailable: boolean
+  taskLatencyMs: number
 }
 
 export interface DatabaseLeg {
@@ -53,6 +54,7 @@ export function useTaskGraph({
   isTargetGroupVisible,
   isWriterAvailable,
   isReaderAvailable,
+  taskLatencyMs,
 }: TaskGraphArgs): TaskGraph {
   const leavingTasks = useLeavingTasks(tasks)
 
@@ -102,12 +104,13 @@ export function useTaskGraph({
           log: task.log,
           createdAt: task.createdAt,
           requestsPerMinute: requestsByTaskId.get(task.id) ?? 0,
+          latencyMs: taskLatencyMs,
           isLeaving: leavingIds.has(task.id),
         },
         draggable: false,
         deletable: false,
       })),
-    [orderedTasks, positions, sizes, requestsByTaskId, leavingIds],
+    [orderedTasks, positions, sizes, requestsByTaskId, leavingIds, taskLatencyMs],
   )
 
   const taskEdges = useMemo((): RequestFlowEdge[] => {

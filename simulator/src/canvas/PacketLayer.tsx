@@ -8,6 +8,7 @@ interface PacketLayerProps {
   taskRoutes: TaskRoute[]
   directEntries: DirectPacketEntry[]
   liveEdgeIds: Set<string>
+  latencyMs: number
 }
 
 const PACKET_COLOR_CLASS: Record<PacketColor, string> = {
@@ -16,8 +17,8 @@ const PACKET_COLOR_CLASS: Record<PacketColor, string> = {
   blocked: 'bg-status-error shadow-[0_0_8px_2px_rgba(239,68,68,0.45)]',
 }
 
-export function PacketLayer({ entries, taskRoutes, directEntries, liveEdgeIds }: PacketLayerProps) {
-  const packets = usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds })
+export function PacketLayer({ entries, taskRoutes, directEntries, liveEdgeIds, latencyMs }: PacketLayerProps) {
+  const packets = usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds, latencyMs })
 
   return (
     <ViewportPortal>

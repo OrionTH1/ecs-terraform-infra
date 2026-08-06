@@ -8,6 +8,9 @@ const MAX_PACKETS_PER_SECOND = 8
 const REQUESTS_PER_SECOND_PER_PACKET = 4
 const SECONDS_PER_MINUTE = 60
 
+const UNCONGESTED_LATENCY_MS = 60
+const MIN_SPEED_FACTOR = 0.3
+
 export type PacketColor = 'default' | 'write' | 'blocked'
 
 export interface Packet {
@@ -36,6 +39,13 @@ export function packetsPerSecond(requestsPerMinute: number): number {
     MAX_PACKETS_PER_SECOND,
     Math.max(MIN_PACKETS_PER_SECOND, requestsPerSecond / REQUESTS_PER_SECOND_PER_PACKET),
   )
+}
+
+export function packetSpeedPxPerSecond(latencyMs: number): number {
+  if (latencyMs <= 0) return PACKET_SPEED_PX_PER_SECOND
+
+  const factor = Math.min(1, Math.max(MIN_SPEED_FACTOR, Math.sqrt(UNCONGESTED_LATENCY_MS / latencyMs)))
+  return PACKET_SPEED_PX_PER_SECOND * factor
 }
 
 export function pathElementId(edgeId: string): string {

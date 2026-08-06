@@ -5,8 +5,8 @@ import type { TaskRoute } from './useTaskGraph'
 import {
   MAX_LIVE_PACKETS,
   MAX_STALL_MS,
-  PACKET_SPEED_PX_PER_SECOND,
   REPLICATION_PACKET_SPEED_PX_PER_SECOND,
+  packetSpeedPxPerSecond,
   packetsPerSecond,
   pathElementId,
   type Packet,
@@ -32,6 +32,7 @@ interface PacketFlowArgs {
   taskRoutes: TaskRoute[]
   directEntries: DirectPacketEntry[]
   liveEdgeIds: Set<string>
+  latencyMs: number
 }
 
 const WRITES_EVERY = Math.round(1 / (1 - RDS_READ_FRACTION))
@@ -78,7 +79,7 @@ function locate(packet: Packet, now: number, cache: Map<string, PathGeometry | n
   return { kind: 'arrived' }
 }
 
-export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds }: PacketFlowArgs): RenderedPacket[] {
+export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds, latencyMs }: PacketFlowArgs): RenderedPacket[] {
   const [rendered, setRendered] = useState<RenderedPacket[]>([])
 
   const packets = useRef<Packet[]>([])
@@ -86,9 +87,9 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
   const nextPacketId = useRef(0)
   const rotation = useRef(0)
   const writeRotation = useRef(0)
-  const inputs = useRef<PacketFlowArgs>({ entries, taskRoutes, directEntries, liveEdgeIds })
+  const inputs = useRef<PacketFlowArgs>({ entries, taskRoutes, directEntries, liveEdgeIds, latencyMs })
 
-  inputs.current = { entries, taskRoutes, directEntries, liveEdgeIds }
+  inputs.current = { entries, taskRoutes, directEntries, liveEdgeIds, latencyMs }
 
   useEffect(() => {
     let frameId = 0
@@ -110,7 +111,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
         packets.current.push({
           id: nextPacketId.current++,
           ...buildRoute(),
-          speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND,
+          speedPxPerSecond: packetSpeedPxPerSecond(inputs.current.latencyMs),
           startedAt: now,
           stalledSince: null,
           lastPosition: null,

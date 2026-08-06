@@ -1,4 +1,5 @@
 import { AWS_ALARM_EVALUATION, AUTOSCALING } from '../simulation/simulation-config'
+import { IDLE_LATENCY } from '../simulation/latency'
 import { NO_ALARM } from '../simulation/autoscaling-alarm'
 import { FRAME_PADDING, frameAround } from './frame-metrics'
 import type { ResourceId } from '../simulation/boot-graph'
@@ -127,6 +128,8 @@ export const initialNodes: SimulatorFlowNode[] = [
       status: 'idle',
       requestsPerMinute: 0,
       healthyTargetCount: 0,
+      latencyMs: IDLE_LATENCY.totalMs,
+      latencyHistory: [],
     },
     draggable: false,
     deletable: false,
@@ -219,6 +222,7 @@ export const initialNodes: SimulatorFlowNode[] = [
       role: 'writer',
       lifecycle: 'provisioning',
       requestsPerMinute: 0,
+      latencyMs: IDLE_LATENCY.writerMs,
       isCacheInvalidating: false,
     },
     draggable: false,
@@ -236,6 +240,7 @@ export const initialNodes: SimulatorFlowNode[] = [
       role: 'reader',
       lifecycle: 'provisioning',
       requestsPerMinute: 0,
+      latencyMs: IDLE_LATENCY.writerMs,
       isCacheInvalidating: false,
     },
     draggable: false,

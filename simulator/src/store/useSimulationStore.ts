@@ -5,7 +5,9 @@ import {
   AUTOSCALING,
   BOOT_TIME_SCALE,
   DEFAULT_TIME_SCALE,
+  LATENCY,
   RDS_INSTANCE_FAILED_LINGER_MS,
+  RDS_READ_FRACTION,
   TASK_LIFECYCLE,
 } from '../simulation/simulation-config'
 import {
@@ -19,9 +21,19 @@ import {
 import {
   RDS_FIRST_INSTANCE_ID,
   RDS_SECOND_INSTANCE_ID,
+  isAcceptingTraffic,
+  routeAuroraTraffic,
   vacantInstanceId,
 } from '../simulation/aurora'
+import {
+  IDLE_LATENCY,
+  appendLatencySample,
+  computeLatency,
+  smoothLatency,
+  type LatencyBreakdown,
+} from '../simulation/latency'
 import { isRunningTask, selectDrainIndexes } from '../simulation/scale-in'
+import { splitReadWrite } from '../simulation/traffic-distribution'
 import { advanceWafSource, createWafSource, windowRequestCount, type WafSourceState } from '../simulation/waf'
 import type { TaskLogEntry, TaskStatus } from '../types/task-data'
 import type { RdsInstanceLifecycle, RdsInstanceRole } from '../types/node-data'
@@ -76,6 +88,9 @@ interface SimulationState {
   rdsSlots: RdsSlots
   hasSeededRdsWriter: boolean
   hasSeededRdsReader: boolean
+  latency: LatencyBreakdown
+  latencyHistory: number[]
+  lastLatencySampleAt: number
   killTask: (taskId: string) => void
   killRdsInstance: (role: RdsInstanceRole) => void
   toggleTaskLog: (taskId: string) => void
@@ -167,6 +182,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   rdsSlots: { writer: null, reader: null },
   hasSeededRdsWriter: false,
   hasSeededRdsReader: false,
+  latency: IDLE_LATENCY,
+  latencyHistory: [],
+  lastLatencySampleAt: 0,
 
   killRdsInstance: (role) =>
     set((state) => {
@@ -336,9 +354,34 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       }
     }
 
+    const healthyTaskCount = tasks.filter((task) => task.status === 'healthy').length
+    const deliveredRequests = healthyTaskCount > 0 ? currentRequestRate : 0
+    const { reads, writes } = splitReadWrite(deliveredRequests, RDS_READ_FRACTION)
+    const auroraTraffic = routeAuroraTraffic(reads, writes, {
+      isWriterAvailable: isAcceptingTraffic(writer?.lifecycle),
+      isReaderAvailable: isAcceptingTraffic(reader?.lifecycle),
+    })
+
+    const latency = smoothLatency(
+      state.latency,
+      computeLatency({
+        requestsPerMinutePerTask: healthyTaskCount > 0 ? deliveredRequests / healthyTaskCount : 0,
+        writerRequestsPerMinute: auroraTraffic.writerRequestsPerMinute,
+        readerRequestsPerMinute: auroraTraffic.readerRequestsPerMinute,
+      }),
+      now - state.clock,
+    )
+
+    const isLatencySampleDue = now - state.lastLatencySampleAt >= LATENCY.historySampleMs
+
     set({
       clock: now,
       resources,
+      latency,
+      latencyHistory: isLatencySampleDue
+        ? appendLatencySample(state.latencyHistory, latency.totalMs)
+        : state.latencyHistory,
+      lastLatencySampleAt: isLatencySampleDue ? now : state.lastLatencySampleAt,
       isApplyComplete,
       timeScale: hasJustFinishedApplying && !state.hasChosenTimeScale ? DEFAULT_TIME_SCALE : state.timeScale,
       tasks: tasksChanged ? tasks : state.tasks,

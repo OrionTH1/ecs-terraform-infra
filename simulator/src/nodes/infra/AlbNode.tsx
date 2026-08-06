@@ -1,6 +1,8 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { AlbFlowNode } from '../../types/node-data'
 import { NodeCard } from '../shared/NodeCard'
+import { LatencyReadout } from '../shared/LatencyReadout'
+import { LatencySparkline } from '../shared/LatencySparkline'
 import { RateReadout } from '../shared/RateReadout'
 import { LoadBalancerIcon } from '../../icons'
 
@@ -29,9 +31,15 @@ export function AlbNode({ data }: NodeProps<AlbFlowNode>) {
         {isRejecting ? (
           <span className="font-mono text-[11px] text-status-error">503 · no healthy targets</span>
         ) : (
-          <span className="font-mono text-[11px] text-fg-muted">
-            {data.healthyTargetCount} healthy target{data.healthyTargetCount === 1 ? '' : 's'}
-          </span>
+          <>
+            <span className="font-mono text-[11px] text-fg-muted">
+              {data.healthyTargetCount} healthy target{data.healthyTargetCount === 1 ? '' : 's'}
+            </span>
+            <div className="mt-1 flex flex-col gap-1 border-t border-border pt-1.5">
+              <LatencyReadout meanMs={data.latencyMs} size="md" />
+              <LatencySparkline history={data.latencyHistory} currentMs={data.latencyMs} />
+            </div>
+          </>
         )}
       </div>
     </NodeCard>

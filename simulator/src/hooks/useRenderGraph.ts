@@ -140,6 +140,8 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
   const wafBlockedRequests = useSimulationStore((state) => state.wafBlockedRequests)
   const blockedIps = useSimulationStore((state) => state.blockedIps)
   const rdsSlots = useSimulationStore((state) => state.rdsSlots)
+  const latency = useSimulationStore((state) => state.latency)
+  const latencyHistory = useSimulationStore((state) => state.latencyHistory)
   const desiredCount = useSimulationStore((state) => state.desiredCount)
   const scaleOutBreachAt = useSimulationStore((state) => state.scaleOutBreachAt)
   const scaleInBreachAt = useSimulationStore((state) => state.scaleInBreachAt)
@@ -188,6 +190,8 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
             provisioning,
             requestsPerMinute: routing.totalRequestsAtAlb,
             healthyTargetCount: routing.healthyTaskCount,
+            latencyMs: latency.totalMs,
+            latencyHistory,
             status: hasNoHealthyTargets && routing.totalRequestsAtAlb > 0 ? 'error' : 'idle',
           }
           return { ...node, data }
@@ -259,6 +263,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
             requestsPerMinute: isWriter
               ? auroraTraffic.writerRequestsPerMinute
               : auroraTraffic.readerRequestsPerMinute,
+            latencyMs: isWriter ? latency.writerMs : latency.readerMs,
             isCacheInvalidating:
               !isWriter && availability.isReaderAvailable && auroraTraffic.committedWritesPerMinute > 0,
           }
@@ -286,6 +291,8 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
     alarm,
     desiredCount,
     requestsPerMinutePerTask,
+    latency,
+    latencyHistory,
   ])
 
   const renderEdges = useMemo(() => {

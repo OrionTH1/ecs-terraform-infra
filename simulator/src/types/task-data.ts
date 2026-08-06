@@ -14,6 +14,7 @@ export interface TaskNodeData extends Record<string, unknown> {
   log: TaskLogEntry[]
   createdAt: number
   requestsPerMinute: number
+  latencyMs: number
   isLeaving: boolean
 }
 

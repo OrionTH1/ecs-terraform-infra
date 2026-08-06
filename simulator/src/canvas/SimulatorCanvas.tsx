@@ -61,6 +61,8 @@ export function SimulatorCanvas() {
   const tasks = useSimulationStore((state) => state.tasks)
   const resources = useSimulationStore((state) => state.resources)
   const rdsSlots = useSimulationStore((state) => state.rdsSlots)
+  const latencyMs = useSimulationStore((state) => state.latency.totalMs)
+  const taskLatencyMs = useSimulationStore((state) => state.latency.taskMs)
 
   useSimulationClock()
   useToolShortcuts()
@@ -74,6 +76,7 @@ export function SimulatorCanvas() {
     isTargetGroupVisible: isCreated(resources, 'targetGroup'),
     isWriterAvailable: isAcceptingTraffic(rdsSlots.writer?.lifecycle),
     isReaderAvailable: isAcceptingTraffic(rdsSlots.reader?.lifecycle),
+    taskLatencyMs,
   })
 
   const { renderNodes, renderEdges, liveEdgeIds, hasNoHealthyTargets } = useRenderGraph({
@@ -141,6 +144,7 @@ export function SimulatorCanvas() {
           taskRoutes={taskGraph.healthyTaskRoutes}
           directEntries={directPacketEntries}
           liveEdgeIds={liveEdgeIds}
+          latencyMs={latencyMs}
         />
       </ReactFlow>
       <ApplyConsole />
