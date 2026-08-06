@@ -19,10 +19,11 @@ export function RequestFlowEdge({
     <path
       id={pathElementId(id)}
       d={path}
+      pathLength={1}
       fill="none"
       strokeWidth={1.5}
       strokeOpacity={isCarryingTraffic ? 1 : 0.4}
-      className="stroke-border"
+      className="edge-draw stroke-border"
     />
   )
 }

@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  PAGE_CACHE_EDGE_ID,
-  READER_TO_VOLUME_EDGE_ID,
-  WRITER_TO_VOLUME_EDGE_ID,
-} from '../canvas/initial-graph'
+import { PAGE_CACHE_EDGE_ID } from '../canvas/initial-graph'
 import { RDS_READ_FRACTION } from '../simulation/simulation-config'
 import type { TaskRoute } from './useTaskGraph'
 import {
@@ -145,18 +141,17 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
               const isWrite = writeRotation.current % WRITES_EVERY === 0
               writeRotation.current += 1
 
-              const databaseEdgeId = isWrite ? taskRoute.writerEdgeId : taskRoute.readerEdgeId
-              if (taskRoute.junctionEdgeId === null || databaseEdgeId === null) {
+              const databaseLeg = isWrite ? taskRoute.writeLeg : taskRoute.readLeg
+              if (taskRoute.junctionEdgeId === null || databaseLeg === null) {
                 return { route: [entry.edgeId, taskRoute.albEdgeId], legColors: ['default', 'default'] }
               }
 
               const databaseColor: PacketColor = isWrite ? 'write' : 'default'
-              const route = [entry.edgeId, taskRoute.albEdgeId, taskRoute.junctionEdgeId, databaseEdgeId]
+              const route = [entry.edgeId, taskRoute.albEdgeId, taskRoute.junctionEdgeId, databaseLeg.instanceEdgeId]
               const legColors: PacketColor[] = ['default', 'default', 'default', databaseColor]
 
-              const volumeEdgeId = isWrite ? WRITER_TO_VOLUME_EDGE_ID : READER_TO_VOLUME_EDGE_ID
-              if (inputs.current.liveEdgeIds.has(volumeEdgeId)) {
-                route.push(volumeEdgeId)
+              if (inputs.current.liveEdgeIds.has(databaseLeg.volumeEdgeId)) {
+                route.push(databaseLeg.volumeEdgeId)
                 legColors.push(databaseColor)
               }
 

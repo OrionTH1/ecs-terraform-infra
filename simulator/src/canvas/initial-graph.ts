@@ -1,4 +1,6 @@
-import { AWS_ALARM_EVALUATION } from '../simulation/simulation-config'
+import { AWS_ALARM_EVALUATION, AUTOSCALING } from '../simulation/simulation-config'
+import { NO_ALARM } from '../simulation/autoscaling-alarm'
+import { FRAME_PADDING, frameAround } from './frame-metrics'
 import type { ResourceId } from '../simulation/boot-graph'
 import type { SimulatorFlowNode } from '../types/node-data'
 import type { SimulatorFlowEdge } from '../types/edge-data'
@@ -7,6 +9,7 @@ export const ALB_NODE_ID = 'alb'
 export const WAF_NODE_ID = 'waf'
 export const WAF_TO_ALB_EDGE_ID = 'waf-alb-association'
 export const ECS_SERVICE_NODE_ID = 'ecs-service'
+export const AUTO_SCALING_NODE_ID = 'auto-scaling'
 export const TARGET_GROUP_NODE_ID = 'target-group'
 export const RDS_CLUSTER_NODE_ID = 'rds-cluster'
 export const RDS_WRITER_NODE_ID = 'rds-writer'
@@ -15,6 +18,8 @@ export const CLUSTER_VOLUME_NODE_ID = 'cluster-volume'
 export const WRITER_TO_VOLUME_EDGE_ID = 'rds-writer-volume'
 export const READER_TO_VOLUME_EDGE_ID = 'rds-reader-volume'
 export const PAGE_CACHE_EDGE_ID = 'rds-writer-reader-page-cache'
+export const METRIC_EDGE_ID = 'alb-auto-scaling-metric'
+export const DESIRED_COUNT_EDGE_ID = 'auto-scaling-ecs-service-desired-count'
 
 const ALB_POSITION = { x: 360, y: 200 }
 const CONTROL_PLANE_Y = ALB_POSITION.y - 330
@@ -26,31 +31,26 @@ export const FALLBACK_TASK_HEIGHT = 108
 export const FALLBACK_TASK_WIDTH = 230
 export const NODE_LEAVE_MS = 340
 
-export const TARGET_GROUP_PADDING = 18
-export const TARGET_GROUP_HEADER_HEIGHT = 26
-export const TARGET_GROUP_MIN_HEIGHT = 96
-export const TARGET_GROUP_ZONE_GAP = 46
+export const TASK_ZONE_GAP = 40
 
-export const ECS_SERVICE_GAP = 68
-export const FALLBACK_ECS_SERVICE_HEIGHT = 150
-export const MANAGEMENT_BUS_OFFSET = TARGET_GROUP_PADDING + 42
-export const MANAGEMENT_HANDLE_TOP_INSET = 26
-export const MANAGEMENT_HANDLE_LEFT_INSET = 22
+export const AUTO_SCALING_GAP = 74
+export const FALLBACK_AUTO_SCALING_HEIGHT = 210
 
-const ECS_SERVICE_POSITION = { x: TASK_COLUMN_X, y: CONTROL_PLANE_Y }
+const FALLBACK_CARD_WIDTH = 210
+const FALLBACK_CARD_HEIGHT = 132
+
 const RDS_INSTANCE_X = TASK_COLUMN_X + 470
 
 export const RDS_WRITER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y - 130 }
 export const RDS_READER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y + 130 }
 export const CLUSTER_VOLUME_POSITION = { x: RDS_INSTANCE_X + 310, y: ALB_POSITION.y - 46 }
 
-export const AURORA_FRAME_PADDING = 26
-export const AURORA_FRAME_HEADER_HEIGHT = 30
-export const AURORA_FRAME_POSITION = {
-  x: RDS_INSTANCE_X - AURORA_FRAME_PADDING,
-  y: RDS_WRITER_POSITION.y - AURORA_FRAME_HEADER_HEIGHT - AURORA_FRAME_PADDING,
-}
-export const AURORA_FRAME_SIZE = { width: 620, height: 430 }
+const AURORA_FRAME = frameAround({
+  left: RDS_INSTANCE_X,
+  top: RDS_WRITER_POSITION.y,
+  right: CLUSTER_VOLUME_POSITION.x + FALLBACK_CARD_WIDTH,
+  bottom: RDS_READER_POSITION.y + FALLBACK_CARD_HEIGHT,
+})
 
 export const DB_JUNCTION_NODE_ID = 'db-junction'
 export const DB_JUNCTION_SIZE = 12
@@ -73,14 +73,11 @@ export function albToTaskEdgeId(taskId: string): string {
   return `${ALB_NODE_ID}-${taskId}`
 }
 
-export function serviceToTaskEdgeId(taskId: string): string {
-  return `${ECS_SERVICE_NODE_ID}-${taskId}`
-}
-
 export const NODE_RESOURCE_ID: Record<string, ResourceId> = {
   [WAF_NODE_ID]: 'wafWebAcl',
   [ALB_NODE_ID]: 'alb',
   [ECS_SERVICE_NODE_ID]: 'ecsService',
+  [AUTO_SCALING_NODE_ID]: 'autoScalingPolicy',
   [DB_JUNCTION_NODE_ID]: 'ecsService',
   [RDS_CLUSTER_NODE_ID]: 'rdsCluster',
   [CLUSTER_VOLUME_NODE_ID]: 'rdsCluster',
@@ -90,7 +87,17 @@ export const NODE_RESOURCE_ID: Record<string, ResourceId> = {
 
 export const EDGE_RESOURCE_ID: Record<string, ResourceId> = {
   [WAF_TO_ALB_EDGE_ID]: 'wafAssociation',
+  [METRIC_EDGE_ID]: 'autoScalingPolicy',
+  [DESIRED_COUNT_EDGE_ID]: 'autoScalingPolicy',
 }
+
+const ECS_SERVICE_TOOLTIP =
+  'Control plane, not a traffic hop — requests never pass through it. Everything inside this frame is a task the service owns: it holds the desired count, launches replacements for tasks that die, and registers each one into the ALB target group. It has no scaling rule of its own — Application Auto Scaling calls UpdateService with a new desired count and the scheduler simply converges on it.'
+
+const AUTO_SCALING_TOOLTIP =
+  'A separate AWS service, not part of ECS. It registers the service as a scalable target with min/max capacity and tracks ALBRequestCountPerTarget against a target value. It creates and owns two CloudWatch alarms you never write yourself: AlarmHigh for scale out and AlarmLow for scale in. When one fires, it computes a new desired count and calls UpdateService — only then does the ECS scheduler start or stop tasks. Target tracking is asymmetric: on AWS it scales out after ' +
+  `${AWS_ALARM_EVALUATION.scaleOutMs / 60_000} minutes above target but only scales in after ${AWS_ALARM_EVALUATION.scaleInMs / 60_000} minutes below it. ` +
+  'Both windows are shortened here so the demo stays watchable.'
 
 export const initialNodes: SimulatorFlowNode[] = [
   {
@@ -125,34 +132,53 @@ export const initialNodes: SimulatorFlowNode[] = [
     deletable: false,
   },
   {
-    id: ECS_SERVICE_NODE_ID,
-    type: 'ecsService',
-    position: ECS_SERVICE_POSITION,
+    id: AUTO_SCALING_NODE_ID,
+    type: 'autoScaling',
+    position: { x: TASK_COLUMN_X, y: CONTROL_PLANE_Y },
     data: {
-      label: 'ECS Service',
-      tooltip:
-        'Control plane, not a traffic hop — requests never pass through it. The service holds the desired count, replaces tasks that die, and registers each task it starts into the ALB target group. Autoscaling tracks the ALBRequestCountPerTarget metric to keep the average near 1000 req/min per task. Target tracking is asymmetric: on AWS it scales out after ' +
-        `${AWS_ALARM_EVALUATION.scaleOutMs / 60_000} minutes above target but only scales in after ${AWS_ALARM_EVALUATION.scaleInMs / 60_000} minutes below it. ` +
-        'Both alarm windows are shortened here so the demo stays watchable.',
+      label: 'Application Auto Scaling',
+      tooltip: AUTO_SCALING_TOOLTIP,
       status: 'idle',
-      requestsPerMinute: 0,
-      healthyTaskCount: 0,
-      totalTaskCount: 0,
+      requestsPerMinutePerTask: null,
+      targetRequestsPerMinutePerTask: AUTOSCALING.targetRequestsPerMinutePerTask,
+      alarm: NO_ALARM,
+      minCapacity: AUTOSCALING.minCapacity,
+      maxCapacity: AUTOSCALING.maxCapacity,
+      desiredCount: AUTOSCALING.minCapacity,
     },
     draggable: false,
     deletable: false,
   },
   {
+    id: ECS_SERVICE_NODE_ID,
+    type: 'ecsService',
+    position: { x: TASK_COLUMN_X - FRAME_PADDING * 2, y: TASK_COLUMN_CENTER_Y },
+    data: {
+      label: 'ECS Service',
+      tooltip: ECS_SERVICE_TOOLTIP,
+      status: 'idle',
+      width: FALLBACK_TASK_WIDTH + FRAME_PADDING * 4,
+      height: 0,
+      desiredCount: AUTOSCALING.minCapacity,
+      runningTaskCount: 0,
+      pendingTaskCount: 0,
+    },
+    draggable: false,
+    deletable: false,
+    selectable: false,
+    zIndex: -2,
+  },
+  {
     id: RDS_CLUSTER_NODE_ID,
     type: 'auroraCluster',
-    position: AURORA_FRAME_POSITION,
+    position: AURORA_FRAME.position,
     data: {
       label: 'Aurora Cluster',
       tooltip:
         'A DB cluster is compute plus storage: the instances below and one shared cluster volume. Aurora Serverless v2 (Postgres), 0–1 ACU with auto-pause after an hour idle — one ACU is roughly 2 GiB of memory plus matching CPU, and capacity moves in 0.5 ACU steps without dropping connections. The cluster publishes the writer and reader endpoints; it never proxies a query itself, and each endpoint resolves straight to an instance.',
       status: 'idle',
-      width: AURORA_FRAME_SIZE.width,
-      height: AURORA_FRAME_SIZE.height,
+      width: AURORA_FRAME.width,
+      height: AURORA_FRAME.height,
     },
     draggable: false,
     deletable: false,
@@ -220,12 +246,36 @@ export const initialNodes: SimulatorFlowNode[] = [
 export const initialEdges: SimulatorFlowEdge[] = [
   {
     id: WAF_TO_ALB_EDGE_ID,
-    type: 'association',
+    type: 'signal',
     source: WAF_NODE_ID,
     sourceHandle: 'acl-out',
     target: ALB_NODE_ID,
     targetHandle: 'acl-in',
-    data: { isActive: false, variant: 'association', routing: 'direct' },
+    data: { isActive: false, variant: 'association', label: 'associated' },
+    deletable: false,
+    reconnectable: false,
+    selectable: false,
+  },
+  {
+    id: METRIC_EDGE_ID,
+    type: 'signal',
+    source: ALB_NODE_ID,
+    sourceHandle: 'metric-out',
+    target: AUTO_SCALING_NODE_ID,
+    targetHandle: 'metric-in',
+    data: { isActive: false, variant: 'metric', label: 'req/target' },
+    deletable: false,
+    reconnectable: false,
+    selectable: false,
+  },
+  {
+    id: DESIRED_COUNT_EDGE_ID,
+    type: 'signal',
+    source: AUTO_SCALING_NODE_ID,
+    sourceHandle: 'desired-count-out',
+    target: ECS_SERVICE_NODE_ID,
+    targetHandle: 'desired-count-in',
+    data: { isActive: false, variant: 'command', label: 'UpdateService' },
     deletable: false,
     reconnectable: false,
     selectable: false,

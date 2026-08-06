@@ -2,18 +2,19 @@ import { useMemo } from 'react'
 import {
   ALB_NODE_ID,
   DB_JUNCTION_NODE_ID,
-  ECS_SERVICE_NODE_ID,
   JUNCTION_TO_READER_EDGE_ID,
   JUNCTION_TO_WRITER_EDGE_ID,
+  READER_TO_VOLUME_EDGE_ID,
+  WRITER_TO_VOLUME_EDGE_ID,
   albToTaskEdgeId,
-  serviceToTaskEdgeId,
   taskToJunctionEdgeId,
 } from '../canvas/initial-graph'
 import { isRegisteredTarget } from '../simulation/target-group'
 import { useLeavingTasks } from './useLeavingTasks'
 import { useTaskColumnLayout } from './useTaskColumnLayout'
 import type { TaskRuntime } from '../store/useSimulationStore'
-import type { AssociationEdge, RequestFlowEdge } from '../types/edge-data'
+import type { RequestFlowEdge } from '../types/edge-data'
+import type { FrameBox } from '../canvas/frame-metrics'
 import type { TargetGroupFlowNode } from '../types/node-data'
 import type { TaskFlowNode } from '../types/task-data'
 
@@ -21,23 +22,28 @@ interface TaskGraphArgs {
   tasks: TaskRuntime[]
   requestsByTaskId: Map<string, number>
   isTargetGroupVisible: boolean
-  isServiceVisible: boolean
-  isWriterVisible: boolean
-  isReaderVisible: boolean
+  isWriterAvailable: boolean
+  isReaderAvailable: boolean
+}
+
+export interface DatabaseLeg {
+  instanceEdgeId: string
+  volumeEdgeId: string
 }
 
 export interface TaskRoute {
   albEdgeId: string
   junctionEdgeId: string | null
-  writerEdgeId: string | null
-  readerEdgeId: string | null
+  readLeg: DatabaseLeg | null
+  writeLeg: DatabaseLeg | null
 }
 
 export interface TaskGraph {
   taskNodes: TaskFlowNode[]
-  servicePosition: { x: number; y: number }
   targetGroupNode: TargetGroupFlowNode | null
-  taskEdges: (RequestFlowEdge | AssociationEdge)[]
+  serviceFrame: FrameBox
+  autoScalingPosition: { x: number; y: number }
+  taskEdges: RequestFlowEdge[]
   healthyTaskRoutes: TaskRoute[]
 }
 
@@ -45,9 +51,8 @@ export function useTaskGraph({
   tasks,
   requestsByTaskId,
   isTargetGroupVisible,
-  isServiceVisible,
-  isWriterVisible,
-  isReaderVisible,
+  isWriterAvailable,
+  isReaderAvailable,
 }: TaskGraphArgs): TaskGraph {
   const leavingTasks = useLeavingTasks(tasks)
 
@@ -56,12 +61,28 @@ export function useTaskGraph({
     [tasks, leavingTasks],
   )
 
-  const isDatabaseReachable = isWriterVisible || isReaderVisible
+  const writeLeg = useMemo(
+    (): DatabaseLeg | null =>
+      isWriterAvailable
+        ? { instanceEdgeId: JUNCTION_TO_WRITER_EDGE_ID, volumeEdgeId: WRITER_TO_VOLUME_EDGE_ID }
+        : null,
+    [isWriterAvailable],
+  )
+
+  const readLeg = useMemo(
+    (): DatabaseLeg | null =>
+      isReaderAvailable
+        ? { instanceEdgeId: JUNCTION_TO_READER_EDGE_ID, volumeEdgeId: READER_TO_VOLUME_EDGE_ID }
+        : writeLeg,
+    [isReaderAvailable, writeLeg],
+  )
+
+  const isDatabaseReachable = writeLeg !== null || readLeg !== null
 
   const leavingIds = useMemo(() => new Set(leavingTasks.map((task) => task.id)), [leavingTasks])
   const healthyTaskCount = useMemo(() => tasks.filter((task) => task.status === 'healthy').length, [tasks])
 
-  const { positions, sizes, servicePosition, targetGroupNode } = useTaskColumnLayout({
+  const { positions, sizes, targetGroupNode, serviceFrame, autoScalingPosition } = useTaskColumnLayout({
     orderedTasks,
     isTargetGroupVisible,
     healthyTaskCount,
@@ -89,8 +110,8 @@ export function useTaskGraph({
     [orderedTasks, positions, sizes, requestsByTaskId, leavingIds],
   )
 
-  const taskEdges = useMemo((): (RequestFlowEdge | AssociationEdge)[] => {
-    const edges: (RequestFlowEdge | AssociationEdge)[] = []
+  const taskEdges = useMemo((): RequestFlowEdge[] => {
+    const edges: RequestFlowEdge[] = []
 
     for (const task of orderedTasks) {
       const requestsPerMinute = requestsByTaskId.get(task.id) ?? 0
@@ -106,21 +127,6 @@ export function useTaskGraph({
           data: { requestsPerMinute },
           deletable: false,
           reconnectable: false,
-        })
-      }
-
-      if (isServiceVisible) {
-        edges.push({
-          id: serviceToTaskEdgeId(task.id),
-          type: 'association',
-          source: ECS_SERVICE_NODE_ID,
-          sourceHandle: 'manages-out',
-          target: task.id,
-          targetHandle: 'manages-in',
-          data: { isActive: task.status === 'failed', variant: 'management', routing: 'bus' },
-          deletable: false,
-          reconnectable: false,
-          selectable: false,
         })
       }
 
@@ -140,7 +146,7 @@ export function useTaskGraph({
     }
 
     return edges
-  }, [orderedTasks, requestsByTaskId, isServiceVisible, isDatabaseReachable])
+  }, [orderedTasks, requestsByTaskId, isDatabaseReachable])
 
   const healthyTaskRoutes = useMemo(
     (): TaskRoute[] =>
@@ -149,11 +155,11 @@ export function useTaskGraph({
         .map((task) => ({
           albEdgeId: albToTaskEdgeId(task.id),
           junctionEdgeId: isDatabaseReachable ? taskToJunctionEdgeId(task.id) : null,
-          writerEdgeId: isWriterVisible ? JUNCTION_TO_WRITER_EDGE_ID : null,
-          readerEdgeId: isReaderVisible ? JUNCTION_TO_READER_EDGE_ID : null,
+          readLeg,
+          writeLeg,
         })),
-    [tasks, isDatabaseReachable, isWriterVisible, isReaderVisible],
+    [tasks, isDatabaseReachable, readLeg, writeLeg],
   )
 
-  return { taskNodes, servicePosition, targetGroupNode, taskEdges, healthyTaskRoutes }
+  return { taskNodes, targetGroupNode, serviceFrame, autoScalingPosition, taskEdges, healthyTaskRoutes }
 }

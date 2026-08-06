@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
 import { useAnimatedNumber } from '../../hooks/useAnimatedNumber'
+import { useRecentChange } from '../../hooks/useRecentChange'
 
 type RateReadoutSize = 'sm' | 'md'
 
@@ -8,8 +8,6 @@ interface RateReadoutProps {
   size?: RateReadoutSize
 }
 
-const HIGHLIGHT_MS = 700
-
 const VALUE_SIZE: Record<RateReadoutSize, string> = {
   sm: 'text-[13px]',
   md: 'text-[15px]',
@@ -17,17 +15,7 @@ const VALUE_SIZE: Record<RateReadoutSize, string> = {
 
 export function RateReadout({ value, size = 'sm' }: RateReadoutProps) {
   const display = useAnimatedNumber(value)
-  const [isChanging, setIsChanging] = useState(false)
-  const previous = useRef(value)
-
-  useEffect(() => {
-    if (value === previous.current) return
-    previous.current = value
-
-    setIsChanging(true)
-    const timeoutId = setTimeout(() => setIsChanging(false), HIGHLIGHT_MS)
-    return () => clearTimeout(timeoutId)
-  }, [value])
+  const isChanging = useRecentChange(value)
 
   const isIdle = display === 0
 

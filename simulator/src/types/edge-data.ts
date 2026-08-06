@@ -12,15 +12,14 @@ export interface ReplicationEdgeData extends Record<string, unknown> {
 
 export type ReplicationEdge = Edge<ReplicationEdgeData, 'replication'>
 
-export type AssociationVariant = 'association' | 'management'
-export type AssociationRouting = 'direct' | 'bus'
+export type SignalVariant = 'association' | 'metric' | 'command'
 
-export interface AssociationEdgeData extends Record<string, unknown> {
+export interface SignalEdgeData extends Record<string, unknown> {
   isActive: boolean
-  variant: AssociationVariant
-  routing: AssociationRouting
+  variant: SignalVariant
+  label: string
 }
 
-export type AssociationEdge = Edge<AssociationEdgeData, 'association'>
+export type SignalEdge = Edge<SignalEdgeData, 'signal'>
 
-export type SimulatorFlowEdge = RequestFlowEdge | ReplicationEdge | AssociationEdge
+export type SimulatorFlowEdge = RequestFlowEdge | ReplicationEdge | SignalEdge

@@ -19,12 +19,22 @@
 
   --radius-card: 10px;
   --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.35);
+
+  --ease-converge: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-drain: cubic-bezier(0.4, 0, 1, 1);
+  --ease-state: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --motion-ack: 120ms;
+  --motion-state: 240ms;
+  --motion-drain: 320ms;
+  --motion-settle: 380ms;
+  --motion-provision: 560ms;
 }
 
-@keyframes node-enter {
+@keyframes node-materialize {
   from {
     opacity: 0;
-    transform: translateX(-14px) scale(0.94);
+    transform: scale(0.94);
   }
   to {
     opacity: 1;
@@ -32,7 +42,7 @@
   }
 }
 
-@keyframes node-leave {
+@keyframes node-drain {
   from {
     opacity: 1;
     transform: none;
@@ -41,6 +51,72 @@
     opacity: 0;
     transform: translateX(-14px) scale(0.94);
   }
+}
+
+@keyframes card-settle {
+  0% {
+    box-shadow: var(--shadow-card), 0 0 0 0 color-mix(in srgb, var(--color-border-interaction) 55%, transparent);
+  }
+  40% {
+    box-shadow: var(--shadow-card), 0 0 0 4px color-mix(in srgb, var(--color-border-interaction) 22%, transparent);
+  }
+  100% {
+    box-shadow: var(--shadow-card), 0 0 0 0 color-mix(in srgb, var(--color-border-interaction) 0%, transparent);
+  }
+}
+
+@keyframes content-resolve {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes edge-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.node-materialize {
+  animation: node-materialize var(--motion-provision) var(--ease-converge) both;
+}
+
+.node-drain {
+  animation: node-drain var(--motion-drain) var(--ease-drain) forwards;
+}
+
+.card-settle {
+  animation: card-settle var(--motion-provision) var(--ease-converge);
+}
+
+.content-resolve {
+  animation: content-resolve var(--motion-state) var(--ease-converge) both;
+}
+
+.edge-draw {
+  stroke-dasharray: 1;
+  animation: edge-draw var(--motion-provision) var(--ease-converge) both;
+}
+
+@keyframes edge-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.edge-fade-in {
+  animation: edge-fade-in var(--motion-provision) var(--ease-converge) both;
 }
 
 @keyframes log-entry-in {
@@ -63,14 +139,14 @@
   }
 }
 
-@keyframes acl-dash {
+@keyframes signal-dash {
   to {
     stroke-dashoffset: -16;
   }
 }
 
-.acl-dash {
-  animation: acl-dash 600ms linear infinite;
+.signal-dash {
+  animation: signal-dash 600ms linear infinite;
 }
 
 @keyframes cache-pulse {
@@ -98,8 +174,15 @@
 }
 
 .react-flow .react-flow__node-task,
-.react-flow .react-flow__node-targetGroup {
-  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
+.react-flow .react-flow__node-targetGroup,
+.react-flow .react-flow__node-ecsService,
+.react-flow .react-flow__node-autoScaling {
+  transition: transform var(--motion-settle) var(--ease-converge);
+}
+
+.react-flow .react-flow__edge-path,
+.react-flow .react-flow__edge path {
+  transition: stroke-opacity var(--motion-state) var(--ease-state);
 }
 
 .react-flow .react-flow__controls {
@@ -249,6 +332,46 @@
 
 [data-active-tool='hand'] .react-flow__pane.draggable:active {
   cursor: grabbing;
+}
+
+.press-ack {
+  transition:
+    transform var(--motion-ack) var(--ease-state),
+    background-color var(--motion-ack) var(--ease-state),
+    border-color var(--motion-ack) var(--ease-state),
+    color var(--motion-ack) var(--ease-state);
+}
+
+.press-ack:active {
+  transform: scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node-materialize,
+  .node-drain,
+  .card-settle,
+  .content-resolve,
+  .edge-draw,
+  .signal-dash,
+  .replication-dash,
+  .cache-pulse {
+    animation: none;
+  }
+
+  .edge-draw {
+    stroke-dasharray: none;
+  }
+
+  .react-flow .react-flow__node-task,
+  .react-flow .react-flow__node-targetGroup,
+  .react-flow .react-flow__node-ecsService,
+  .react-flow .react-flow__node-autoScaling {
+    transition: none;
+  }
+
+  .press-ack:active {
+    transform: none;
+  }
 }
 
 html,

@@ -1,4 +1,5 @@
 import type { Node } from '@xyflow/react'
+import type { AutoScalingAlarm } from '../simulation/autoscaling-alarm'
 import type { TaskFlowNode } from './task-data'
 
 export type NodeStatus = 'idle' | 'healthy' | 'warning' | 'error'
@@ -56,9 +57,20 @@ export interface AlbNodeData extends InfraNodeData {
 }
 
 export interface EcsServiceNodeData extends InfraNodeData {
-  requestsPerMinute: number
-  healthyTaskCount: number
-  totalTaskCount: number
+  width: number
+  height: number
+  desiredCount: number
+  runningTaskCount: number
+  pendingTaskCount: number
+}
+
+export interface AutoScalingNodeData extends InfraNodeData {
+  requestsPerMinutePerTask: number | null
+  targetRequestsPerMinutePerTask: number
+  alarm: AutoScalingAlarm
+  minCapacity: number
+  maxCapacity: number
+  desiredCount: number
 }
 
 export interface TargetGroupNodeData extends InfraNodeData {
@@ -87,6 +99,7 @@ export interface RdsInstanceNodeData extends InfraNodeData {
 
 export type AlbFlowNode = Node<AlbNodeData, 'alb'>
 export type EcsServiceFlowNode = Node<EcsServiceNodeData, 'ecsService'>
+export type AutoScalingFlowNode = Node<AutoScalingNodeData, 'autoScaling'>
 export type UserFlowNode = Node<UserNodeData, 'user'>
 export type UserGroupFlowNode = Node<UserGroupNodeData, 'userGroup'>
 export type WafFlowNode = Node<WafNodeData, 'waf'>
@@ -99,6 +112,7 @@ export type RdsInstanceFlowNode = Node<RdsInstanceNodeData, 'rdsInstance'>
 export type SimulatorFlowNode =
   | AlbFlowNode
   | EcsServiceFlowNode
+  | AutoScalingFlowNode
   | UserFlowNode
   | UserGroupFlowNode
   | WafFlowNode

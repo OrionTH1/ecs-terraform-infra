@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Container,
   Database,
+  Gauge,
   HardDrive,
   Hand,
   Network,
@@ -40,6 +41,10 @@ export function EcsServiceIcon({ className }: IconProps) {
 
 export function TaskIcon({ className }: IconProps) {
   return <Glyph icon={Container} size={16} className={className} />
+}
+
+export function AutoScalingIcon({ className }: IconProps) {
+  return <Glyph icon={Gauge} size={16} className={className} />
 }
 
 export function RdsIcon({ className }: IconProps) {

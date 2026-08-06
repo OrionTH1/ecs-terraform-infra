@@ -7,6 +7,7 @@ export type ResourceId =
   | 'rdsWriter'
   | 'rdsReader'
   | 'ecsService'
+  | 'autoScalingPolicy'
 
 export type ResourceStatus = 'pending' | 'creating' | 'created'
 
@@ -64,6 +65,11 @@ export const BOOT_GRAPH: Record<ResourceId, ResourceDefinition> = {
     terraformAddress: 'module.ecs.aws_ecs_service.backend',
     dependsOn: ['alb', 'targetGroup', 'rdsCluster'],
     durationMs: 60_000,
+  },
+  autoScalingPolicy: {
+    terraformAddress: 'module.ecs.aws_appautoscaling_policy.request_count_per_target',
+    dependsOn: ['ecsService'],
+    durationMs: 10_000,
   },
 }
 

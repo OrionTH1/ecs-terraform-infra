@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useRecentChange } from '../../hooks/useRecentChange'
 import type { NodeStatus, ProvisioningInfo } from '../../types/node-data'
 import { InfoTooltip } from './InfoTooltip'
 import { StageProgress } from './StageProgress'
@@ -13,8 +14,7 @@ interface NodeCardProps {
   status?: NodeStatus
   provisioning?: ProvisioningInfo | null
   isProvisional?: boolean
-  animateIn?: boolean
-  animateOut?: boolean
+  isLeaving?: boolean
   isTargetable?: boolean
   isBlasted?: boolean
   overlay?: ReactNode
@@ -25,9 +25,7 @@ interface NodeCardProps {
   children?: ReactNode
 }
 
-const ENTER_ANIMATION = 'node-enter 340ms cubic-bezier(0.16, 1, 0.3, 1)'
-const LEAVE_ANIMATION = 'node-leave 320ms cubic-bezier(0.4, 0, 1, 1) forwards'
-const BLAST_ANIMATION = 'node-blast 420ms ease-out'
+const SETTLE_MS = 560
 
 const statusBorderClass: Record<NodeStatus, string> = {
   idle: 'border-border',
@@ -45,8 +43,7 @@ export function NodeCard({
   status = 'idle',
   provisioning = null,
   isProvisional = false,
-  animateIn = false,
-  animateOut = false,
+  isLeaving = false,
   isTargetable = false,
   isBlasted = false,
   overlay,
@@ -56,25 +53,22 @@ export function NodeCard({
   handles,
   children,
 }: NodeCardProps) {
+  const isProvisioning = provisioning !== null
+  const hasJustProvisioned = useRecentChange(isProvisioning, SETTLE_MS) && !isProvisioning
+
   const borderClass =
     status !== 'idle' ? statusBorderClass[status] : variant === 'interaction' ? 'border-border-interaction' : 'border-border'
 
+  const lifecycleClass = isLeaving ? 'node-drain' : isBlasted ? 'node-blast' : 'node-materialize'
+
   return (
     <div
-      className={`group/card relative min-w-[170px] overflow-visible rounded-card border bg-surface shadow-card transition-colors duration-300 ${borderClass} ${
-        isProvisional || provisioning ? 'border-dashed' : ''
-      } ${
+      className={`group/card relative min-w-[170px] overflow-visible rounded-card border bg-surface shadow-card ${lifecycleClass} ${
+        hasJustProvisioned ? 'card-settle' : ''
+      } ${borderClass} ${isProvisional || isProvisioning ? 'border-dashed' : ''} ${
         isTargetable ? 'nodrag cursor-crosshair hover:border-status-error hover:shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''
       }`}
-      style={
-        animateOut
-          ? { animation: LEAVE_ANIMATION }
-          : isBlasted
-            ? { animation: BLAST_ANIMATION }
-            : animateIn
-              ? { animation: ENTER_ANIMATION }
-              : undefined
-      }
+      style={{ transitionProperty: 'border-color, box-shadow', transitionDuration: 'var(--motion-state)' }}
       onClick={isTargetable ? onTargetClick : undefined}
     >
       {handles}
@@ -85,7 +79,7 @@ export function NodeCard({
         <InfoTooltip text={tooltip} />
       </div>
       {provisioning ? (
-        <div className="px-3 py-2.5">
+        <div key="provisioning" className="content-resolve px-3 py-2.5">
           <div className="flex w-[186px] flex-col gap-1.5">
             <span className="font-sans text-xs font-medium text-fg">{provisioning.label ?? 'Creating'}</span>
             <StageProgress durationMs={provisioning.durationMs} startedAt={provisioning.startedAt} tone="creating" />
@@ -93,14 +87,16 @@ export function NodeCard({
           </div>
         </div>
       ) : children ? (
-        <div className="px-3 py-2.5">{children}</div>
+        <div key="content" className="content-resolve px-3 py-2.5">
+          {children}
+        </div>
       ) : null}
       {onRemove ? (
         <button
           type="button"
           title={removeLabel}
           aria-label={removeLabel}
-          className="nodrag absolute -top-2.5 -right-2.5 z-10 inline-flex h-[20px] w-[20px] cursor-pointer items-center justify-center rounded-full border border-border bg-surface-raised text-fg-muted opacity-0 shadow-card transition-[opacity,color,border-color] duration-150 hover:border-status-error hover:text-status-error focus-visible:opacity-100 group-hover/card:opacity-100"
+          className="press-ack nodrag absolute -top-2.5 -right-2.5 z-10 inline-flex h-[20px] w-[20px] cursor-pointer items-center justify-center rounded-full border border-border bg-surface-raised text-fg-muted opacity-0 shadow-card hover:border-status-error hover:text-status-error focus-visible:opacity-100 group-hover/card:opacity-100"
           onClick={(event) => {
             event.stopPropagation()
             onRemove()

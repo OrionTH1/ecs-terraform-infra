@@ -18,7 +18,7 @@ export function ToolbarButton({ icon: Icon, label, shortcut, description, isActi
       aria-keyshortcuts={shortcut}
       aria-label={`${label} (${shortcut.toUpperCase()})`}
       title={`${label} (${shortcut.toUpperCase()}) — ${description}`}
-      className={`inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md transition-colors duration-150 ${
+      className={`inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-md press-ack ${
         isActive ? 'bg-border-interaction text-fg' : 'text-fg-muted hover:bg-surface-raised hover:text-fg'
       }`}
     >

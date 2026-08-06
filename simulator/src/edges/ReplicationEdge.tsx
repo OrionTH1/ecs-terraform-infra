@@ -8,7 +8,7 @@ export function ReplicationEdge({ id, sourceX, sourceY, targetX, targetY, data }
   const isActive = data?.isActive ?? false
 
   return (
-    <>
+    <g className="edge-fade-in">
       <path
         id={pathElementId(id)}
         d={`M ${sourceX} ${sourceY} L ${targetX} ${targetY}`}
@@ -27,6 +27,6 @@ export function ReplicationEdge({ id, sourceX, sourceY, targetX, targetY, data }
       >
         page cache
       </text>
-    </>
+    </g>
   )
 }

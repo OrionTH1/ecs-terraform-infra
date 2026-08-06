@@ -3,6 +3,7 @@ import { Background, BackgroundVariant, Controls, ReactFlow, useNodesState, useE
 import { AlbNode } from '../nodes/infra/AlbNode'
 import { WafNode } from '../nodes/infra/WafNode'
 import { EcsServiceNode } from '../nodes/infra/EcsServiceNode'
+import { AutoScalingNode } from '../nodes/infra/AutoScalingNode'
 import { TargetGroupNode } from '../nodes/infra/TargetGroupNode'
 import { DbJunctionNode } from '../nodes/infra/DbJunctionNode'
 import { TaskNode } from '../nodes/infra/TaskNode'
@@ -13,7 +14,7 @@ import { UserNode } from '../nodes/interaction/UserNode'
 import { UserGroupNode } from '../nodes/interaction/UserGroupNode'
 import { RequestFlowEdge } from '../edges/RequestFlowEdge'
 import { ReplicationEdge } from '../edges/ReplicationEdge'
-import { AssociationEdge } from '../edges/AssociationEdge'
+import { SignalEdge } from '../edges/SignalEdge'
 import { ApplyConsole } from '../panels/ApplyConsole'
 import { CanvasControls } from '../panels/CanvasControls'
 import { PacketLayer } from './PacketLayer'
@@ -28,6 +29,7 @@ import { useToolShortcuts } from '../hooks/useToolShortcuts'
 import { useSettleViewport } from '../hooks/useSettleViewport'
 import { useIsCompactViewport } from '../hooks/useMediaQuery'
 import { useSimulationStore } from '../store/useSimulationStore'
+import { isAcceptingTraffic } from '../simulation/aurora'
 import { isCreated } from '../simulation/boot-graph'
 import { ALB_NODE_ID, FIT_VIEW_OPTIONS, MIN_ZOOM, initialEdges, initialNodes } from './initial-graph'
 
@@ -35,6 +37,7 @@ const nodeTypes = {
   alb: AlbNode,
   waf: WafNode,
   ecsService: EcsServiceNode,
+  autoScaling: AutoScalingNode,
   targetGroup: TargetGroupNode,
   dbJunction: DbJunctionNode,
   task: TaskNode,
@@ -48,7 +51,7 @@ const nodeTypes = {
 const edgeTypes = {
   requestFlow: RequestFlowEdge,
   replication: ReplicationEdge,
-  association: AssociationEdge,
+  signal: SignalEdge,
 }
 
 export function SimulatorCanvas() {
@@ -57,6 +60,7 @@ export function SimulatorCanvas() {
 
   const tasks = useSimulationStore((state) => state.tasks)
   const resources = useSimulationStore((state) => state.resources)
+  const rdsSlots = useSimulationStore((state) => state.rdsSlots)
 
   useSimulationClock()
   useToolShortcuts()
@@ -68,15 +72,13 @@ export function SimulatorCanvas() {
     tasks,
     requestsByTaskId: routing.requestsByTaskId,
     isTargetGroupVisible: isCreated(resources, 'targetGroup'),
-    isServiceVisible: isCreated(resources, 'ecsService'),
-    isWriterVisible: isCreated(resources, 'rdsWriter'),
-    isReaderVisible: isCreated(resources, 'rdsReader'),
+    isWriterAvailable: isAcceptingTraffic(rdsSlots.writer?.lifecycle),
+    isReaderAvailable: isAcceptingTraffic(rdsSlots.reader?.lifecycle),
   })
 
   const { renderNodes, renderEdges, liveEdgeIds, hasNoHealthyTargets } = useRenderGraph({
     nodes,
     edges,
-    taskCount: tasks.length,
     routing,
     taskGraph,
   })

@@ -1,5 +1,4 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { MANAGEMENT_HANDLE_TOP_INSET } from '../../canvas/initial-graph'
 import { STAGE_DURATION_MS } from '../../simulation/simulation-config'
 import { TaskBlastEffect } from './TaskBlastEffect'
 import { TaskDebugLog } from './TaskDebugLog'
@@ -52,21 +51,13 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
       tooltip="One ECS Fargate task behind the ALB target group. Only healthy tasks are registered in the target group and receive traffic."
       status={STATUS_TO_CARD_STATUS[data.status]}
       isProvisional={data.status === 'registering'}
-      animateIn={!data.isLeaving}
-      animateOut={data.isLeaving}
+      isLeaving={data.isLeaving}
       isTargetable={isTargetable}
       isBlasted={data.status === 'failed'}
       overlay={data.status === 'failed' ? <TaskBlastEffect /> : null}
       onTargetClick={blast}
       handles={
         <>
-          <Handle
-            type="target"
-            position={Position.Left}
-            id="manages-in"
-            isConnectable={false}
-            style={{ top: MANAGEMENT_HANDLE_TOP_INSET }}
-          />
           <Handle type="target" position={Position.Left} id="in" isConnectable={false} />
           <Handle type="source" position={Position.Right} id="out" isConnectable={false} />
         </>
@@ -74,7 +65,9 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
     >
       <div className="flex w-[204px] flex-col gap-1.5">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="font-sans text-xs font-medium text-fg">{STATUS_LABEL[data.status]}</span>
+          <span key={data.status} className="content-resolve font-sans text-xs font-medium text-fg">
+            {STATUS_LABEL[data.status]}
+          </span>
           <RateReadout value={data.requestsPerMinute} />
         </div>
         <StageProgress
@@ -82,7 +75,12 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
           startedAt={data.stageEnteredAt}
           tone={STATUS_TO_STAGE_TONE[data.status]}
         />
-        <span className="truncate font-mono text-[11px] text-fg-muted">{data.log.at(-1)?.message}</span>
+        <span
+          key={data.log.at(-1)?.atMs}
+          className="content-resolve truncate font-mono text-[11px] text-fg-muted"
+        >
+          {data.log.at(-1)?.message}
+        </span>
         <TaskDebugLog
           log={data.log}
           createdAt={data.createdAt}

@@ -6,7 +6,7 @@ export interface MeasuredSize {
   height: number
 }
 
-const MEASURED_TYPES = new Set(['task', 'ecsService'])
+const MEASURED_TYPES = new Set(['task', 'autoScaling'])
 
 export function useMeasuredNodeSizes(): Map<string, MeasuredSize> {
   const serialized = useStore((state) => {

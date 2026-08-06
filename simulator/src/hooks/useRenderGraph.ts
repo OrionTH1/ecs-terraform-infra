@@ -4,25 +4,38 @@ import {
   EDGE_RESOURCE_ID,
   JUNCTION_TO_READER_EDGE_ID,
   JUNCTION_TO_WRITER_EDGE_ID,
+  PAGE_CACHE_EDGE_ID,
   READER_TO_VOLUME_EDGE_ID,
   WRITER_TO_VOLUME_EDGE_ID,
   NODE_RESOURCE_ID,
   WAF_TO_ALB_EDGE_ID,
+  METRIC_EDGE_ID,
+  DESIRED_COUNT_EDGE_ID,
 } from '../canvas/initial-graph'
+import {
+  isAcceptingTraffic,
+  rdsInstanceTerraformAddress,
+  routeAuroraTraffic,
+  type AuroraAvailability,
+} from '../simulation/aurora'
+import { currentAlarm } from '../simulation/autoscaling-alarm'
+import { countServiceTasks } from '../simulation/task-counts'
 import { BOOT_GRAPH, type ResourceLedger } from '../simulation/boot-graph'
-import { RDS_READ_FRACTION } from '../simulation/simulation-config'
+import { AUTOSCALING, RDS_READ_FRACTION } from '../simulation/simulation-config'
 import { splitReadWrite } from '../simulation/traffic-distribution'
 import { useSimulationStore, type RdsInstanceRuntime } from '../store/useSimulationStore'
+import { useRecentChange } from './useRecentChange'
 import type { TaskGraph } from './useTaskGraph'
 import type { TrafficRouting } from './useTrafficRouting'
 import type {
-  AssociationEdge as AssociationEdgeType,
   RequestFlowEdge as RequestFlowEdgeType,
   ReplicationEdge as ReplicationEdgeType,
+  SignalEdge as SignalEdgeType,
   SimulatorFlowEdge,
 } from '../types/edge-data'
 import type {
   AlbNodeData,
+  AutoScalingNodeData,
   EcsServiceNodeData,
   ProvisioningInfo,
   RdsInstanceNodeData,
@@ -35,7 +48,6 @@ import type {
 interface RenderGraphArgs {
   nodes: SimulatorFlowNode[]
   edges: SimulatorFlowEdge[]
-  taskCount: number
   routing: TrafficRouting
   taskGraph: TaskGraph
 }
@@ -74,7 +86,7 @@ function provisioningInfo(ledger: ResourceLedger, nodeId: string): ProvisioningI
   }
 }
 
-function rdsInstanceProvisioning(slot: RdsInstanceRuntime | null, terraformAddress: string): ProvisioningInfo | null {
+function rdsInstanceProvisioning(slot: RdsInstanceRuntime | null): ProvisioningInfo | null {
   if (!slot || slot.durationMs === null) return null
   if (slot.lifecycle === 'promoting') {
     return {
@@ -85,23 +97,63 @@ function rdsInstanceProvisioning(slot: RdsInstanceRuntime | null, terraformAddre
     }
   }
   if (slot.lifecycle === 'provisioning') {
-    return { detail: terraformAddress, startedAt: slot.stageEnteredAt, durationMs: slot.durationMs }
+    return {
+      detail: rdsInstanceTerraformAddress(slot.instanceId),
+      startedAt: slot.stageEnteredAt,
+      durationMs: slot.durationMs,
+    }
   }
   return null
 }
 
-function isEdgeVisible(ledger: ResourceLedger, edge: SimulatorFlowEdge): boolean {
+const EDGE_REQUIRED_INSTANCES: Record<string, ('writer' | 'reader')[]> = {
+  [JUNCTION_TO_WRITER_EDGE_ID]: ['writer'],
+  [WRITER_TO_VOLUME_EDGE_ID]: ['writer'],
+  [JUNCTION_TO_READER_EDGE_ID]: ['reader'],
+  [READER_TO_VOLUME_EDGE_ID]: ['reader'],
+  [PAGE_CACHE_EDGE_ID]: ['writer', 'reader'],
+}
+
+function hasRequiredInstances(edgeId: string, availability: AuroraAvailability): boolean {
+  const required = EDGE_REQUIRED_INSTANCES[edgeId]
+  if (required === undefined) return true
+
+  return required.every((role) =>
+    role === 'writer' ? availability.isWriterAvailable : availability.isReaderAvailable,
+  )
+}
+
+const SCALING_COMMAND_MS = 1400
+
+function isEdgeVisible(ledger: ResourceLedger, edge: SimulatorFlowEdge, availability: AuroraAvailability): boolean {
+  if (!hasRequiredInstances(edge.id, availability)) return false
+
   const resourceId = EDGE_RESOURCE_ID[edge.id]
   if (resourceId !== undefined) return ledger[resourceId].status === 'created'
 
   return isNodeCreated(ledger, edge.source) && isNodeCreated(ledger, edge.target)
 }
 
-export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: RenderGraphArgs): RenderGraph {
+export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraphArgs): RenderGraph {
   const resources = useSimulationStore((state) => state.resources)
+  const tasks = useSimulationStore((state) => state.tasks)
   const wafBlockedRequests = useSimulationStore((state) => state.wafBlockedRequests)
   const blockedIps = useSimulationStore((state) => state.blockedIps)
   const rdsSlots = useSimulationStore((state) => state.rdsSlots)
+  const desiredCount = useSimulationStore((state) => state.desiredCount)
+  const scaleOutBreachAt = useSimulationStore((state) => state.scaleOutBreachAt)
+  const scaleInBreachAt = useSimulationStore((state) => state.scaleInBreachAt)
+
+  const serviceTaskCounts = useMemo(() => countServiceTasks(tasks.map((task) => task.status)), [tasks])
+
+  const isScalingCommandLive = useRecentChange(desiredCount, SCALING_COMMAND_MS)
+  const alarm = useMemo(
+    () => currentAlarm(scaleOutBreachAt, scaleInBreachAt),
+    [scaleOutBreachAt, scaleInBreachAt],
+  )
+
+  const requestsPerMinutePerTask =
+    routing.healthyTaskCount > 0 ? Math.round(routing.totalRequestsAtAlb / routing.healthyTaskCount) : null
 
   const hasNoHealthyTargets = routing.healthyTaskCount === 0
   const deliveredRequests = hasNoHealthyTargets ? 0 : routing.totalRequestsAtAlb
@@ -109,6 +161,19 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
   const { reads: rdsReads, writes: rdsWrites } = useMemo(
     () => splitReadWrite(deliveredRequests, RDS_READ_FRACTION),
     [deliveredRequests],
+  )
+
+  const availability = useMemo(
+    (): AuroraAvailability => ({
+      isWriterAvailable: isAcceptingTraffic(rdsSlots.writer?.lifecycle),
+      isReaderAvailable: isAcceptingTraffic(rdsSlots.reader?.lifecycle),
+    }),
+    [rdsSlots],
+  )
+
+  const auroraTraffic = useMemo(
+    () => routeAuroraTraffic(rdsReads, rdsWrites, availability),
+    [rdsReads, rdsWrites, availability],
   )
 
   const renderNodes = useMemo(() => {
@@ -157,28 +222,45 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
           const data: EcsServiceNodeData = {
             ...node.data,
             provisioning,
-            requestsPerMinute: deliveredRequests,
-            healthyTaskCount: routing.healthyTaskCount,
-            totalTaskCount: taskCount,
+            width: taskGraph.serviceFrame.width,
+            height: taskGraph.serviceFrame.height,
+            desiredCount,
+            runningTaskCount: serviceTaskCounts.running,
+            pendingTaskCount: serviceTaskCounts.pending,
           }
-          return { ...node, position: taskGraph.servicePosition, data }
+          return { ...node, position: taskGraph.serviceFrame.position, data }
+        }
+
+        if (node.type === 'autoScaling') {
+          const data: AutoScalingNodeData = {
+            ...node.data,
+            provisioning,
+            requestsPerMinutePerTask,
+            targetRequestsPerMinutePerTask: AUTOSCALING.targetRequestsPerMinutePerTask,
+            alarm,
+            minCapacity: AUTOSCALING.minCapacity,
+            maxCapacity: AUTOSCALING.maxCapacity,
+            desiredCount,
+            status: alarm.name === 'high' ? 'warning' : 'idle',
+          }
+          return { ...node, position: taskGraph.autoScalingPosition, data }
         }
 
         if (node.type === 'rdsInstance') {
           const isWriter = node.data.role === 'writer'
           const slot = isWriter ? rdsSlots.writer : rdsSlots.reader
-          const slotProvisioning = rdsInstanceProvisioning(
-            slot,
-            BOOT_GRAPH[isWriter ? 'rdsWriter' : 'rdsReader'].terraformAddress,
-          )
+          const slotProvisioning = rdsInstanceProvisioning(slot)
 
           const data: RdsInstanceNodeData = {
             ...node.data,
             provisioning: slotProvisioning ?? provisioning,
             lifecycle: slot?.lifecycle ?? 'available',
             status: slot?.lifecycle === 'failed' ? 'error' : slotProvisioning ?? provisioning ? 'warning' : 'healthy',
-            requestsPerMinute: isWriter ? rdsWrites : rdsReads,
-            isCacheInvalidating: !isWriter && rdsWrites > 0,
+            requestsPerMinute: isWriter
+              ? auroraTraffic.writerRequestsPerMinute
+              : auroraTraffic.readerRequestsPerMinute,
+            isCacheInvalidating:
+              !isWriter && availability.isReaderAvailable && auroraTraffic.committedWritesPerMinute > 0,
           }
           return { ...node, data }
         }
@@ -194,35 +276,57 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
     resources,
     routing,
     hasNoHealthyTargets,
-    deliveredRequests,
-    taskCount,
+    serviceTaskCounts,
     taskGraph,
-    rdsWrites,
-    rdsReads,
+    auroraTraffic,
+    availability,
     wafBlockedRequests,
     blockedIps,
     rdsSlots,
+    alarm,
+    desiredCount,
+    requestsPerMinutePerTask,
   ])
 
   const renderEdges = useMemo(() => {
     const projected = edges
-      .filter((edge) => isEdgeVisible(resources, edge))
+      .filter((edge) => isEdgeVisible(resources, edge, availability))
       .map((edge): SimulatorFlowEdge => {
         if (edge.id === WAF_TO_ALB_EDGE_ID) {
           return {
             ...edge,
-            data: { isActive: blockedIps.length > 0, variant: 'association', routing: 'direct' },
-          } as AssociationEdgeType
+            data: { isActive: blockedIps.length > 0, variant: 'association', label: 'associated' },
+          } as SignalEdgeType
         }
-        if (edge.type === 'replication') return { ...edge, data: { isActive: rdsWrites > 0 } } as ReplicationEdgeType
-        if (edge.id === JUNCTION_TO_WRITER_EDGE_ID)
-          return { ...edge, data: { requestsPerMinute: rdsWrites } } as RequestFlowEdgeType
-        if (edge.id === JUNCTION_TO_READER_EDGE_ID)
-          return { ...edge, data: { requestsPerMinute: rdsReads } } as RequestFlowEdgeType
-        if (edge.id === WRITER_TO_VOLUME_EDGE_ID)
-          return { ...edge, data: { requestsPerMinute: rdsWrites } } as RequestFlowEdgeType
-        if (edge.id === READER_TO_VOLUME_EDGE_ID)
-          return { ...edge, data: { requestsPerMinute: rdsReads } } as RequestFlowEdgeType
+        if (edge.id === METRIC_EDGE_ID) {
+          return {
+            ...edge,
+            data: {
+              isActive: requestsPerMinutePerTask !== null && requestsPerMinutePerTask > 0,
+              variant: 'metric',
+              label: 'req/target',
+            },
+          } as SignalEdgeType
+        }
+        if (edge.id === DESIRED_COUNT_EDGE_ID) {
+          return {
+            ...edge,
+            data: {
+              isActive: isScalingCommandLive,
+              variant: 'command',
+              label: `UpdateService · desired ${desiredCount}`,
+            },
+          } as SignalEdgeType
+        }
+        if (edge.type === 'replication')
+          return {
+            ...edge,
+            data: { isActive: auroraTraffic.committedWritesPerMinute > 0 },
+          } as ReplicationEdgeType
+        if (edge.id === JUNCTION_TO_WRITER_EDGE_ID || edge.id === WRITER_TO_VOLUME_EDGE_ID)
+          return { ...edge, data: { requestsPerMinute: auroraTraffic.writerRequestsPerMinute } } as RequestFlowEdgeType
+        if (edge.id === JUNCTION_TO_READER_EDGE_ID || edge.id === READER_TO_VOLUME_EDGE_ID)
+          return { ...edge, data: { requestsPerMinute: auroraTraffic.readerRequestsPerMinute } } as RequestFlowEdgeType
         if (edge.target === ALB_NODE_ID) {
           return {
             ...edge,
@@ -233,7 +337,18 @@ export function useRenderGraph({ nodes, edges, taskCount, routing, taskGraph }: 
       })
 
     return [...projected, ...taskGraph.taskEdges]
-  }, [edges, resources, routing, rdsWrites, rdsReads, taskGraph, blockedIps])
+  }, [
+    edges,
+    resources,
+    routing,
+    auroraTraffic,
+    availability,
+    taskGraph,
+    blockedIps,
+    desiredCount,
+    isScalingCommandLive,
+    requestsPerMinutePerTask,
+  ])
 
   const liveEdgeIds = useMemo(() => new Set(renderEdges.map((edge) => edge.id)), [renderEdges])
 

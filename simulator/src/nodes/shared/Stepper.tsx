@@ -7,7 +7,7 @@ interface StepperProps {
 }
 
 const BUTTON_CLASS =
-  'nodrag inline-flex h-[30px] w-[30px] shrink-0 cursor-pointer items-center justify-center font-sans text-[15px] font-semibold text-fg-muted transition-colors duration-150 hover:bg-surface hover:text-fg'
+  'nodrag inline-flex h-[30px] w-[30px] shrink-0 cursor-pointer items-center justify-center font-sans text-[15px] font-semibold text-fg-muted press-ack hover:bg-surface hover:text-fg'
 
 export function Stepper({ value, min = 0, step = 10, unit, onChange }: StepperProps) {
   return (
