@@ -8,15 +8,13 @@ const MAX_PACKETS_PER_SECOND = 8
 const REQUESTS_PER_SECOND_PER_PACKET = 4
 const SECONDS_PER_MINUTE = 60
 
-const MIN_SPEED_FACTOR = 0.25
-
 export type PacketColor = 'default' | 'write' | 'blocked'
 
 export interface Packet {
   id: number
   route: string[]
   legColors: PacketColor[]
-  legSpeeds: number[]
+  speedPxPerSecond: number
   startedAt: number
   stalledSince: number | null
   lastPosition: { x: number; y: number } | null
@@ -38,12 +36,6 @@ export function packetsPerSecond(requestsPerMinute: number): number {
     MAX_PACKETS_PER_SECOND,
     Math.max(MIN_PACKETS_PER_SECOND, requestsPerSecond / REQUESTS_PER_SECOND_PER_PACKET),
   )
-}
-
-export function packetSpeedPxPerSecond(latencyMs: number, serviceTimeMs: number): number {
-  if (latencyMs <= serviceTimeMs) return PACKET_SPEED_PX_PER_SECOND
-
-  return PACKET_SPEED_PX_PER_SECOND * Math.max(MIN_SPEED_FACTOR, Math.sqrt(serviceTimeMs / latencyMs))
 }
 
 export function pathElementId(edgeId: string): string {

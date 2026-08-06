@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { JUNCTION_TO_WRITER_EDGE_ID, PAGE_CACHE_EDGE_ID } from '../canvas/initial-graph'
-import { LATENCY, RDS_READ_FRACTION } from '../simulation/simulation-config'
+import { PAGE_CACHE_EDGE_ID } from '../canvas/initial-graph'
+import { RDS_READ_FRACTION } from '../simulation/simulation-config'
 import type { TaskRoute } from './useTaskGraph'
 import {
   MAX_LIVE_PACKETS,
   MAX_STALL_MS,
   PACKET_SPEED_PX_PER_SECOND,
   REPLICATION_PACKET_SPEED_PX_PER_SECOND,
-  packetSpeedPxPerSecond,
   packetsPerSecond,
   pathElementId,
   type Packet,
@@ -28,24 +27,16 @@ export interface DirectPacketEntry {
   color: PacketColor
 }
 
-export interface PacketLatency {
-  taskMs: number
-  writerMs: number
-  readerMs: number
-}
-
 interface PacketFlowArgs {
   entries: PacketEntry[]
   taskRoutes: TaskRoute[]
   directEntries: DirectPacketEntry[]
   liveEdgeIds: Set<string>
-  latency: PacketLatency
 }
 
 interface RouteBuild {
   route: string[]
   legColors: PacketColor[]
-  legSpeeds: number[]
 }
 
 const WRITES_EVERY = Math.round(1 / (1 - RDS_READ_FRACTION))
@@ -76,26 +67,23 @@ function readGeometry(edgeId: string, cache: Map<string, PathGeometry | null>): 
 }
 
 function locate(packet: Packet, now: number, cache: Map<string, PathGeometry | null>): Placement {
-  let remainingSeconds = (now - packet.startedAt) / 1000
+  let travelled = ((now - packet.startedAt) / 1000) * packet.speedPxPerSecond
 
   for (const [legIndex, edgeId] of packet.route.entries()) {
     const geometry = readGeometry(edgeId, cache)
     if (!geometry) return { kind: 'stalled' }
 
-    const speedPxPerSecond = packet.legSpeeds[legIndex] ?? PACKET_SPEED_PX_PER_SECOND
-    const legSeconds = geometry.length / speedPxPerSecond
-
-    if (remainingSeconds <= legSeconds) {
-      const point = geometry.element.getPointAtLength(remainingSeconds * speedPxPerSecond)
+    if (travelled <= geometry.length) {
+      const point = geometry.element.getPointAtLength(travelled)
       return { kind: 'moving', x: point.x, y: point.y, legIndex }
     }
-    remainingSeconds -= legSeconds
+    travelled -= geometry.length
   }
 
   return { kind: 'arrived' }
 }
 
-export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds, latency }: PacketFlowArgs): RenderedPacket[] {
+export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds }: PacketFlowArgs): RenderedPacket[] {
   const [rendered, setRendered] = useState<RenderedPacket[]>([])
 
   const packets = useRef<Packet[]>([])
@@ -103,9 +91,9 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
   const nextPacketId = useRef(0)
   const rotation = useRef(0)
   const writeRotation = useRef(0)
-  const inputs = useRef<PacketFlowArgs>({ entries, taskRoutes, directEntries, liveEdgeIds, latency })
+  const inputs = useRef<PacketFlowArgs>({ entries, taskRoutes, directEntries, liveEdgeIds })
 
-  inputs.current = { entries, taskRoutes, directEntries, liveEdgeIds, latency }
+  inputs.current = { entries, taskRoutes, directEntries, liveEdgeIds }
 
   useEffect(() => {
     let frameId = 0
@@ -127,6 +115,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
         packets.current.push({
           id: nextPacketId.current++,
           ...buildRoute(),
+          speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND,
           startedAt: now,
           stalledSince: null,
           lastPosition: null,
@@ -157,35 +146,21 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
               const isWrite = writeRotation.current % WRITES_EVERY === 0
               writeRotation.current += 1
 
-              const taskSpeed = packetSpeedPxPerSecond(inputs.current.latency.taskMs, LATENCY.appServiceTimeMs)
-
               const databaseLeg = isWrite ? taskRoute.writeLeg : taskRoute.readLeg
               if (taskRoute.junctionEdgeId === null || databaseLeg === null) {
-                return {
-                  route: [entry.edgeId, taskRoute.albEdgeId],
-                  legColors: ['default', 'default'],
-                  legSpeeds: [PACKET_SPEED_PX_PER_SECOND, taskSpeed],
-                }
+                return { route: [entry.edgeId, taskRoute.albEdgeId], legColors: ['default', 'default'] }
               }
-
-              const isServedByWriter = databaseLeg.instanceEdgeId === JUNCTION_TO_WRITER_EDGE_ID
-              const instanceLatencyMs = isServedByWriter
-                ? inputs.current.latency.writerMs
-                : inputs.current.latency.readerMs
-              const databaseSpeed = packetSpeedPxPerSecond(instanceLatencyMs, LATENCY.dbServiceTimeMs)
 
               const databaseColor: PacketColor = isWrite ? 'write' : 'default'
               const route = [entry.edgeId, taskRoute.albEdgeId, taskRoute.junctionEdgeId, databaseLeg.instanceEdgeId]
               const legColors: PacketColor[] = ['default', 'default', 'default', databaseColor]
-              const legSpeeds = [PACKET_SPEED_PX_PER_SECOND, taskSpeed, databaseSpeed, databaseSpeed]
 
               if (inputs.current.liveEdgeIds.has(databaseLeg.volumeEdgeId)) {
                 route.push(databaseLeg.volumeEdgeId)
                 legColors.push(databaseColor)
-                legSpeeds.push(databaseSpeed)
               }
 
-              return { route, legColors, legSpeeds }
+              return { route, legColors }
             },
             carried,
           )
@@ -199,11 +174,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
           deltaSeconds,
           now,
           entry.color,
-          () => ({
-            route: [entry.edgeId],
-            legColors: [entry.color],
-            legSpeeds: [PACKET_SPEED_PX_PER_SECOND],
-          }),
+          () => ({ route: [entry.edgeId], legColors: [entry.color] }),
           carried,
         )
       }
@@ -229,7 +200,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
               id: nextPacketId.current++,
               route: [PAGE_CACHE_EDGE_ID],
               legColors: ['write'],
-              legSpeeds: [REPLICATION_PACKET_SPEED_PX_PER_SECOND],
+              speedPxPerSecond: REPLICATION_PACKET_SPEED_PX_PER_SECOND,
               startedAt: now,
               stalledSince: null,
               lastPosition: null,
