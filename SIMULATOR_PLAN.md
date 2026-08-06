@@ -90,3 +90,4 @@ Site estático em Vercel ou GitHub Pages, sem custo. Pode viver neste mesmo mono
 - [ ] Transformar os Edges entre nodes dentro da infra em representações dos VPC Endpoints da rede.
 - [ ] Arrumar alguma forma de criar representações visuais da rede AWS, como a VPC, as subnets, os route tables, security groups e etc.
 - [ ] Descobrir se é viável escalar mais a infra do terraform para deixar o projeto com uma infra mais over. Argumento é que a infra começa a gargalar com 6.400 requests por minuto, o que dá 9 milhões de requests por dia, então talvez a infra já esteja aguentando muito.
+- [ ] Rever se é melhor trocar a unidade de request da infra para segundos.
