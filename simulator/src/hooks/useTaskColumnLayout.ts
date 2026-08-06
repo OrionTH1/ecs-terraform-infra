@@ -7,10 +7,12 @@ import {
   FALLBACK_TASK_WIDTH,
   TARGET_GROUP_NODE_ID,
   TASK_COLUMN_CENTER_Y,
+  TASK_COLUMN_GAP,
   TASK_COLUMN_X,
   TASK_ROW_GAP,
   TASK_ZONE_GAP,
 } from '../canvas/initial-graph'
+import { gridHeight, gridWidth, taskColumnCount, taskColumnOf } from '../canvas/task-grid'
 import {
   frameContentOriginY,
   frameHeightFor,
@@ -35,6 +37,7 @@ export interface TaskColumnLayout {
   targetGroupNode: TargetGroupFlowNode | null
   serviceFrame: FrameBox
   autoScalingPosition: { x: number; y: number }
+  downstreamOriginX: number
 }
 
 const TARGET_GROUP_TOOLTIP =
@@ -44,16 +47,21 @@ function stackHeights(tasks: TaskRuntime[], sizes: Map<string, MeasuredSize>): n
   return tasks.map((task) => sizes.get(task.id)?.height ?? FALLBACK_TASK_HEIGHT)
 }
 
-function totalStackHeight(heights: number[]): number {
-  if (heights.length === 0) return 0
-  return heights.reduce((sum, height) => sum + height, 0) + TASK_ROW_GAP * (heights.length - 1)
-}
+function stackFrom(
+  top: number,
+  tasks: TaskRuntime[],
+  heights: number[],
+  columnWidth: number,
+  positions: Map<string, { x: number; y: number }>,
+) {
+  const columnOffsets = new Map<number, number>()
 
-function stackFrom(top: number, tasks: TaskRuntime[], heights: number[], positions: Map<string, { x: number; y: number }>) {
-  let offset = top
   tasks.forEach((task, index) => {
-    positions.set(task.id, { x: TASK_COLUMN_X, y: offset })
-    offset += heights[index] + TASK_ROW_GAP
+    const column = taskColumnOf(index)
+    const offset = columnOffsets.get(column) ?? top
+
+    positions.set(task.id, { x: TASK_COLUMN_X + column * (columnWidth + TASK_COLUMN_GAP), y: offset })
+    columnOffsets.set(column, offset + heights[index] + TASK_ROW_GAP)
   })
 }
 
@@ -76,12 +84,15 @@ export function useTaskColumnLayout({
       FALLBACK_TASK_WIDTH,
     )
 
-    const targetGroupWidth = frameWidthFor(taskWidth)
-    const targetGroupLeft = frameLeftFor(TASK_COLUMN_X, taskWidth, targetGroupWidth)
-    const targetGroupHeight = frameHeightFor(totalStackHeight(registeredHeights))
+    const columnCount = Math.max(taskColumnCount(registered.length), taskColumnCount(unregistered.length))
+    const gridSpan = gridWidth(columnCount, taskWidth, TASK_COLUMN_GAP)
+
+    const targetGroupWidth = frameWidthFor(gridSpan)
+    const targetGroupLeft = frameLeftFor(TASK_COLUMN_X, gridSpan, targetGroupWidth)
+    const targetGroupHeight = frameHeightFor(gridHeight(registeredHeights, TASK_ROW_GAP))
 
     const unregisteredZoneHeight =
-      unregistered.length > 0 ? TASK_ZONE_GAP + totalStackHeight(unregisteredHeights) : 0
+      unregistered.length > 0 ? TASK_ZONE_GAP + gridHeight(unregisteredHeights, TASK_ROW_GAP) : 0
 
     const serviceWidth = frameWidthFor(targetGroupWidth)
     const serviceHeight = frameHeightFor(targetGroupHeight + unregisteredZoneHeight)
@@ -98,12 +109,19 @@ export function useTaskColumnLayout({
     const targetGroupTop = frameContentOriginY(serviceFrame.position.y)
 
     const positions = new Map<string, { x: number; y: number }>()
-    stackFrom(frameContentOriginY(targetGroupTop), registered, registeredHeights, positions)
-    stackFrom(targetGroupTop + targetGroupHeight + TASK_ZONE_GAP, unregistered, unregisteredHeights, positions)
+    stackFrom(frameContentOriginY(targetGroupTop), registered, registeredHeights, taskWidth, positions)
+    stackFrom(
+      targetGroupTop + targetGroupHeight + TASK_ZONE_GAP,
+      unregistered,
+      unregisteredHeights,
+      taskWidth,
+      positions,
+    )
 
-    const autoScalingHeight = sizes.get(AUTO_SCALING_NODE_ID)?.height ?? FALLBACK_AUTO_SCALING_HEIGHT
+    const autoScalingSize = sizes.get(AUTO_SCALING_NODE_ID)
+    const autoScalingHeight = autoScalingSize?.height ?? FALLBACK_AUTO_SCALING_HEIGHT
     const autoScalingPosition = {
-      x: TASK_COLUMN_X,
+      x: TASK_COLUMN_X + (gridSpan - (autoScalingSize?.width ?? FALLBACK_TASK_WIDTH)) / 2,
       y: serviceFrame.position.y - AUTO_SCALING_GAP - autoScalingHeight,
     }
 
@@ -128,6 +146,13 @@ export function useTaskColumnLayout({
         }
       : null
 
-    return { positions, sizes, targetGroupNode, serviceFrame, autoScalingPosition }
+    return {
+      positions,
+      sizes,
+      targetGroupNode,
+      serviceFrame,
+      autoScalingPosition,
+      downstreamOriginX: serviceFrame.position.x + serviceFrame.width,
+    }
   }, [orderedTasks, sizes, isTargetGroupVisible, healthyTaskCount])
 }

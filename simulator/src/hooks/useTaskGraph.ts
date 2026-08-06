@@ -46,6 +46,7 @@ export interface TaskGraph {
   autoScalingPosition: { x: number; y: number }
   taskEdges: RequestFlowEdge[]
   healthyTaskRoutes: TaskRoute[]
+  downstreamOriginX: number
 }
 
 export function useTaskGraph({
@@ -84,7 +85,7 @@ export function useTaskGraph({
   const leavingIds = useMemo(() => new Set(leavingTasks.map((task) => task.id)), [leavingTasks])
   const healthyTaskCount = useMemo(() => tasks.filter((task) => task.status === 'healthy').length, [tasks])
 
-  const { positions, sizes, targetGroupNode, serviceFrame, autoScalingPosition } = useTaskColumnLayout({
+  const { positions, sizes, targetGroupNode, serviceFrame, autoScalingPosition, downstreamOriginX } = useTaskColumnLayout({
     orderedTasks,
     isTargetGroupVisible,
     healthyTaskCount,
@@ -164,5 +165,13 @@ export function useTaskGraph({
     [tasks, isDatabaseReachable, readLeg, writeLeg],
   )
 
-  return { taskNodes, targetGroupNode, serviceFrame, autoScalingPosition, taskEdges, healthyTaskRoutes }
+  return {
+    taskNodes,
+    targetGroupNode,
+    serviceFrame,
+    autoScalingPosition,
+    taskEdges,
+    healthyTaskRoutes,
+    downstreamOriginX,
+  }
 }
