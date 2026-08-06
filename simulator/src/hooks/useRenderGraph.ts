@@ -264,6 +264,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
               ? auroraTraffic.writerRequestsPerMinute
               : auroraTraffic.readerRequestsPerMinute,
             latencyMs: isWriter ? latency.writerMs : latency.readerMs,
+            acu: slot?.acu ?? 0,
             isCacheInvalidating:
               !isWriter && availability.isReaderAvailable && auroraTraffic.committedWritesPerMinute > 0,
           }

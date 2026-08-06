@@ -1,5 +1,6 @@
-import { AWS_ALARM_EVALUATION, AUTOSCALING } from '../simulation/simulation-config'
+import { AWS_ALARM_EVALUATION, AURORA_SERVERLESS, AUTOSCALING, HEALTH_CHECK } from '../simulation/simulation-config'
 import { IDLE_LATENCY } from '../simulation/latency'
+import { runningFloorAcu } from '../simulation/aurora-capacity'
 import { NO_ALARM } from '../simulation/autoscaling-alarm'
 import { FRAME_PADDING, frameAround } from './frame-metrics'
 import type { ResourceId } from '../simulation/boot-graph'
@@ -178,7 +179,7 @@ export const initialNodes: SimulatorFlowNode[] = [
     data: {
       label: 'Aurora Cluster',
       tooltip:
-        'A DB cluster is compute plus storage: the instances below and one shared cluster volume. Aurora Serverless v2 (Postgres), 0–1 ACU with auto-pause after an hour idle — one ACU is roughly 2 GiB of memory plus matching CPU, and capacity moves in 0.5 ACU steps without dropping connections. The cluster publishes the writer and reader endpoints; it never proxies a query itself, and each endpoint resolves straight to an instance.',
+        `A DB cluster is compute plus storage: the instances below and one shared cluster volume. Aurora Serverless v2 (Postgres), ${AURORA_SERVERLESS.minAcu}–${AURORA_SERVERLESS.maxAcu} ACU — one ACU is roughly 2 GiB of memory plus matching CPU, and capacity moves in ${AURORA_SERVERLESS.acuStep} ACU steps without dropping connections. A minimum of 0 ACU allows auto-pause, but it never fires here: the target group health check queries the database every ${HEALTH_CHECK.intervalMs / 1000} seconds, so the cluster never reaches the idle interval. The cluster publishes the writer and reader endpoints; it never proxies a query itself, and each endpoint resolves straight to an instance.`,
       status: 'idle',
       width: AURORA_FRAME.width,
       height: AURORA_FRAME.height,
@@ -223,6 +224,7 @@ export const initialNodes: SimulatorFlowNode[] = [
       lifecycle: 'provisioning',
       requestsPerMinute: 0,
       latencyMs: IDLE_LATENCY.writerMs,
+      acu: runningFloorAcu(),
       isCacheInvalidating: false,
     },
     draggable: false,
@@ -241,6 +243,7 @@ export const initialNodes: SimulatorFlowNode[] = [
       lifecycle: 'provisioning',
       requestsPerMinute: 0,
       latencyMs: IDLE_LATENCY.writerMs,
+      acu: runningFloorAcu(),
       isCacheInvalidating: false,
     },
     draggable: false,

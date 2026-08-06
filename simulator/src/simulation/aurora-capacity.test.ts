@@ -4,6 +4,7 @@ import {
   capacityQueriesPerMinute,
   clampAcu,
   demandedAcu,
+  runningFloorAcu,
   isPausable,
   readerFloorAcu,
   queryServiceTimeMs,
@@ -39,8 +40,8 @@ describe('demanded capacity', () => {
     expect(snapToAcuStep(1.2)).toBe(1.5)
   })
 
-  it('asks for no capacity when nothing is arriving', () => {
-    expect(demandedAcu(0)).toBe(AURORA_SERVERLESS.minAcu)
+  it('holds the smallest live capacity when nothing is arriving, since zero means paused', () => {
+    expect(demandedAcu(0)).toBe(AURORA_SERVERLESS.acuStep)
   })
 
   it('provisions above the arriving load, leaving the assumed headroom', () => {
@@ -71,6 +72,13 @@ describe('demanded capacity', () => {
   it('charges a request for every query it issues', () => {
     expect(queriesForRequests(100)).toBe(100 * WORKLOAD.queriesPerRequest)
     expect(requestServiceTimeMs(2)).toBeCloseTo(queryServiceTimeMs(2) * WORKLOAD.queriesPerRequest)
+  })
+})
+
+describe('the floor of a running instance', () => {
+  it('never drops a live instance to zero, because zero is the paused state', () => {
+    expect(runningFloorAcu()).toBe(AURORA_SERVERLESS.acuStep)
+    expect(runningFloorAcu()).toBeGreaterThan(AURORA_SERVERLESS.minAcu)
   })
 })
 

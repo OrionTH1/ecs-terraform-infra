@@ -3,6 +3,7 @@ import { TaskBlastEffect } from './TaskBlastEffect'
 import { useRdsInstanceBlast } from '../../hooks/useRdsInstanceBlast'
 import type { RdsInstanceFlowNode } from '../../types/node-data'
 import { NodeCard } from '../shared/NodeCard'
+import { AcuReadout } from '../shared/AcuReadout'
 import { LatencyReadout } from '../shared/LatencyReadout'
 import { RateReadout } from '../shared/RateReadout'
 import { RdsIcon } from '../../icons'
@@ -40,6 +41,7 @@ export function RdsInstanceNode({ data }: NodeProps<RdsInstanceFlowNode>) {
           <RateReadout value={data.requestsPerMinute} />
           <LatencyReadout meanMs={data.latencyMs} showTail={false} />
         </div>
+        <AcuReadout acu={data.acu} />
         {data.role === 'reader' ? (
           <div className="flex items-center gap-1.5 border-t border-border pt-1.5">
             <span

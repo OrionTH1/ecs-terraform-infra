@@ -97,6 +97,7 @@ export interface RdsInstanceNodeData extends InfraNodeData {
   lifecycle: RdsInstanceLifecycle
   requestsPerMinute: number
   latencyMs: number
+  acu: number
   isCacheInvalidating: boolean
 }
 

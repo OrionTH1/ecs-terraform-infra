@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import {
   AURORA_FAILOVER_MS,
   AURORA_REBUILD_WRITER_MS,
+  AURORA_SERVERLESS,
   AUTOSCALING,
   BOOT_TIME_SCALE,
   DEFAULT_TIME_SCALE,
@@ -25,6 +26,13 @@ import {
   routeAuroraTraffic,
   vacantInstanceId,
 } from '../simulation/aurora'
+import {
+  advanceAcu,
+  demandedAcu,
+  queriesForRequests,
+  readerFloorAcu,
+  runningFloorAcu,
+} from '../simulation/aurora-capacity'
 import {
   IDLE_LATENCY,
   appendLatencySample,
@@ -59,6 +67,7 @@ export interface RdsInstanceRuntime {
   lifecycle: RdsInstanceLifecycle
   stageEnteredAt: number
   durationMs: number | null
+  acu: number
 }
 
 export interface RdsSlots {
@@ -320,15 +329,28 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     if (writer === null && isCreated(resources, 'rdsWriter')) {
       if (!hasSeededRdsWriter) {
-        writer = { instanceId: RDS_FIRST_INSTANCE_ID, lifecycle: 'available', stageEnteredAt: now, durationMs: null }
+        writer = {
+          instanceId: RDS_FIRST_INSTANCE_ID,
+          lifecycle: 'available',
+          stageEnteredAt: now,
+          durationMs: null,
+          acu: runningFloorAcu(),
+        }
         hasSeededRdsWriter = true
       } else if (reader && reader.lifecycle === 'available') {
-        writer = { instanceId: reader.instanceId, lifecycle: 'promoting', stageEnteredAt: now, durationMs: AURORA_FAILOVER_MS }
+        writer = {
+          instanceId: reader.instanceId,
+          lifecycle: 'promoting',
+          stageEnteredAt: now,
+          durationMs: AURORA_FAILOVER_MS,
+          acu: reader.acu,
+        }
         reader = {
           instanceId: vacantInstanceId(writer),
           lifecycle: 'provisioning',
           stageEnteredAt: now,
           durationMs: BOOT_GRAPH.rdsReader.durationMs,
+          acu: runningFloorAcu(),
         }
       } else {
         writer = {
@@ -336,13 +358,20 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
           lifecycle: 'provisioning',
           stageEnteredAt: now,
           durationMs: AURORA_REBUILD_WRITER_MS,
+          acu: runningFloorAcu(),
         }
       }
     }
 
     if (reader === null && isCreated(resources, 'rdsReader')) {
       if (!hasSeededRdsReader) {
-        reader = { instanceId: RDS_SECOND_INSTANCE_ID, lifecycle: 'available', stageEnteredAt: now, durationMs: null }
+        reader = {
+          instanceId: RDS_SECOND_INSTANCE_ID,
+          lifecycle: 'available',
+          stageEnteredAt: now,
+          durationMs: null,
+          acu: runningFloorAcu(),
+        }
         hasSeededRdsReader = true
       } else {
         reader = {
@@ -350,6 +379,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
           lifecycle: 'provisioning',
           stageEnteredAt: now,
           durationMs: BOOT_GRAPH.rdsReader.durationMs,
+          acu: runningFloorAcu(),
         }
       }
     }
@@ -362,14 +392,30 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       isReaderAvailable: isAcceptingTraffic(reader?.lifecycle),
     })
 
+    const deltaMs = now - state.clock
+
+    const writerAcu = writer
+      ? advanceAcu(writer.acu, demandedAcu(queriesForRequests(auroraTraffic.writerRequestsPerMinute)), deltaMs)
+      : runningFloorAcu()
+    const readerDemand = Math.max(
+      demandedAcu(queriesForRequests(auroraTraffic.readerRequestsPerMinute)),
+      readerFloorAcu(writerAcu, AURORA_SERVERLESS.promotionTier),
+    )
+    const readerAcu = reader ? advanceAcu(reader.acu, readerDemand, deltaMs) : runningFloorAcu()
+
+    if (writer && writer.acu !== writerAcu) writer = { ...writer, acu: writerAcu }
+    if (reader && reader.acu !== readerAcu) reader = { ...reader, acu: readerAcu }
+
     const latency = smoothLatency(
       state.latency,
       computeLatency({
         requestsPerMinutePerTask: healthyTaskCount > 0 ? deliveredRequests / healthyTaskCount : 0,
         writerRequestsPerMinute: auroraTraffic.writerRequestsPerMinute,
         readerRequestsPerMinute: auroraTraffic.readerRequestsPerMinute,
+        writerAcu,
+        readerAcu,
       }),
-      now - state.clock,
+      deltaMs,
     )
 
     const isLatencySampleDue = now - state.lastLatencySampleAt >= LATENCY.historySampleMs

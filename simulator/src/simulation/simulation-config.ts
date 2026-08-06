@@ -94,7 +94,6 @@ export const AURORA_SERVERLESS = {
 
 export const LATENCY = {
   appServiceTimeMs: 24,
-  dbServiceTimeMs: 12,
   maxUtilization: 0.98,
   smoothingTimeConstantMs: 12_000,
   historySampleMs: 5_000,
@@ -102,8 +101,6 @@ export const LATENCY = {
 }
 
 export const TASK_CAPACITY_PER_MINUTE = 60_000 / LATENCY.appServiceTimeMs
-
-export const DB_INSTANCE_CAPACITY_PER_MINUTE = 60_000 / LATENCY.dbServiceTimeMs
 
 export const LATENCY_WARNING_MS = 80
 export const LATENCY_ERROR_MS = 250

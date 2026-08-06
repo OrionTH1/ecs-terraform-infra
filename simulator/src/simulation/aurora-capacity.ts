@@ -19,11 +19,15 @@ export function clampAcu(acu: number): number {
   return Math.min(AURORA_SERVERLESS.maxAcu, Math.max(AURORA_SERVERLESS.minAcu, acu))
 }
 
+export function runningFloorAcu(): number {
+  return Math.max(AURORA_SERVERLESS.minAcu, AURORA_SERVERLESS.acuStep)
+}
+
 export function demandedAcu(queriesPerMinute: number): number {
-  if (queriesPerMinute <= 0) return AURORA_SERVERLESS.minAcu
+  if (queriesPerMinute <= 0) return runningFloorAcu()
 
   const provisionedFor = queriesPerMinute / WORKLOAD.targetAcuUtilization
-  return clampAcu(snapToAcuStep(provisionedFor / capacityQueriesPerMinute(1)))
+  return Math.max(runningFloorAcu(), clampAcu(snapToAcuStep(provisionedFor / capacityQueriesPerMinute(1))))
 }
 
 export function queryServiceTimeMs(acu: number): number {

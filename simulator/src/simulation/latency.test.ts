@@ -8,12 +8,14 @@ import {
   stageResponseTimeMs,
   stageUtilization,
 } from './latency'
-import { AUTOSCALING, LATENCY, TASK_CAPACITY_PER_MINUTE } from './simulation-config'
+import { AURORA_SERVERLESS, AUTOSCALING, LATENCY, TASK_CAPACITY_PER_MINUTE } from './simulation-config'
 
 const IDLE_LOAD = {
   requestsPerMinutePerTask: 0,
   writerRequestsPerMinute: 0,
   readerRequestsPerMinute: 0,
+  writerAcu: AURORA_SERVERLESS.maxAcu,
+  readerAcu: AURORA_SERVERLESS.maxAcu,
 }
 
 describe('queueing model', () => {
@@ -58,6 +60,7 @@ describe('end-to-end latency', () => {
 
   it('adds the task queue and the database queue', () => {
     const latency = computeLatency({
+      ...IDLE_LOAD,
       requestsPerMinutePerTask: 1000,
       writerRequestsPerMinute: 400,
       readerRequestsPerMinute: 1600,
@@ -68,11 +71,13 @@ describe('end-to-end latency', () => {
 
   it('climbs when the same traffic is spread over fewer tasks', () => {
     const spread = computeLatency({
+      ...IDLE_LOAD,
       requestsPerMinutePerTask: 1000,
       writerRequestsPerMinute: 800,
       readerRequestsPerMinute: 3200,
     })
     const concentrated = computeLatency({
+      ...IDLE_LOAD,
       requestsPerMinutePerTask: 2000,
       writerRequestsPerMinute: 800,
       readerRequestsPerMinute: 3200,
@@ -83,11 +88,13 @@ describe('end-to-end latency', () => {
 
   it('punishes the writer once the reader stops absorbing the reads', () => {
     const withReplica = computeLatency({
+      ...IDLE_LOAD,
       requestsPerMinutePerTask: 2000,
       writerRequestsPerMinute: 1600,
       readerRequestsPerMinute: 6400,
     })
     const writerOnly = computeLatency({
+      ...IDLE_LOAD,
       requestsPerMinutePerTask: 2000,
       writerRequestsPerMinute: 8000,
       readerRequestsPerMinute: 0,
@@ -98,6 +105,7 @@ describe('end-to-end latency', () => {
 
   it('ignores an idle instance when averaging what requests actually waited for', () => {
     const readerDown = computeLatency({
+      ...IDLE_LOAD,
       requestsPerMinutePerTask: 1000,
       writerRequestsPerMinute: 2000,
       readerRequestsPerMinute: 0,
@@ -127,7 +135,7 @@ describe('smoothing', () => {
   it('keeps the total equal to its parts through the smoothing', () => {
     const smoothed = smoothLatency(
       computeLatency(IDLE_LOAD),
-      computeLatency({ requestsPerMinutePerTask: 2000, writerRequestsPerMinute: 800, readerRequestsPerMinute: 3200 }),
+      computeLatency({ ...IDLE_LOAD, requestsPerMinutePerTask: 2000, writerRequestsPerMinute: 800, readerRequestsPerMinute: 3200 }),
       4000,
     )
 

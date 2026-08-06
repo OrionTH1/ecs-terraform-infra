@@ -1,3 +1,4 @@
+import { requestServiceTimeMs, runningFloorAcu } from './aurora-capacity'
 import { LATENCY } from './simulation-config'
 
 const MS_PER_MINUTE = 60_000
@@ -31,6 +32,8 @@ export interface LatencyLoad {
   requestsPerMinutePerTask: number
   writerRequestsPerMinute: number
   readerRequestsPerMinute: number
+  writerAcu: number
+  readerAcu: number
 }
 
 export interface LatencyBreakdown {
@@ -43,8 +46,8 @@ export interface LatencyBreakdown {
 
 export function computeLatency(load: LatencyLoad): LatencyBreakdown {
   const taskMs = stageResponseTimeMs(LATENCY.appServiceTimeMs, load.requestsPerMinutePerTask)
-  const writerMs = stageResponseTimeMs(LATENCY.dbServiceTimeMs, load.writerRequestsPerMinute)
-  const readerMs = stageResponseTimeMs(LATENCY.dbServiceTimeMs, load.readerRequestsPerMinute)
+  const writerMs = stageResponseTimeMs(requestServiceTimeMs(load.writerAcu), load.writerRequestsPerMinute)
+  const readerMs = stageResponseTimeMs(requestServiceTimeMs(load.readerAcu), load.readerRequestsPerMinute)
 
   const servedRequests = load.writerRequestsPerMinute + load.readerRequestsPerMinute
   const databaseMs =
@@ -59,6 +62,8 @@ export const IDLE_LATENCY = computeLatency({
   requestsPerMinutePerTask: 0,
   writerRequestsPerMinute: 0,
   readerRequestsPerMinute: 0,
+  writerAcu: runningFloorAcu(),
+  readerAcu: runningFloorAcu(),
 })
 
 export function smoothLatency(
