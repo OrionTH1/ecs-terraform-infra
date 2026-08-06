@@ -1,4 +1,4 @@
-import { Handle, type HandleProps } from '@xyflow/react'
+import { Handle, useNodeId, type HandleProps } from '@xyflow/react'
 import { boundaryDirection, boundaryKey, formatRule, securityGroupBoundary } from '../../simulation/security-groups'
 import { useSecurityGroupStore } from '../../store/useSecurityGroupStore'
 
@@ -8,9 +8,10 @@ interface SecurityGroupHandleProps extends HandleProps {
 }
 
 export function SecurityGroupHandle({ nodeType, id, ...handleProps }: SecurityGroupHandleProps) {
+  const nodeId = useNodeId()
   const boundary = id ? securityGroupBoundary(nodeType, id) : null
 
-  const key = id ? boundaryKey(nodeType, id) : ''
+  const key = boundaryKey(nodeId ?? nodeType, id ?? '')
   const hoveredPairId = useSecurityGroupStore((state) => state.hoveredPairId)
   const hoveredKey = useSecurityGroupStore((state) => state.hoveredKey)
   const hoverBoundary = useSecurityGroupStore((state) => state.hoverBoundary)
