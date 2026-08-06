@@ -38,6 +38,33 @@ export function packetsPerSecond(requestsPerMinute: number): number {
   )
 }
 
+export interface PacketRoute {
+  route: string[]
+  legColors: PacketColor[]
+}
+
+export function repairRoute(
+  packet: PacketRoute,
+  currentLegIndex: number,
+  liveEdgeIds: Set<string>,
+  fallbackEdgeIds: string[],
+): PacketRoute | null {
+  const deadFrom = packet.route.findIndex((edgeId) => !liveEdgeIds.has(edgeId))
+  if (deadFrom === -1) return packet
+  if (deadFrom <= currentLegIndex) return null
+
+  const [instanceEdgeId, ...rest] = fallbackEdgeIds
+  if (instanceEdgeId === undefined || !liveEdgeIds.has(instanceEdgeId)) return null
+
+  const detour = [instanceEdgeId, ...rest.filter((edgeId) => liveEdgeIds.has(edgeId))]
+  const carriedColor = packet.legColors[deadFrom] ?? packet.legColors.at(-1) ?? 'default'
+
+  return {
+    route: [...packet.route.slice(0, deadFrom), ...detour],
+    legColors: [...packet.legColors.slice(0, deadFrom), ...detour.map(() => carriedColor)],
+  }
+}
+
 export function pathElementId(edgeId: string): string {
   return `flow-path-${edgeId}`
 }

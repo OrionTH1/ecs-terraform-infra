@@ -9,6 +9,7 @@ import {
   REPLICATION_PACKET_SPEED_PX_PER_SECOND,
   packetsPerSecond,
   pathElementId,
+  repairRoute,
   type Packet,
   type PacketColor,
   type RenderedPacket,
@@ -186,12 +187,11 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
       const cache = new Map<string, PathGeometry | null>()
       const alive: Packet[] = []
       const positions: RenderedPacket[] = []
-      const { liveEdgeIds: currentLiveEdgeIds } = inputs.current
+      const { liveEdgeIds: currentLiveEdgeIds, taskRoutes } = inputs.current
+      const writeLeg = taskRoutes[0]?.writeLeg ?? null
+      const fallbackEdgeIds = writeLeg ? [writeLeg.instanceEdgeId, writeLeg.volumeEdgeId] : []
 
       for (const packet of packets.current) {
-        const isRouteIntact = packet.route.every((edgeId) => currentLiveEdgeIds.has(edgeId))
-        if (!isRouteIntact) continue
-
         const placement = locate(packet, now, cache)
 
         if (placement.kind === 'arrived') {
@@ -219,6 +219,11 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
           if (packet.lastPosition) positions.push({ id: packet.id, ...packet.lastPosition, color: packet.color })
           continue
         }
+
+        const repaired = repairRoute(packet, placement.legIndex, currentLiveEdgeIds, fallbackEdgeIds)
+        if (repaired === null) continue
+        packet.route = repaired.route
+        packet.legColors = repaired.legColors
 
         packet.stalledSince = null
         packet.lastPosition = { x: placement.x, y: placement.y }
