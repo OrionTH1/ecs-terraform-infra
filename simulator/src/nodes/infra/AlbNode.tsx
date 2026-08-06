@@ -2,6 +2,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { AlbFlowNode } from '../../types/node-data'
 import { NodeCard } from '../shared/NodeCard'
 import { LatencyReadout } from '../shared/LatencyReadout'
+import { SecurityGroupHandle } from '../shared/SecurityGroupHandle'
 import { LatencySparkline } from '../shared/LatencySparkline'
 import { RateReadout } from '../shared/RateReadout'
 import { LoadBalancerIcon } from '../../icons'
@@ -21,8 +22,8 @@ export function AlbNode({ data }: NodeProps<AlbFlowNode>) {
         <>
           <Handle type="target" position={Position.Top} id="acl-in" isConnectable={false} />
           <Handle type="source" position={Position.Right} id="metric-out" isConnectable={false} style={{ top: '24%' }} />
-          <Handle type="target" position={Position.Left} id="in" isConnectable={!data.provisioning} />
-          <Handle type="source" position={Position.Right} id="out" isConnectable={false} />
+          <SecurityGroupHandle nodeType="alb" type="target" position={Position.Left} id="in" isConnectable={!data.provisioning} />
+          <SecurityGroupHandle nodeType="alb" type="source" position={Position.Right} id="out" isConnectable={false} />
         </>
       }
     >

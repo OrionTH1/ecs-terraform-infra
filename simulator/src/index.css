@@ -235,6 +235,38 @@
   right: -6px;
 }
 
+.react-flow .react-flow__handle.sg-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  min-width: 17px;
+  min-height: 14px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.react-flow .react-flow__handle-left.sg-handle {
+  left: -19px;
+}
+
+.react-flow .react-flow__handle-right.sg-handle {
+  right: -19px;
+}
+
+.react-flow .react-flow__handle.sg-handle.connectionindicator {
+  border: none;
+  background: none;
+}
+
+.react-flow .react-flow__handle.sg-handle.connectionindicator:hover {
+  transform: scale(1.2);
+  box-shadow: none;
+}
+
 .react-flow .react-flow__handle.connectionindicator {
   border-color: var(--color-canvas);
   background: var(--color-border-interaction);

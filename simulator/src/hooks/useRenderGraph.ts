@@ -11,7 +11,9 @@ import {
   WAF_TO_ALB_EDGE_ID,
   METRIC_EDGE_ID,
   DESIRED_COUNT_EDGE_ID,
+  isEdgeInSecurityGroupPair,
 } from '../canvas/initial-graph'
+import { useSecurityGroupStore } from '../store/useSecurityGroupStore'
 import {
   isAbsorbingFallbackReads,
   isAcceptingTraffic,
@@ -146,6 +148,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
   const desiredCount = useSimulationStore((state) => state.desiredCount)
   const scaleOutBreachAt = useSimulationStore((state) => state.scaleOutBreachAt)
   const scaleInBreachAt = useSimulationStore((state) => state.scaleInBreachAt)
+  const hoveredPairId = useSecurityGroupStore((state) => state.hoveredPairId)
 
   const serviceTaskCounts = useMemo(() => countServiceTasks(tasks.map((task) => task.status)), [tasks])
 
@@ -347,7 +350,14 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
         return edge
       })
 
-    return [...projected, ...taskGraph.taskEdges]
+    const withTaskEdges = [...projected, ...taskGraph.taskEdges]
+    if (hoveredPairId === null) return withTaskEdges
+
+    return withTaskEdges.map((edge) =>
+      edge.type === 'requestFlow' && isEdgeInSecurityGroupPair(edge.id, hoveredPairId)
+        ? ({ ...edge, data: { ...edge.data, isSecurityGroupLit: true } } as SimulatorFlowEdge)
+        : edge,
+    )
   }, [
     edges,
     resources,
@@ -359,6 +369,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
     desiredCount,
     isScalingCommandLive,
     requestsPerMinutePerTask,
+    hoveredPairId,
   ])
 
   const liveEdgeIds = useMemo(() => new Set(renderEdges.map((edge) => edge.id)), [renderEdges])

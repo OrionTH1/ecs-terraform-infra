@@ -1,6 +1,7 @@
 import { AWS_ALARM_EVALUATION, AURORA_SERVERLESS, AUTOSCALING, HEALTH_CHECK } from '../simulation/simulation-config'
 import { IDLE_LATENCY } from '../simulation/latency'
 import { runningFloorAcu } from '../simulation/aurora-capacity'
+import { ALB_TO_ECS_PAIR, ECS_TO_RDS_PAIR } from '../simulation/security-groups'
 import { NO_ALARM } from '../simulation/autoscaling-alarm'
 import { FRAME_PADDING, frameAround } from './frame-metrics'
 import type { ResourceId } from '../simulation/boot-graph'
@@ -73,6 +74,20 @@ export const MIN_ZOOM = 0.08
 
 export function albToTaskEdgeId(taskId: string): string {
   return `${ALB_NODE_ID}-${taskId}`
+}
+
+export function isEdgeInSecurityGroupPair(edgeId: string, pairId: string | null): boolean {
+  if (pairId === ALB_TO_ECS_PAIR) return edgeId.startsWith(`${ALB_NODE_ID}-task-`)
+
+  if (pairId === ECS_TO_RDS_PAIR) {
+    return (
+      edgeId.endsWith(`-${DB_JUNCTION_NODE_ID}`) ||
+      edgeId === JUNCTION_TO_WRITER_EDGE_ID ||
+      edgeId === JUNCTION_TO_READER_EDGE_ID
+    )
+  }
+
+  return false
 }
 
 export const NODE_RESOURCE_ID: Record<string, ResourceId> = {

@@ -4,6 +4,7 @@ import { useRdsInstanceBlast } from '../../hooks/useRdsInstanceBlast'
 import type { RdsInstanceFlowNode } from '../../types/node-data'
 import { NodeCard } from '../shared/NodeCard'
 import { AcuReadout } from '../shared/AcuReadout'
+import { SecurityGroupHandle } from '../shared/SecurityGroupHandle'
 import { LatencyReadout } from '../shared/LatencyReadout'
 import { RateReadout } from '../shared/RateReadout'
 import { RdsIcon } from '../../icons'
@@ -25,7 +26,7 @@ export function RdsInstanceNode({ data }: NodeProps<RdsInstanceFlowNode>) {
       onTargetClick={blast}
       handles={
         <>
-          <Handle type="target" position={Position.Left} id="in" isConnectable={false} />
+          <SecurityGroupHandle nodeType="rdsInstance" type="target" position={Position.Left} id="in" isConnectable={false} />
           <Handle type="source" position={Position.Right} id="storage-out" isConnectable={false} />
           {data.role === 'writer' ? (
             <Handle type="source" position={Position.Bottom} id="replicate-out" isConnectable={false} />
