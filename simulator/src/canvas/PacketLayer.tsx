@@ -1,5 +1,5 @@
 import { ViewportPortal } from '@xyflow/react'
-import { usePacketFlow, type DirectPacketEntry, type PacketEntry } from '../hooks/usePacketFlow'
+import { usePacketFlow, type DirectPacketEntry, type PacketEntry, type PacketLatency } from '../hooks/usePacketFlow'
 import type { TaskRoute } from '../hooks/useTaskGraph'
 import type { PacketColor } from '../simulation/packets'
 
@@ -8,7 +8,7 @@ interface PacketLayerProps {
   taskRoutes: TaskRoute[]
   directEntries: DirectPacketEntry[]
   liveEdgeIds: Set<string>
-  latencyMs: number
+  latency: PacketLatency
 }
 
 const PACKET_COLOR_CLASS: Record<PacketColor, string> = {
@@ -17,8 +17,8 @@ const PACKET_COLOR_CLASS: Record<PacketColor, string> = {
   blocked: 'bg-status-error shadow-[0_0_8px_2px_rgba(239,68,68,0.45)]',
 }
 
-export function PacketLayer({ entries, taskRoutes, directEntries, liveEdgeIds, latencyMs }: PacketLayerProps) {
-  const packets = usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds, latencyMs })
+export function PacketLayer({ entries, taskRoutes, directEntries, liveEdgeIds, latency }: PacketLayerProps) {
+  const packets = usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds, latency })
 
   return (
     <ViewportPortal>
