@@ -21,6 +21,7 @@ import {
   RDS_SECOND_INSTANCE_ID,
   vacantInstanceId,
 } from '../simulation/aurora'
+import { isRunningTask, selectDrainIndexes } from '../simulation/scale-in'
 import { advanceWafSource, createWafSource, windowRequestCount, type WafSourceState } from '../simulation/waf'
 import type { TaskLogEntry, TaskStatus } from '../types/task-data'
 import type { RdsInstanceLifecycle, RdsInstanceRole } from '../types/node-data'
@@ -88,7 +89,7 @@ function desiredTaskCount(requestsPerMinute: number, targetPerTask: number): num
 }
 
 function isRunning(task: TaskRuntime): boolean {
-  return task.status !== 'draining' && task.status !== 'failed'
+  return isRunningTask(task.status)
 }
 
 function launchTasks(count: number, firstInstanceId: number, now: number): TaskRuntime[] {
@@ -267,11 +268,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       scaleOutBreachAt = null
       scaleInBreachAt = null
     } else if (scaleInAlarm && now - lastScaleInAt >= AUTOSCALING.scaleInCooldownMs) {
-      const healthyIndexes = tasks.reduce<number[]>((indexes, task, index) => {
-        if (task.status === 'healthy') indexes.push(index)
-        return indexes
-      }, [])
-      const drainIndexes = new Set(healthyIndexes.slice(-(tasks.filter(isRunning).length - scaleInTarget)))
+      const drainIndexes = new Set(selectDrainIndexes(tasks.map((task) => task.status), scaleInTarget))
 
       if (drainIndexes.size > 0) {
         tasks = tasks.map((task, index) =>
