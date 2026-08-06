@@ -11,9 +11,6 @@ import {
   WAF_TO_ALB_EDGE_ID,
   METRIC_EDGE_ID,
   DESIRED_COUNT_EDGE_ID,
-  DB_JUNCTION_GAP,
-  RDS_INSTANCE_GAP,
-  CLUSTER_VOLUME_GAP,
 } from '../canvas/initial-graph'
 import {
   isAcceptingTraffic,
@@ -253,20 +250,6 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
           return { ...node, position: taskGraph.autoScalingPosition, data }
         }
 
-        if (node.type === 'dbJunction') {
-          return { ...node, position: { x: taskGraph.downstreamOriginX + DB_JUNCTION_GAP, y: node.position.y } }
-        }
-
-        if (node.type === 'clusterVolume') {
-          return {
-            ...node,
-            position: {
-              x: taskGraph.downstreamOriginX + RDS_INSTANCE_GAP + CLUSTER_VOLUME_GAP,
-              y: node.position.y,
-            },
-          }
-        }
-
         if (node.type === 'rdsInstance') {
           const isWriter = node.data.role === 'writer'
           const slot = isWriter ? rdsSlots.writer : rdsSlots.reader
@@ -284,11 +267,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
             isCacheInvalidating:
               !isWriter && availability.isReaderAvailable && auroraTraffic.committedWritesPerMinute > 0,
           }
-          return {
-            ...node,
-            position: { x: taskGraph.downstreamOriginX + RDS_INSTANCE_GAP, y: node.position.y },
-            data,
-          }
+          return { ...node, data }
         }
 
         return node

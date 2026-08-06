@@ -28,11 +28,6 @@ const CONTROL_PLANE_Y = ALB_POSITION.y - 330
 export const TASK_COLUMN_X = 780
 export const TASK_COLUMN_CENTER_Y = ALB_POSITION.y
 export const TASK_ROW_GAP = 22
-export const TASK_COLUMN_GAP = 26
-
-export const DB_JUNCTION_GAP = 21
-export const RDS_INSTANCE_GAP = 171
-export const CLUSTER_VOLUME_GAP = 310
 export const FALLBACK_TASK_HEIGHT = 108
 export const FALLBACK_TASK_WIDTH = 230
 export const NODE_LEAVE_MS = 340
