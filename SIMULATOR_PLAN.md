@@ -84,3 +84,8 @@ ALB → ECS Service (N tasks) → (Aurora, opcional/decorativo). Posição arras
 
 ## 9. Deploy
 Site estático em Vercel ou GitHub Pages, sem custo. Pode viver neste mesmo monorepo (ex.: `simulator/`) ou em repo próprio linkado no README principal — decisão de organização, não bloqueia o design acima.
+
+## Falta
+- [ ] Simulação do serverless do Aurora. Atualmente a Reader Instance e a Writer Instance não tem nenhum indicativo de ACU. Isso também resolve o problema da implementação de latencia criar um gargalo na Reader Instance, pois atualmente a Reader Instance não escala automaticamente como um serverless.
+- [ ] Transformar os Edges entre nodes dentro da infra em representações dos VPC Endpoints da rede.
+- [ ] Arrumar alguma forma de criar representações visuais da rede AWS, como a VPC, as subnets, os route tables, security groups e etc.
