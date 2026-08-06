@@ -75,6 +75,23 @@ export const BOOT_TIME_SCALE = 60
 
 export const RDS_READ_FRACTION = 0.8
 
+export const WORKLOAD = {
+  queriesPerRequest: 3,
+  targetAcuUtilization: 0.7,
+}
+
+export const AURORA_SERVERLESS = {
+  minAcu: 0,
+  maxAcu: 4,
+  acuStep: 0.5,
+  queriesPerSecondPerAcu: 283,
+  capacityDoublingMs: 147_000,
+  resumeMs: 15_000,
+  resumeAcu: 0.5,
+  secondsUntilAutoPause: 3600,
+  promotionTier: 0,
+}
+
 export const LATENCY = {
   appServiceTimeMs: 24,
   dbServiceTimeMs: 12,
