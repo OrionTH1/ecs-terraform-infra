@@ -94,11 +94,13 @@ O teto de 4 ACU foi escolhido para caber o pico normal com um passo de folga, e 
 
 Duas conclusões que não foram escolhidas — são resultado da aritmética acima:
 
-**O reader não recebe tráfego de aplicação.** `cluster_reader_endpoint` é um output do módulo `rds` que ninguém consome: o ECS recebe apenas `db_host = module.rds.cluster_endpoint`, que é o endpoint do writer. Na infra provisionada, o reader existe como alvo de failover e para aplicar o redo stream — não para escalar leitura.
+**O split 80/20 é executado pela infra.** O ECS recebe os dois endpoints (`db_host` e `db_reader_host`), e o backend mantém um pool para cada: escritas e o probe de escrita do health check vão ao writer, `SELECT` vai ao reader via `readQuery`. O `RDS_READ_FRACTION = 0.8` do simulador descreve o que o código faz, não uma intenção.
 
-Isso significa que o `RDS_READ_FRACTION = 0.8` do simulador, roteando 80% das leituras para o reader, **descreve uma intenção que a infra não executa**. É uma divergência aberta: ou o simulador passa a mandar tudo para o writer, ou o backend passa a abrir um segundo pool contra o reader endpoint. As duas são defensáveis; o que não dá é deixar os dois discordando em silêncio.
+O fallback também é real. `readQuery` cai para o writer quando o reader endpoint falha, registrando um warning — exatamente o que `routeAuroraTraffic` desenha quando a réplica some. Sem esse fallback no código, o simulador estaria mostrando um comportamento inexistente.
 
-**O banco entra em carga junto com o compute, e satura antes dele no runaway.** Como só o writer recebe tráfego, ele carrega as 3 queries de toda request sozinho. No teto do ECS isso são 500 queries/s, atendidas por 3 ACU a 59% de utilização. Se as tasks passarem do target e saturarem, a demanda vai a 1.250 queries/s e o teto de 4 ACU fica em 110% — o banco satura antes das tasks. Essa é a razão de o teto de ACU e o teto de tasks precisarem ser escolhidos juntos: mexer em um sem o outro só muda de lugar o gargalo.
+**Perder a réplica é o caso que dimensiona o teto de ACU.** Com o split, no teto do ECS o writer fica em ~1 ACU e o reader em ~2,5. Quando o reader cai, todas as leituras voltam ao writer e ele precisa de ~3 ACU sozinho. É esse caso, e não o tráfego normal, que justifica o teto de 4 — sobra um passo de escala acima do pior cenário de falha única.
+
+**O banco satura antes do compute num runaway.** Se as tasks passarem do target e saturarem (~25.000 req/min), o reader é fixado no teto de 4 ACU e degrada. Essa é a razão de o teto de ACU e o teto de tasks precisarem ser escolhidos juntos: mexer em um sem o outro só muda o gargalo de lugar.
 
 **O auto-pause nunca dispara.** A doc é explícita: *"If any user-initiated connections are open to an Aurora serverless instance, the instance won't pause."* O health check do target group bate em `/api/v1/health` a cada 30s (`alb` health_check `interval`), e essa rota executa `pool.query('SELECT 1')` (`backend/src/routes/health.route.ts`). Com no mínimo 2 tasks, o cluster recebe query a cada ~15s e nunca acumula os 300s mínimos de ociosidade, muito menos os 3600s configurados.
 
