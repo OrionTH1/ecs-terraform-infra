@@ -248,6 +248,8 @@
   background: none;
   box-shadow: none;
   z-index: 20;
+  pointer-events: all;
+  cursor: pointer;
 }
 
 .react-flow .react-flow__handle.sg-handle:focus,
@@ -273,6 +275,7 @@
   background: none;
   box-shadow: none;
   transform: none;
+  cursor: crosshair;
 }
 
 .sg-bar {
