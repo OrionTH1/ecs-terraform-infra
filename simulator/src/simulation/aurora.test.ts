@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   RDS_FIRST_INSTANCE_ID,
   RDS_SECOND_INSTANCE_ID,
+  isAbsorbingFallbackReads,
   isAcceptingTraffic,
   rdsInstanceTerraformAddress,
   routeAuroraTraffic,
@@ -63,6 +64,24 @@ describe('aurora endpoint routing', () => {
   it('does not count reads that fell back to the writer as committed writes', () => {
     expect(routeAuroraTraffic(READS, WRITES, READER_DOWN).committedWritesPerMinute).toBe(WRITES)
     expect(routeAuroraTraffic(READS, WRITES, WRITER_DOWN).committedWritesPerMinute).toBe(0)
+  })
+})
+
+describe('flagging degraded reads', () => {
+  it('flags the writer while it is covering for a missing replica', () => {
+    expect(isAbsorbingFallbackReads(800, { isWriterAvailable: true, isReaderAvailable: false })).toBe(true)
+  })
+
+  it('stays quiet while the replica is doing its job', () => {
+    expect(isAbsorbingFallbackReads(800, { isWriterAvailable: true, isReaderAvailable: true })).toBe(false)
+  })
+
+  it('stays quiet when there are no reads to absorb', () => {
+    expect(isAbsorbingFallbackReads(0, { isWriterAvailable: true, isReaderAvailable: false })).toBe(false)
+  })
+
+  it('stays quiet when the writer itself is gone, since nothing is being served', () => {
+    expect(isAbsorbingFallbackReads(800, { isWriterAvailable: false, isReaderAvailable: false })).toBe(false)
   })
 })
 

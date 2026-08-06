@@ -13,6 +13,7 @@ import {
   DESIRED_COUNT_EDGE_ID,
 } from '../canvas/initial-graph'
 import {
+  isAbsorbingFallbackReads,
   isAcceptingTraffic,
   rdsInstanceTerraformAddress,
   routeAuroraTraffic,
@@ -267,6 +268,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
             acu: slot?.acu ?? 0,
             isCacheInvalidating:
               !isWriter && availability.isReaderAvailable && auroraTraffic.committedWritesPerMinute > 0,
+            isAbsorbingFallbackReads: isWriter && isAbsorbingFallbackReads(rdsReads, availability),
           }
           return { ...node, data }
         }
@@ -281,6 +283,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
     nodes,
     resources,
     routing,
+    rdsReads,
     hasNoHealthyTargets,
     serviceTaskCounts,
     taskGraph,

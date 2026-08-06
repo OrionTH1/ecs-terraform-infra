@@ -30,6 +30,13 @@ export interface AuroraEndpointTraffic {
   rejectedRequestsPerMinute: number
 }
 
+export function isAbsorbingFallbackReads(
+  reads: number,
+  { isWriterAvailable, isReaderAvailable }: AuroraAvailability,
+): boolean {
+  return isWriterAvailable && !isReaderAvailable && reads > 0
+}
+
 export function routeAuroraTraffic(
   reads: number,
   writes: number,

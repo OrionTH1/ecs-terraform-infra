@@ -99,6 +99,7 @@ export interface RdsInstanceNodeData extends InfraNodeData {
   latencyMs: number
   acu: number
   isCacheInvalidating: boolean
+  isAbsorbingFallbackReads: boolean
 }
 
 export type AlbFlowNode = Node<AlbNodeData, 'alb'>
