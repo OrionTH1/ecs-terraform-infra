@@ -14,56 +14,50 @@ export function SecurityGroupHandle({ nodeType, id, ...handleProps }: SecurityGr
   const hoveredPairId = useSecurityGroupStore((state) => state.hoveredPairId)
   const hoveredKey = useSecurityGroupStore((state) => state.hoveredKey)
   const hoverBoundary = useSecurityGroupStore((state) => state.hoverBoundary)
+  const toggleBoundary = useSecurityGroupStore((state) => state.toggleBoundary)
   const clearBoundary = useSecurityGroupStore((state) => state.clearBoundary)
 
   if (!boundary) return <Handle id={id} {...handleProps} />
 
   const direction = boundaryDirection(boundary)
+  const isIngress = direction === 'ingress'
   const isPaired = boundary.pairId !== null && boundary.pairId === hoveredPairId
-  const isHovered = hoveredKey === key
-  const isLit = isHovered || isPaired
+  const isOpen = hoveredKey === key
+  const isLit = isOpen || isPaired
 
-  const bar = (
-    <span
-      className={`h-3.5 w-[2.5px] shrink-0 rounded-full transition-colors duration-150 ${
-        isLit ? 'bg-border-interaction' : 'bg-border'
-      }`}
-    />
-  )
-
-  const arrow = (
-    <span
-      className={`h-0 w-0 shrink-0 border-y-[4px] border-l-[6px] border-y-transparent transition-colors duration-150 ${
-        isLit ? 'border-l-border-interaction' : 'border-l-border'
-      }`}
-    />
-  )
+  const markClass = `shrink-0 transition-colors duration-150 ${isLit ? 'lit' : ''}`
 
   return (
     <Handle
       id={id}
       {...handleProps}
-      className="sg-handle"
+      className={`sg-handle ${isOpen ? 'sg-handle-open' : ''}`}
+      tabIndex={0}
+      role="button"
+      aria-expanded={isOpen}
+      aria-label={`${direction} ${boundary.rules[0].securityGroup}: ${boundary.rules.map(formatRule).join(', ')}`}
       onMouseEnter={() => hoverBoundary(key, boundary.pairId)}
       onMouseLeave={() => clearBoundary(key)}
+      onFocus={() => hoverBoundary(key, boundary.pairId)}
+      onBlur={() => clearBoundary(key)}
+      onClick={() => toggleBoundary(key, boundary.pairId)}
     >
       <span
-        className={`pointer-events-none flex items-center gap-[3px] ${
-          direction === 'ingress' ? 'flex-row-reverse' : 'flex-row'
-        }`}
+        className={`pointer-events-none flex items-center gap-[3px] ${isIngress ? 'flex-row-reverse' : 'flex-row'}`}
       >
-        {bar}
-        {arrow}
+        <span className={`${markClass} sg-bar`} />
+        <span className={`${markClass} sg-arrow`} />
       </span>
 
       <span
         role="tooltip"
-        className={`pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max -translate-x-1/2 rounded-lg border border-border bg-surface-raised px-2.5 py-1.5 shadow-card transition-opacity duration-150 ${
-          isHovered ? 'visible opacity-100' : 'invisible opacity-0'
-        }`}
+        className={`sg-tooltip pointer-events-none absolute top-1/2 w-max rounded-lg border border-border bg-surface-raised px-2.5 py-1.5 shadow-card ${
+          isIngress ? 'right-full mr-2.5 origin-right' : 'left-full ml-2.5 origin-left'
+        } ${isOpen ? 'sg-tooltip-open' : ''}`}
       >
-        <span className="block font-sans text-[10px] font-medium uppercase tracking-wider text-fg-muted">
-          {direction} · {boundary.rules[0].securityGroup}
+        <span className="block font-sans text-[10px] font-medium tracking-wider text-fg-muted">
+          <span className="uppercase">{direction}</span>
+          <span className="font-mono normal-case"> · {boundary.rules[0].securityGroup}</span>
         </span>
         {boundary.rules.map((rule) => (
           <span key={`${rule.port}-${rule.peer}`} className="block font-mono text-[11px] text-fg">

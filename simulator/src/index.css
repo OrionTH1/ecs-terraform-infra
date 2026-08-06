@@ -247,6 +247,16 @@
   border-radius: 0;
   background: none;
   box-shadow: none;
+  z-index: 20;
+}
+
+.react-flow .react-flow__handle.sg-handle:focus,
+.react-flow .react-flow__handle.sg-handle:focus-visible {
+  outline: none;
+}
+
+.react-flow .react-flow__handle.sg-handle-open {
+  z-index: 60;
 }
 
 .react-flow .react-flow__handle-left.sg-handle {
@@ -257,14 +267,61 @@
   right: -19px;
 }
 
-.react-flow .react-flow__handle.sg-handle.connectionindicator {
+.react-flow .react-flow__handle.sg-handle.connectionindicator,
+.react-flow .react-flow__handle.sg-handle.connectionindicator:hover {
   border: none;
   background: none;
+  box-shadow: none;
+  transform: none;
 }
 
-.react-flow .react-flow__handle.sg-handle.connectionindicator:hover {
-  transform: scale(1.2);
-  box-shadow: none;
+.sg-bar {
+  width: 2.5px;
+  height: 14px;
+  border-radius: 9999px;
+  background: var(--color-border);
+}
+
+.sg-arrow {
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid var(--color-border);
+}
+
+.sg-bar.lit {
+  background: var(--color-border-interaction);
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--color-border-interaction) 45%, transparent);
+}
+
+.sg-arrow.lit {
+  border-left-color: var(--color-border-interaction);
+}
+
+.sg-tooltip {
+  z-index: 60;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-50%) scale(0.94);
+  transition:
+    opacity 140ms ease-out,
+    transform 140ms ease-out,
+    visibility 140ms;
+}
+
+.sg-tooltip.origin-right {
+  transform: translateY(-50%) translateX(6px) scale(0.94);
+}
+
+.sg-tooltip.origin-left {
+  transform: translateY(-50%) translateX(-6px) scale(0.94);
+}
+
+.sg-tooltip-open.sg-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(0) scale(1);
 }
 
 .react-flow .react-flow__handle.connectionindicator {

@@ -29,6 +29,7 @@ import { useToolShortcuts } from '../hooks/useToolShortcuts'
 import { useSettleViewport } from '../hooks/useSettleViewport'
 import { useIsCompactViewport } from '../hooks/useMediaQuery'
 import { useSimulationStore } from '../store/useSimulationStore'
+import { useSecurityGroupStore } from '../store/useSecurityGroupStore'
 import { isAcceptingTraffic } from '../simulation/aurora'
 import { isCreated } from '../simulation/boot-graph'
 import { ALB_NODE_ID, FIT_VIEW_OPTIONS, MIN_ZOOM, initialEdges, initialNodes } from './initial-graph'
@@ -90,6 +91,7 @@ export function SimulatorCanvas() {
   const { isValidConnection, onConnect } = useCanvasConnections({ nodes, edges, setEdges })
   const { onDragOver, onDrop, addNodeAtViewportCenter } = useNodePalette({ nodes, onNodesChange })
   const isCompact = useIsCompactViewport()
+  const clearAllBoundaries = useSecurityGroupStore((state) => state.clearAllBoundaries)
 
   const userEdges = useMemo(() => edges.filter((edge) => edge.target === ALB_NODE_ID), [edges])
 
@@ -131,6 +133,7 @@ export function SimulatorCanvas() {
         isValidConnection={isValidConnection}
         onDragOver={onDragOver}
         onDrop={onDrop}
+        onPaneClick={clearAllBoundaries}
         panOnDrag={activeTool.panOnDrag}
         minZoom={MIN_ZOOM}
         fitView
