@@ -2,7 +2,7 @@ import type { TaskStatus } from '../types/task-data'
 
 export const AUTOSCALING = {
   minCapacity: 2,
-  maxCapacity: 4,
+  maxCapacity: 10,
   targetRequestsPerMinutePerTask: 1000,
   scaleOutCooldownMs: 60_000,
   scaleInCooldownMs: 60_000,
