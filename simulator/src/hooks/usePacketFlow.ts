@@ -1,13 +1,12 @@
 import { useEffect, useRef, type RefObject } from 'react'
+import type { useStoreApi } from '@xyflow/react'
+import { SPRITE_SIZE_PX, buildPacketSprites } from '../canvas/packet-sprites'
 import { PAGE_CACHE_EDGE_ID } from '../canvas/initial-graph'
 import { RDS_READ_FRACTION } from '../simulation/simulation-config'
 import type { TaskRoute } from './useTaskGraph'
 import {
   MAX_LIVE_PACKETS,
   MAX_STALL_MS,
-  PACKET_BASE_CLASS,
-  PACKET_COLOR_CLASS,
-  PACKET_RADIUS,
   PACKET_SPEED_PX_PER_SECOND,
   REPLICATION_PACKET_SPEED_PX_PER_SECOND,
   packetsPerSecond,
@@ -40,17 +39,14 @@ interface PacketFlowArgs {
 }
 
 interface PacketFlowOptions extends PacketFlowArgs {
-  slots: RefObject<(HTMLDivElement | null)[]>
+  canvas: RefObject<HTMLCanvasElement | null>
+  store: ReturnType<typeof useStoreApi>
 }
 
-function paintSlot(element: HTMLDivElement, x: number, y: number, color: PacketColor) {
-  element.style.transform = `translate3d(${x - PACKET_RADIUS}px, ${y - PACKET_RADIUS}px, 0)`
-
-  if (element.dataset.color !== color) {
-    element.dataset.color = color
-    element.className = `${PACKET_BASE_CLASS} ${PACKET_COLOR_CLASS[color]}`
-  }
-  if (element.style.visibility !== 'visible') element.style.visibility = 'visible'
+interface DrawnPacket {
+  x: number
+  y: number
+  color: PacketColor
 }
 
 interface RouteBuild {
@@ -154,7 +150,7 @@ function advanceAlongRoute(
   return { kind: 'arrived' }
 }
 
-export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds, slots }: PacketFlowOptions) {
+export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds, canvas, store }: PacketFlowOptions) {
   const packets = useRef<Packet[]>([])
   const pending = useRef(new Map<string, number>())
   const nextPacketId = useRef(0)
@@ -165,6 +161,52 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
   inputs.current = { entries, taskRoutes, directEntries, liveEdgeIds }
 
   useEffect(() => {
+    const element = canvas.current
+    const context = element?.getContext('2d') ?? null
+    if (!element || !context) return
+
+    const sprites = buildPacketSprites()
+    const drawnPackets: DrawnPacket[] = Array.from({ length: MAX_LIVE_PACKETS }, () => ({
+      x: 0,
+      y: 0,
+      color: 'default' as PacketColor,
+    }))
+
+    let pixelRatio = window.devicePixelRatio || 1
+    let cssWidth = 0
+    let cssHeight = 0
+
+    function resize() {
+      pixelRatio = window.devicePixelRatio || 1
+      cssWidth = element!.clientWidth
+      cssHeight = element!.clientHeight
+      element!.width = Math.round(cssWidth * pixelRatio)
+      element!.height = Math.round(cssHeight * pixelRatio)
+    }
+
+    resize()
+    const observer = new ResizeObserver(resize)
+    observer.observe(element)
+
+    function draw(drawn: number) {
+      context!.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+      context!.clearRect(0, 0, cssWidth, cssHeight)
+
+      const [offsetX, offsetY, zoom] = store.getState().transform
+      const size = SPRITE_SIZE_PX * zoom
+      const half = size / 2
+
+      for (let index = 0; index < drawn; index += 1) {
+        const packet = drawnPackets[index]
+        const screenX = packet.x * zoom + offsetX
+        const screenY = packet.y * zoom + offsetY
+
+        if (screenX < -size || screenY < -size || screenX > cssWidth + size || screenY > cssHeight + size) continue
+
+        context!.drawImage(sprites[packet.color], screenX - half, screenY - half, size, size)
+      }
+    }
+
     let frameId = 0
     let previous = performance.now()
     let routedAgainst: Set<string> | null = null
@@ -253,8 +295,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
     function advance(now: number, deltaSeconds: number): number {
       const cache = new Map<string, PathGeometry | null>()
       const alive: Packet[] = []
-      const elements = slots.current
-      let painted = 0
+      let drawn = 0
       const { liveEdgeIds: currentLiveEdgeIds, taskRoutes } = inputs.current
       const writeLeg = taskRoutes[0]?.writeLeg ?? null
       const fallbackEdgeIds = writeLeg ? [writeLeg.instanceEdgeId, writeLeg.volumeEdgeId] : []
@@ -295,10 +336,12 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
           packet.stalledSince = stalledSince
           alive.push(packet)
           const held = packet.lastPosition
-          const slot = elements[painted]
-          if (held && slot) {
-            paintSlot(slot, held.x, held.y, packet.color)
-            painted += 1
+          if (held) {
+            const entry = drawnPackets[drawn]
+            entry.x = held.x
+            entry.y = held.y
+            entry.color = packet.color
+            drawn += 1
           }
           continue
         }
@@ -311,34 +354,31 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
         }
         alive.push(packet)
 
-        const slot = elements[painted]
-        if (slot) {
-          paintSlot(slot, placement.x, placement.y, packet.legColors[placement.legIndex] ?? packet.color)
-          painted += 1
-        }
+        const entry = drawnPackets[drawn]
+        entry.x = placement.x
+        entry.y = placement.y
+        entry.color = packet.legColors[placement.legIndex] ?? packet.color
+        drawn += 1
       }
 
       packets.current = alive
-      return painted
+      return drawn
     }
 
     function step(now: number) {
       const deltaSeconds = Math.min((now - previous) / 1000, MAX_FRAME_DELTA_SECONDS)
 
       spawn(deltaSeconds)
-
-      const painted = advance(now, deltaSeconds)
-      const elements = slots.current
-      for (let slot = painted; slot < elements.length; slot += 1) {
-        const element = elements[slot]
-        if (element && element.style.visibility !== 'hidden') element.style.visibility = 'hidden'
-      }
+      draw(advance(now, deltaSeconds))
 
       previous = now
       frameId = requestAnimationFrame(step)
     }
 
     frameId = requestAnimationFrame(step)
-    return () => cancelAnimationFrame(frameId)
-  }, [slots])
+    return () => {
+      cancelAnimationFrame(frameId)
+      observer.disconnect()
+    }
+  }, [canvas, store])
 }

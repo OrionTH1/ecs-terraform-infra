@@ -11,14 +11,7 @@ const SECONDS_PER_MINUTE = 60
 export type PacketColor = 'default' | 'write' | 'blocked'
 
 export const PACKET_RADIUS = 3.5
-
-export const PACKET_BASE_CLASS = 'pointer-events-none absolute top-0 left-0 h-[7px] w-[7px] rounded-full'
-
-export const PACKET_COLOR_CLASS: Record<PacketColor, string> = {
-  default: 'bg-border-interaction shadow-[0_0_4px_1px_rgba(59,130,246,0.45)]',
-  write: 'bg-status-warning shadow-[0_0_4px_1px_rgba(245,158,11,0.45)]',
-  blocked: 'bg-status-error shadow-[0_0_4px_1px_rgba(239,68,68,0.5)]',
-}
+export const PACKET_GLOW_PX = 4
 
 export interface Packet {
   id: number
@@ -29,13 +22,6 @@ export interface Packet {
   legProgress: number
   stalledSince: number | null
   lastPosition: { x: number; y: number } | null
-  color: PacketColor
-}
-
-export interface RenderedPacket {
-  id: number
-  x: number
-  y: number
   color: PacketColor
 }
 

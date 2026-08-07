@@ -1,8 +1,7 @@
 import { useRef } from 'react'
-import { ViewportPortal } from '@xyflow/react'
+import { useStoreApi } from '@xyflow/react'
 import { usePacketFlow, type DirectPacketEntry, type PacketEntry } from '../hooks/usePacketFlow'
 import type { TaskRoute } from '../hooks/useTaskGraph'
-import { MAX_LIVE_PACKETS, PACKET_BASE_CLASS } from '../simulation/packets'
 
 interface PacketLayerProps {
   entries: PacketEntry[]
@@ -12,22 +11,10 @@ interface PacketLayerProps {
 }
 
 export function PacketLayer({ entries, taskRoutes, directEntries, liveEdgeIds }: PacketLayerProps) {
-  const slots = useRef<(HTMLDivElement | null)[]>([])
+  const canvas = useRef<HTMLCanvasElement>(null)
+  const store = useStoreApi()
 
-  usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds, slots })
+  usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds, canvas, store })
 
-  return (
-    <ViewportPortal>
-      {Array.from({ length: MAX_LIVE_PACKETS }, (_, slot) => (
-        <div
-          key={slot}
-          ref={(element) => {
-            slots.current[slot] = element
-          }}
-          className={PACKET_BASE_CLASS}
-          style={{ visibility: 'hidden' }}
-        />
-      ))}
-    </ViewportPortal>
-  )
+  return <canvas ref={canvas} className="pointer-events-none absolute inset-0 z-[4] h-full w-full" />
 }
