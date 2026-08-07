@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
-  MAX_IMAGE_PULL_SPEED_PX_PER_SECOND,
+
   buildImagePullItinerary,
   fitsInsideThePull,
   imagePullSpeed,
   isPullingImage,
+  travelSecondsFor,
   isPullingImageStatus,
   pullSecondsRemaining,
 } from './image-pull'
@@ -83,18 +84,35 @@ describe('what a layer download looks like on the wire', () => {
 })
 
 describe('fitting the trip inside the step it draws', () => {
-  it('crosses the whole route in exactly the time the pull has left', () => {
-    expect(imagePullSpeed(2000, 10)).toBe(200)
+  it('crosses the whole route in the time left, minus the pauses it takes at each node', () => {
+    expect(imagePullSpeed(2000, 10, 0)).toBe(200)
+    expect(travelSecondsFor(10, 8)).toBeCloseTo(10 - 8 * 0.22)
+  })
+
+  it('leaves room for every dwell, so the trip never outlives the step it draws', () => {
+    const legCount = 8
+    const secondsRemaining = 10
+    const speed = imagePullSpeed(2000, secondsRemaining, legCount)
+    const wallClock = 2000 / speed + (legCount * 220) / 1000
+
+    expect(wallClock).toBeCloseTo(secondsRemaining)
   })
 
   it('draws nothing rather than a blur when the trip cannot fit in the time left', () => {
-    expect(fitsInsideThePull(2000, 0.01)).toBe(false)
-    expect(fitsInsideThePull(2000, 0)).toBe(false)
+    expect(fitsInsideThePull(2000, 0.01, 8)).toBe(false)
+    expect(fitsInsideThePull(2000, 0, 8)).toBe(false)
+  })
+
+  it('draws nothing while the edges have no geometry yet', () => {
+    expect(fitsInsideThePull(0, 10, 8)).toBe(false)
+  })
+
+  it('draws nothing when the dwells alone would outlast the step', () => {
+    expect(fitsInsideThePull(100, 1, 8)).toBe(false)
   })
 
   it('draws the trip whenever it can be crossed without exceeding the speed limit', () => {
-    expect(fitsInsideThePull(2000, 10)).toBe(true)
-    expect(fitsInsideThePull(MAX_IMAGE_PULL_SPEED_PX_PER_SECOND, 1)).toBe(true)
+    expect(fitsInsideThePull(2000, 10, 8)).toBe(true)
   })
 
   it('shortens the wall clock budget as the simulation speed goes up', () => {

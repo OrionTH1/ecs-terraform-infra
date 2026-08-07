@@ -1,4 +1,4 @@
-import { PACKET_SPEED_PX_PER_SECOND, type ItineraryLeg } from './packets'
+import { PACKET_DWELL_MS, PACKET_SPEED_PX_PER_SECOND, type ItineraryLeg } from './packets'
 import type { TaskStatus } from '../types/task-data'
 
 export const MAX_IMAGE_PULL_SPEED_PX_PER_SECOND = 2400
@@ -13,14 +13,19 @@ export interface ImagePullLegs {
   secondsRemaining: number
 }
 
-export function imagePullSpeed(routeLengthPx: number, secondsRemaining: number): number {
-  return routeLengthPx / secondsRemaining
+export function travelSecondsFor(secondsRemaining: number, legCount: number): number {
+  return secondsRemaining - (legCount * PACKET_DWELL_MS) / 1000
 }
 
-export function fitsInsideThePull(routeLengthPx: number, secondsRemaining: number): boolean {
-  if (secondsRemaining <= 0) return false
+export function imagePullSpeed(routeLengthPx: number, secondsRemaining: number, legCount: number): number {
+  return routeLengthPx / travelSecondsFor(secondsRemaining, legCount)
+}
 
-  return imagePullSpeed(routeLengthPx, secondsRemaining) <= MAX_IMAGE_PULL_SPEED_PX_PER_SECOND
+export function fitsInsideThePull(routeLengthPx: number, secondsRemaining: number, legCount: number): boolean {
+  if (routeLengthPx <= 0) return false
+  if (travelSecondsFor(secondsRemaining, legCount) <= 0) return false
+
+  return imagePullSpeed(routeLengthPx, secondsRemaining, legCount) <= MAX_IMAGE_PULL_SPEED_PX_PER_SECOND
 }
 
 export function pullSecondsRemaining(elapsedSimMs: number, pullDurationMs: number, timeScale: number): number {

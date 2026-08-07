@@ -376,12 +376,12 @@ export function usePacketFlow({
           (total, entry) => total + (readGeometry(entry.edgeId, geometryCache)?.length ?? 0),
           0,
         )
-        if (!fitsInsideThePull(routeLength, route.secondsRemaining)) continue
+        if (!fitsInsideThePull(routeLength, route.secondsRemaining, shape.length)) continue
 
         const legs = buildImagePullItinerary(
           route,
           inputs.current.liveEdgeIds,
-          imagePullSpeed(routeLength, route.secondsRemaining),
+          imagePullSpeed(routeLength, route.secondsRemaining, shape.length),
         )
 
         pullsInFlight.current.add(route.registryEgressEdgeId)
