@@ -28,6 +28,7 @@ import { AUTOSCALING, RDS_READ_FRACTION } from '../simulation/simulation-config'
 import { splitReadWrite } from '../simulation/traffic-distribution'
 import { useSimulationStore, type RdsInstanceRuntime } from '../store/useSimulationStore'
 import { useRecentChange } from './useRecentChange'
+import type { NetworkZoneLayout } from './useNetworkZoneLayout'
 import type { TaskGraph } from './useTaskGraph'
 import type { TrafficRouting } from './useTrafficRouting'
 import type {
@@ -40,6 +41,7 @@ import type {
   AlbNodeData,
   AutoScalingNodeData,
   EcsServiceNodeData,
+  NetworkZoneNodeData,
   ProvisioningInfo,
   RdsInstanceNodeData,
   SimulatorFlowNode,
@@ -53,6 +55,7 @@ interface RenderGraphArgs {
   edges: SimulatorFlowEdge[]
   routing: TrafficRouting
   taskGraph: TaskGraph
+  networkZones: NetworkZoneLayout
 }
 
 export interface RenderGraph {
@@ -139,7 +142,7 @@ function isEdgeVisible(ledger: ResourceLedger, edge: SimulatorFlowEdge, availabi
   return isNodeCreated(ledger, edge.source) && isNodeCreated(ledger, edge.target)
 }
 
-export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraphArgs): RenderGraph {
+export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones }: RenderGraphArgs): RenderGraph {
   const resources = useSimulationStore((state) => state.resources)
   const tasks = useSimulationStore((state) => state.tasks)
   const wafBlockedRequests = useSimulationStore((state) => state.wafBlockedRequests)
@@ -204,6 +207,14 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
           return { ...node, data }
         }
 
+        if (node.type === 'networkZone') {
+          const frame = networkZones.framesByNodeId.get(node.id)
+          if (frame === undefined) return node
+
+          const data: NetworkZoneNodeData = { ...node.data, width: frame.width, height: frame.height }
+          return { ...node, position: frame.position, data }
+        }
+
         if (node.type === 'waf') {
           const data: WafNodeData = {
             ...node.data,
@@ -213,7 +224,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
             blockedIps,
             status: blockedIps.length > 0 ? 'warning' : 'idle',
           }
-          return { ...node, data }
+          return { ...node, position: networkZones.wafPosition, data }
         }
 
         if (node.type === 'user') {
@@ -254,7 +265,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
             desiredCount,
             status: alarm.name === 'high' ? 'warning' : 'idle',
           }
-          return { ...node, position: taskGraph.autoScalingPosition, data }
+          return { ...node, position: networkZones.autoScalingPosition, data }
         }
 
         if (node.type === 'rdsInstance') {
@@ -299,6 +310,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
     hasNoHealthyTargets,
     serviceTaskCounts,
     taskGraph,
+    networkZones,
     auroraTraffic,
     availability,
     wafBlockedRequests,

@@ -25,6 +25,12 @@ Sobre a origem 3: `backend/` é uma imagem placeholder para dar ao ECS algo que 
 | `AURORA_SERVERLESS.secondsUntilAutoPause` | 3600 | `rds.seconds_until_auto_pause` |
 | `AURORA_SERVERLESS.promotionTier` | 0 | `aws_rds_cluster_instance` não define `promotion_tier`; o default do provider AWS é 0 |
 
+| `VPC_CIDR` | 10.0.0.0/16 | `network.vpc_cidr` |
+| `PUBLIC_SUBNETS.cidrByAvailabilityZone` | 10.0.0.0/24, 10.0.1.0/24 | `network.public_subnet_cidrs` |
+| `PRIVATE_SUBNETS.cidrByAvailabilityZone` | 10.0.10.0/24, 10.0.11.0/24 | `network.private_subnet_cidrs` |
+| `AVAILABILITY_ZONES` | us-east-1a, us-east-1b | as chaves dos dois mapas de subnet |
+| Regras de `SECURITY_GROUP_BOUNDARIES` | portas e peers | `network/security_groups.tf`, regra por regra |
+
 A métrica de autoscaling é `ALBRequestCountPerTarget`, não CPU — igual ao `aws_appautoscaling_policy` do repo.
 
 ## Valores que vêm da AWS
@@ -114,4 +120,5 @@ Registrados aqui para não passarem por calibrados:
 
 - `AWS_ALARM_EVALUATION` (3 min / 15 min) descreve o comportamento real do target tracking, mas o motor roda com `AUTOSCALING.scaleOutEvaluationMs = 90s` e `scaleInEvaluationMs = 5 min` para caber no ritmo da demo. As tooltips citam os valores reais.
 - O simulador distribui com round-robin; o target group real usa `least_outstanding_requests`. Com tasks de capacidade igual e carga uniforme os dois convergem, mas não são a mesma coisa.
+- **Qual instância Aurora fica em qual AZ.** O simulador rotula a instância `[0]` como `us-east-1a` e a `[1]` como `us-east-1b`. O Terraform não escolhe isso: `aws_rds_cluster_instance` não recebe `availability_zone`, e o RDS distribui as instâncias entre as AZs do `db_subnet_group` por conta própria. O que o Terraform garante é que as duas subnets privadas estão em AZs diferentes — a atribuição específica é uma suposição para o desenho, e é o que dá sentido visual ao failover.
 - `max_connections` a 2 ACU. A tabela da AWS publica 189 (1 ACU) e 823 (4 ACU) para Aurora PostgreSQL, mas não o valor de 2 ACU. O simulador não usa esse número justamente por isso — interpolar seria inventar.

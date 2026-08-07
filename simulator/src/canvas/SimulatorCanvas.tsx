@@ -7,6 +7,7 @@ import { AutoScalingNode } from '../nodes/infra/AutoScalingNode'
 import { TargetGroupNode } from '../nodes/infra/TargetGroupNode'
 import { DbJunctionNode } from '../nodes/infra/DbJunctionNode'
 import { TaskNode } from '../nodes/infra/TaskNode'
+import { NetworkZoneNode } from '../nodes/infra/NetworkZoneNode'
 import { AuroraClusterNode } from '../nodes/infra/AuroraClusterNode'
 import { ClusterVolumeNode } from '../nodes/infra/ClusterVolumeNode'
 import { RdsInstanceNode } from '../nodes/infra/RdsInstanceNode'
@@ -20,6 +21,7 @@ import { CanvasControls } from '../panels/CanvasControls'
 import { PacketLayer } from './PacketLayer'
 import { useSimulationClock } from '../hooks/useSimulationClock'
 import { useTrafficRouting } from '../hooks/useTrafficRouting'
+import { useNetworkZoneLayout } from '../hooks/useNetworkZoneLayout'
 import { useTaskGraph } from '../hooks/useTaskGraph'
 import { useRenderGraph } from '../hooks/useRenderGraph'
 import { useCanvasConnections } from '../hooks/useCanvasConnections'
@@ -50,6 +52,7 @@ const nodeTypes = {
   dbJunction: DbJunctionNode,
   task: TaskNode,
   auroraCluster: AuroraClusterNode,
+  networkZone: NetworkZoneNode,
   clusterVolume: ClusterVolumeNode,
   rdsInstance: RdsInstanceNode,
   user: UserNode,
@@ -86,11 +89,14 @@ export function SimulatorCanvas() {
     taskLatencyMs,
   })
 
+  const networkZones = useNetworkZoneLayout({ serviceFrame: taskGraph.serviceFrame })
+
   const { renderNodes, renderEdges, liveEdgeIds, hasNoHealthyTargets } = useRenderGraph({
     nodes,
     edges,
     routing,
     taskGraph,
+    networkZones,
   })
 
   useSettleViewport(renderNodes.length)

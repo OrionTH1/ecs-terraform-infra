@@ -33,6 +33,24 @@ export function frameLeftFor(contentLeft: number, contentWidth: number, frameWid
   return contentLeft - (frameWidth - contentWidth) / 2
 }
 
+export function frameContentBox(frame: FrameBox): ContentBox {
+  return {
+    left: frame.position.x,
+    top: frame.position.y,
+    right: frame.position.x + frame.width,
+    bottom: frame.position.y + frame.height,
+  }
+}
+
+export function unionBox(boxes: ContentBox[]): ContentBox {
+  return {
+    left: Math.min(...boxes.map((box) => box.left)),
+    top: Math.min(...boxes.map((box) => box.top)),
+    right: Math.max(...boxes.map((box) => box.right)),
+    bottom: Math.max(...boxes.map((box) => box.bottom)),
+  }
+}
+
 export function frameAround(content: ContentBox): FrameBox {
   const contentWidth = content.right - content.left
   const width = frameWidthFor(contentWidth)

@@ -1,8 +1,5 @@
 import { useMemo } from 'react'
 import {
-  AUTO_SCALING_GAP,
-  AUTO_SCALING_NODE_ID,
-  FALLBACK_AUTO_SCALING_HEIGHT,
   FALLBACK_TASK_HEIGHT,
   FALLBACK_TASK_WIDTH,
   TARGET_GROUP_NODE_ID,
@@ -34,7 +31,6 @@ export interface TaskColumnLayout {
   sizes: Map<string, MeasuredSize>
   targetGroupNode: TargetGroupFlowNode | null
   serviceFrame: FrameBox
-  autoScalingPosition: { x: number; y: number }
 }
 
 const TARGET_GROUP_TOOLTIP =
@@ -101,12 +97,6 @@ export function useTaskColumnLayout({
     stackFrom(frameContentOriginY(targetGroupTop), registered, registeredHeights, positions)
     stackFrom(targetGroupTop + targetGroupHeight + TASK_ZONE_GAP, unregistered, unregisteredHeights, positions)
 
-    const autoScalingHeight = sizes.get(AUTO_SCALING_NODE_ID)?.height ?? FALLBACK_AUTO_SCALING_HEIGHT
-    const autoScalingPosition = {
-      x: TASK_COLUMN_X,
-      y: serviceFrame.position.y - AUTO_SCALING_GAP - autoScalingHeight,
-    }
-
     const targetGroupNode: TargetGroupFlowNode | null = isTargetGroupVisible
       ? {
           id: TARGET_GROUP_NODE_ID,
@@ -128,6 +118,6 @@ export function useTaskColumnLayout({
         }
       : null
 
-    return { positions, sizes, targetGroupNode, serviceFrame, autoScalingPosition }
+    return { positions, sizes, targetGroupNode, serviceFrame }
   }, [orderedTasks, sizes, isTargetGroupVisible, healthyTaskCount])
 }

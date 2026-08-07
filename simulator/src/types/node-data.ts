@@ -87,12 +87,19 @@ export interface AuroraClusterNodeData extends InfraNodeData {
   height: number
 }
 
+export interface NetworkZoneNodeData extends InfraNodeData {
+  width: number
+  height: number
+  summary: string
+}
+
 export type ClusterVolumeNodeData = InfraNodeData
 
 export type RdsInstanceRole = 'writer' | 'reader'
 export type RdsInstanceLifecycle = 'provisioning' | 'promoting' | 'available' | 'failed'
 
 export interface RdsInstanceNodeData extends InfraNodeData {
+  availabilityZone: string
   role: RdsInstanceRole
   lifecycle: RdsInstanceLifecycle
   requestsPerMinute: number
@@ -111,6 +118,7 @@ export type WafFlowNode = Node<WafNodeData, 'waf'>
 export type TargetGroupFlowNode = Node<TargetGroupNodeData, 'targetGroup'>
 export type DbJunctionFlowNode = Node<Record<string, unknown>, 'dbJunction'>
 export type AuroraClusterFlowNode = Node<AuroraClusterNodeData, 'auroraCluster'>
+export type NetworkZoneFlowNode = Node<NetworkZoneNodeData, 'networkZone'>
 export type ClusterVolumeFlowNode = Node<ClusterVolumeNodeData, 'clusterVolume'>
 export type RdsInstanceFlowNode = Node<RdsInstanceNodeData, 'rdsInstance'>
 
@@ -125,5 +133,6 @@ export type SimulatorFlowNode =
   | DbJunctionFlowNode
   | TaskFlowNode
   | AuroraClusterFlowNode
+  | NetworkZoneFlowNode
   | ClusterVolumeFlowNode
   | RdsInstanceFlowNode

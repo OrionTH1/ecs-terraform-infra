@@ -38,6 +38,7 @@ export function RdsInstanceNode({ data }: NodeProps<RdsInstanceFlowNode>) {
       }
     >
       <div className="flex w-[176px] flex-col gap-1.5">
+        <span className="font-mono text-[10px] tracking-wide text-fg-muted">{data.availabilityZone}</span>
         <div className="flex items-baseline justify-between gap-2">
           <RateReadout value={data.requestsPerMinute} />
           <LatencyReadout meanMs={data.latencyMs} showTail={false} />

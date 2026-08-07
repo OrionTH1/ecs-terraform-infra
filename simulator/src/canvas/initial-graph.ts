@@ -3,7 +3,16 @@ import { IDLE_LATENCY } from '../simulation/latency'
 import { runningFloorAcu } from '../simulation/aurora-capacity'
 import { ALB_TO_ECS_PAIR, ECS_TO_RDS_PAIR } from '../simulation/security-groups'
 import { NO_ALARM } from '../simulation/autoscaling-alarm'
+import {
+  AVAILABILITY_ZONES,
+  PRIVATE_SUBNETS,
+  PUBLIC_SUBNETS,
+  VPC_CIDR,
+  VPC_TOOLTIP,
+  subnetSummary,
+} from '../simulation/network-topology'
 import { FRAME_PADDING, frameAround } from './frame-metrics'
+import { networkZoneFrames } from './network-zones'
 import type { ResourceId } from '../simulation/boot-graph'
 import type { SimulatorFlowNode } from '../types/node-data'
 import type { SimulatorFlowEdge } from '../types/edge-data'
@@ -23,9 +32,11 @@ export const READER_TO_VOLUME_EDGE_ID = 'rds-reader-volume'
 export const PAGE_CACHE_EDGE_ID = 'rds-writer-reader-page-cache'
 export const METRIC_EDGE_ID = 'alb-auto-scaling-metric'
 export const DESIRED_COUNT_EDGE_ID = 'auto-scaling-ecs-service-desired-count'
+export const VPC_NODE_ID = 'vpc'
+export const PUBLIC_SUBNETS_NODE_ID = 'public-subnets'
+export const PRIVATE_SUBNETS_NODE_ID = 'private-subnets'
 
-const ALB_POSITION = { x: 360, y: 200 }
-const CONTROL_PLANE_Y = ALB_POSITION.y - 330
+export const ALB_POSITION = { x: 360, y: 200 }
 
 export const TASK_COLUMN_X = 920
 export const TASK_COLUMN_CENTER_Y = ALB_POSITION.y
@@ -39,8 +50,9 @@ export const TASK_ZONE_GAP = 40
 export const AUTO_SCALING_GAP = 74
 export const FALLBACK_AUTO_SCALING_HEIGHT = 210
 
-const FALLBACK_CARD_WIDTH = 210
-const FALLBACK_CARD_HEIGHT = 132
+export const FALLBACK_CARD_WIDTH = 210
+export const FALLBACK_CARD_HEIGHT = 132
+export const FALLBACK_WAF_HEIGHT = 196
 
 const RDS_INSTANCE_X = TASK_COLUMN_X + 650
 
@@ -48,7 +60,9 @@ export const RDS_WRITER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y - 130 
 export const RDS_READER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y + 130 }
 export const CLUSTER_VOLUME_POSITION = { x: RDS_INSTANCE_X + 310, y: ALB_POSITION.y - 46 }
 
-const AURORA_FRAME = frameAround({
+const INITIAL_CONTROL_PLANE_Y = ALB_POSITION.y - 330
+
+export const AURORA_FRAME = frameAround({
   left: RDS_INSTANCE_X,
   top: RDS_WRITER_POSITION.y,
   right: CLUSTER_VOLUME_POSITION.x + FALLBACK_CARD_WIDTH,
@@ -117,11 +131,77 @@ const AUTO_SCALING_TOOLTIP =
   `${AWS_ALARM_EVALUATION.scaleOutMs / 60_000} minutes above target but only scales in after ${AWS_ALARM_EVALUATION.scaleInMs / 60_000} minutes below it. ` +
   'Both windows are shortened here so the demo stays watchable.'
 
+const INITIAL_ZONES = networkZoneFrames(
+  {
+    left: ALB_POSITION.x,
+    top: ALB_POSITION.y,
+    right: ALB_POSITION.x + FALLBACK_CARD_WIDTH,
+    bottom: ALB_POSITION.y + FALLBACK_CARD_HEIGHT,
+  },
+  {
+    position: { x: TASK_COLUMN_X - FRAME_PADDING * 2, y: TASK_COLUMN_CENTER_Y },
+    width: FALLBACK_TASK_WIDTH + FRAME_PADDING * 4,
+    height: 0,
+  },
+  AURORA_FRAME,
+)
+
 export const initialNodes: SimulatorFlowNode[] = [
+  {
+    id: VPC_NODE_ID,
+    type: 'networkZone',
+    position: INITIAL_ZONES.vpc.position,
+    data: {
+      label: 'VPC',
+      tooltip: VPC_TOOLTIP,
+      status: 'idle',
+      width: INITIAL_ZONES.vpc.width,
+      height: INITIAL_ZONES.vpc.height,
+      summary: VPC_CIDR,
+    },
+    draggable: false,
+    deletable: false,
+    selectable: false,
+    zIndex: -4,
+  },
+  {
+    id: PUBLIC_SUBNETS_NODE_ID,
+    type: 'networkZone',
+    position: INITIAL_ZONES.publicSubnets.position,
+    data: {
+      label: PUBLIC_SUBNETS.label,
+      tooltip: PUBLIC_SUBNETS.tooltip,
+      status: 'idle',
+      width: INITIAL_ZONES.publicSubnets.width,
+      height: INITIAL_ZONES.publicSubnets.height,
+      summary: subnetSummary(PUBLIC_SUBNETS),
+    },
+    draggable: false,
+    deletable: false,
+    selectable: false,
+    zIndex: -3,
+  },
+  {
+    id: PRIVATE_SUBNETS_NODE_ID,
+    type: 'networkZone',
+    position: INITIAL_ZONES.privateSubnets.position,
+    data: {
+      label: PRIVATE_SUBNETS.label,
+      tooltip: PRIVATE_SUBNETS.tooltip,
+      status: 'idle',
+      width: INITIAL_ZONES.privateSubnets.width,
+      height: INITIAL_ZONES.privateSubnets.height,
+      summary: subnetSummary(PRIVATE_SUBNETS),
+    },
+    draggable: false,
+    deletable: false,
+    selectable: false,
+    zIndex: -3,
+  },
   {
     id: WAF_NODE_ID,
     type: 'waf',
-    position: { x: ALB_POSITION.x, y: CONTROL_PLANE_Y },
+    position: { x: ALB_POSITION.x, y: INITIAL_CONTROL_PLANE_Y },
     data: {
       label: 'Web ACL',
       tooltip:
@@ -154,7 +234,7 @@ export const initialNodes: SimulatorFlowNode[] = [
   {
     id: AUTO_SCALING_NODE_ID,
     type: 'autoScaling',
-    position: { x: TASK_COLUMN_X, y: CONTROL_PLANE_Y },
+    position: { x: TASK_COLUMN_X, y: INITIAL_CONTROL_PLANE_Y },
     data: {
       label: 'Application Auto Scaling',
       tooltip: AUTO_SCALING_TOOLTIP,
@@ -236,6 +316,7 @@ export const initialNodes: SimulatorFlowNode[] = [
       tooltip:
         'The only instance that accepts writes — auto-assigned because it was the first aws_rds_cluster_instance provisioned. It does not own the data: every change goes down to the shared cluster volume. If it fails, Aurora promotes the reader, which typically restores service in under 60 seconds and often under 30. With no reader to promote, Aurora has to build a new primary instead, which takes up to 10 minutes — that gap is the whole reason this cluster runs two instances.',
       status: 'idle',
+      availabilityZone: AVAILABILITY_ZONES[0],
       role: 'writer',
       lifecycle: 'provisioning',
       requestsPerMinute: 0,
@@ -256,6 +337,7 @@ export const initialNodes: SimulatorFlowNode[] = [
       tooltip:
         'Reads the exact same cluster volume as the writer — Aurora never copies data between instances, so this replica had no data of its own to build. The writer sends its redo log stream to the storage nodes and, in parallel, to every reader. This instance applies each record that touches a page it already has cached and discards the rest, which is what the ReplicaLag metric measures: typically 100 ms or less. Serves read-only queries and is the promotion target on failover.',
       status: 'idle',
+      availabilityZone: AVAILABILITY_ZONES[1],
       role: 'reader',
       lifecycle: 'provisioning',
       requestsPerMinute: 0,
