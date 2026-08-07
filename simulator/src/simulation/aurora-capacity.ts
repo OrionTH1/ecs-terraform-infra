@@ -1,4 +1,4 @@
-import { AURORA_SERVERLESS, AVERAGE_QUERIES_PER_REQUEST, WORKLOAD } from './simulation-config'
+import { AURORA_SERVERLESS, WORKLOAD } from './simulation-config'
 
 const MS_PER_SECOND = 1000
 const SECONDS_PER_MINUTE = 60
@@ -8,7 +8,7 @@ export function capacityQueriesPerMinute(acu: number): number {
 }
 
 export function queriesForRequests(requestsPerMinute: number): number {
-  return requestsPerMinute * AVERAGE_QUERIES_PER_REQUEST
+  return requestsPerMinute * WORKLOAD.queriesPerRequest
 }
 
 export function snapToAcuStep(acu: number): number {
@@ -38,7 +38,7 @@ export function queryServiceTimeMs(acu: number): number {
 }
 
 export function requestServiceTimeMs(acu: number): number {
-  return queryServiceTimeMs(acu) * AVERAGE_QUERIES_PER_REQUEST
+  return queryServiceTimeMs(acu) * WORKLOAD.queriesPerRequest
 }
 
 export function advanceAcu(current: number, target: number, deltaMs: number): number {

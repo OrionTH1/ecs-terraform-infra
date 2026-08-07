@@ -75,8 +75,7 @@ Estes não são dados da AWS nem valores do Terraform. São o perfil do backend 
 
 | Constante | Valor | Premissa |
 |---|---|---|
-| `WORKLOAD.minQueriesPerRequest` / `maxQueriesPerRequest` | 1 / 3 | Rotas fazem trabalhos diferentes: uma leitura simples resolve em uma query, uma rota autenticada com regra de negócio chega a três. O simulador sorteia dentro do intervalo por request. |
-| `AVERAGE_QUERIES_PER_REQUEST` | 2 | **Derivado** da média do intervalo acima, não escrito à mão. É o que o modelo de capacidade usa. Amarrar os dois impede que a tela e o dimensionamento discordem se o intervalo mudar. |
+| `WORKLOAD.queriesPerRequest` | 1 | Uma consulta ao banco por request, seguindo o split de 80% leitura e 20% escrita. Move direto a demanda de ACU, então é a premissa de maior alavancagem do modelo. |
 | `WORKLOAD.targetAcuUtilization` | 0,7 | A AWS **não publica** o limiar de utilização que dispara o scale-up — confirmado na doc e no blog de faixa de ACU. O modelo provisiona para 70% de ocupação, deixando a curva de fila na parte plana em vez de escalar só quando já está saturado. |
 | `LATENCY.appServiceTimeMs` | 24 | Tempo de **ocupação** da task por request, não CPU pura. A task tem 0,25 vCPU, então 24ms de ocupação equivalem a ~6ms de core cheio — plausível para Node com auth, serialização e regra de negócio. |
 
@@ -85,11 +84,11 @@ O que essas premissas produzem, com o teto de 10 tasks × 1000 req/min:
 | Cenário | Writer | Reader |
 |---|---|---|
 | Ocioso | 0,5 | 0,5 |
-| Teto do ECS, split 80/20 | 0,5 | 1,5 |
-| Teto do ECS, réplica perdida | **2** | — |
-| Runaway, tasks saturadas | 1 | 3,5 |
+| Teto do ECS, split 80/20 | 0,5 | 1 |
+| Teto do ECS, réplica perdida | **1** | — |
+| Runaway, tasks saturadas | 0,5 | 2 |
 
-Com média de 2 consultas por request, o writer não sai do piso em operação normal — as escritas são 20% de um total já menor. Ele só cresce quando absorve as leituras após perder a réplica, e é esse caso que continua dimensionando o teto.
+Com uma consulta por request, o writer não sai do piso em operação normal — escritas são 20% do total. O maior valor que qualquer instância alcança em qualquer cenário é **2 ACU**, no runaway. O teto configurado de 4 ACU passou a ser o dobro do pior caso.
 
 O teto de 4 ACU foi escolhido para caber o pico normal com um passo de folga, e para que o runaway bata no limite em vez de escalar indefinidamente — que é a função de um teto.
 

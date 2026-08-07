@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildRequestItinerary, queriesForNextRequest, queryCountFor, type QueryKind } from './request-itinerary'
-import { DATABASE_SPEED_MULTIPLIER, PACKET_SPEED_PX_PER_SECOND } from './packets'
+import { buildRequestItinerary, queriesForNextRequest, type QueryKind } from './request-itinerary'
+import { PACKET_SPEED_PX_PER_SECOND } from './packets'
 import { WORKLOAD } from './simulation-config'
 
 const ENTRY = 'user-to-alb'
@@ -52,11 +52,17 @@ describe('the shape of a request', () => {
     ])
   })
 
-  it('makes one round trip per query', () => {
+  it('adds a round trip for each query it is given', () => {
     const one = itinerary(['read']).length
     const three = itinerary(['read', 'read', 'read']).length
 
     expect(three - one).toBe((one - 4) * 2)
+  })
+
+  it('travels every leg at the same speed', () => {
+    const speeds = new Set(itinerary(['read']).map((entry) => entry.speedPxPerSecond))
+
+    expect(speeds).toEqual(new Set([PACKET_SPEED_PX_PER_SECOND]))
   })
 
   it('sends writes to the writer and reads to the replica', () => {
@@ -71,18 +77,6 @@ describe('the shape of a request', () => {
 
     expect(legs.filter((leg) => leg.color === 'write').every((leg) => leg.edgeId !== ENTRY)).toBe(true)
     expect(legs[0].color).toBe('default')
-  })
-})
-
-describe('speed along the way', () => {
-  it('crosses the internet leg at the base speed', () => {
-    expect(itinerary(['read'])[0].speedPxPerSecond).toBe(PACKET_SPEED_PX_PER_SECOND)
-  })
-
-  it('runs the in-vpc database legs faster, as a local query is', () => {
-    const database = itinerary(['read']).find((leg) => leg.edgeId === READER)
-
-    expect(database?.speedPxPerSecond).toBe(PACKET_SPEED_PX_PER_SECOND * DATABASE_SPEED_MULTIPLIER)
   })
 })
 
@@ -111,22 +105,12 @@ describe('when the database cannot be reached', () => {
 })
 
 describe('how many queries a request makes', () => {
-  it('never asks for fewer than the floor or more than the ceiling', () => {
-    for (const roll of [0, 0.25, 0.5, 0.75, 0.999]) {
-      const count = queryCountFor(roll)
-
-      expect(count).toBeGreaterThanOrEqual(WORKLOAD.minQueriesPerRequest)
-      expect(count).toBeLessThanOrEqual(WORKLOAD.maxQueriesPerRequest)
-    }
+  it('makes exactly one round trip to the database', () => {
+    expect(queriesForNextRequest(0)).toHaveLength(WORKLOAD.queriesPerRequest)
   })
 
-  it('reaches both ends of the range', () => {
-    expect(queryCountFor(0)).toBe(WORKLOAD.minQueriesPerRequest)
-    expect(queryCountFor(0.999)).toBe(WORKLOAD.maxQueriesPerRequest)
-  })
-
-  it('keeps writes a minority of the queries it hands out', () => {
-    const kinds = Array.from({ length: 60 }, (_, rotation) => queriesForNextRequest(rotation, 0.999)).flat()
+  it('keeps writes a minority across successive requests', () => {
+    const kinds = Array.from({ length: 60 }, (_, rotation) => queriesForNextRequest(rotation)).flat()
     const writes = kinds.filter((kind) => kind === 'write').length
 
     expect(writes).toBeGreaterThan(0)

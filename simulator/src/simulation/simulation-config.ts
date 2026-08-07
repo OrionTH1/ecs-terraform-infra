@@ -76,13 +76,9 @@ export const BOOT_TIME_SCALE = 60
 export const RDS_READ_FRACTION = 0.8
 
 export const WORKLOAD = {
-  minQueriesPerRequest: 1,
-  maxQueriesPerRequest: 3,
+  queriesPerRequest: 1,
   targetAcuUtilization: 0.7,
 }
-
-export const AVERAGE_QUERIES_PER_REQUEST =
-  (WORKLOAD.minQueriesPerRequest + WORKLOAD.maxQueriesPerRequest) / 2
 
 export const AURORA_SERVERLESS = {
   minAcu: 0,

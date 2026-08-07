@@ -55,8 +55,8 @@ describe('capacity at rest', () => {
 
 describe('capacity under load', () => {
   it('scales the reader first, since it takes the read share of the traffic', () => {
-    drive(6000)
-    advance(10 * 60_000)
+    drive(10_000)
+    advance(15 * 60_000)
 
     expect(slots().reader?.acu ?? 0).toBeGreaterThan(runningFloorAcu())
     expect(slots().writer?.acu).toBe(runningFloorAcu())

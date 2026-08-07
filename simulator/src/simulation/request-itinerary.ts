@@ -1,4 +1,4 @@
-import { DATABASE_SPEED_MULTIPLIER, PACKET_SPEED_PX_PER_SECOND, type ItineraryLeg } from './packets'
+import { PACKET_SPEED_PX_PER_SECOND, type ItineraryLeg } from './packets'
 import { RDS_READ_FRACTION, WORKLOAD } from './simulation-config'
 
 export type QueryKind = 'read' | 'write'
@@ -20,14 +20,8 @@ export interface ItineraryRequest {
 
 const WRITES_EVERY = Math.round(1 / (1 - RDS_READ_FRACTION))
 
-export function queryCountFor(roll: number): number {
-  const span = WORKLOAD.maxQueriesPerRequest - WORKLOAD.minQueriesPerRequest + 1
-
-  return WORKLOAD.minQueriesPerRequest + Math.floor(Math.min(Math.max(roll, 0), 0.999999) * span)
-}
-
-export function queriesForNextRequest(rotation: number, roll: number): QueryKind[] {
-  return Array.from({ length: queryCountFor(roll) }, (_, index) =>
+export function queriesForNextRequest(rotation: number): QueryKind[] {
+  return Array.from({ length: WORKLOAD.queriesPerRequest }, (_, index) =>
     (rotation + index) % WRITES_EVERY === 0 ? 'write' : 'read',
   )
 }
@@ -37,7 +31,7 @@ function databaseLeg(edgeId: string, reversed: boolean, kind: QueryKind): Itiner
     edgeId,
     reversed,
     color: kind === 'write' ? 'write' : 'default',
-    speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND * DATABASE_SPEED_MULTIPLIER,
+    speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND,
   }
 }
 

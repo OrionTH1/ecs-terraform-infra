@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import type { useStoreApi } from '@xyflow/react'
-import { SPRITE_SIZE_PX, buildPacketSprites } from '../canvas/packet-sprites'
+import { SPRITE_SIZE_PX, buildPacketSprites, type PacketShape } from '../canvas/packet-sprites'
 import {
   JUNCTION_TO_READER_EDGE_ID,
   JUNCTION_TO_WRITER_EDGE_ID,
@@ -61,6 +61,7 @@ interface DrawnPacket {
   x: number
   y: number
   color: PacketColor
+  shape: PacketShape
 }
 
 
@@ -206,6 +207,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
       x: 0,
       y: 0,
       color: 'default' as PacketColor,
+      shape: 'request' as PacketShape,
     }))
 
     let pixelRatio = Math.min(window.devicePixelRatio || 1, MAX_PACKET_PIXEL_RATIO)
@@ -239,7 +241,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
 
         if (screenX < -size || screenY < -size || screenX > cssWidth + size || screenY > cssHeight + size) continue
 
-        context!.drawImage(sprites[packet.color], screenX - half, screenY - half, size, size)
+        context!.drawImage(sprites[packet.shape][packet.color], screenX - half, screenY - half, size, size)
       }
     }
 
@@ -289,7 +291,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
               const taskRoute = taskRoutes[rotation.current % taskRoutes.length]
               rotation.current += 1
 
-              const queries = queriesForNextRequest(writeRotation.current, Math.random())
+              const queries = queriesForNextRequest(writeRotation.current)
               writeRotation.current += 1
 
               return buildRequestItinerary({
@@ -387,6 +389,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
             entry.x = held.x
             entry.y = held.y
             entry.color = packet.color
+            entry.shape = packet.legs[packet.legIndex]?.reversed ? 'response' : 'request'
             drawn += 1
           }
           continue
@@ -404,6 +407,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
         entry.x = placement.x
         entry.y = placement.y
         entry.color = packet.legs[placement.legIndex]?.color ?? packet.color
+        entry.shape = packet.legs[placement.legIndex]?.reversed ? 'response' : 'request'
         drawn += 1
       }
 

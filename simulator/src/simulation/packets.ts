@@ -1,6 +1,5 @@
 export const PACKET_SPEED_PX_PER_SECOND = 190
 export const REPLICATION_PACKET_SPEED_PX_PER_SECOND = 400
-export const DATABASE_SPEED_MULTIPLIER = 3
 export const MAX_LIVE_PACKETS = 260
 export const MAX_STALL_MS = 600
 

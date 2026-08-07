@@ -12,7 +12,7 @@ import {
   requestServiceTimeMs,
   snapToAcuStep,
 } from './aurora-capacity'
-import { AURORA_SERVERLESS, AVERAGE_QUERIES_PER_REQUEST, WORKLOAD } from './simulation-config'
+import { AURORA_SERVERLESS, WORKLOAD } from './simulation-config'
 
 
 const AWS_PUBLISHED_FULL_RANGE_MS = 22 * 60_000
@@ -64,15 +64,15 @@ describe('demanded capacity', () => {
     expect(atEcsCeiling).toBeLessThan(AURORA_SERVERLESS.maxAcu)
   })
 
-  it('pins to the ceiling when the tasks run away past their target', () => {
+  it('stays under the ceiling even when the tasks run away past their target', () => {
     const saturatedTasks = 10 * 2500
 
-    expect(demandedAcu(queriesForRequests(saturatedTasks))).toBe(AURORA_SERVERLESS.maxAcu)
+    expect(demandedAcu(queriesForRequests(saturatedTasks))).toBeLessThan(AURORA_SERVERLESS.maxAcu)
   })
 
   it('charges a request for every query it issues', () => {
-    expect(queriesForRequests(100)).toBe(100 * AVERAGE_QUERIES_PER_REQUEST)
-    expect(requestServiceTimeMs(2)).toBeCloseTo(queryServiceTimeMs(2) * AVERAGE_QUERIES_PER_REQUEST)
+    expect(queriesForRequests(100)).toBe(100 * WORKLOAD.queriesPerRequest)
+    expect(requestServiceTimeMs(2)).toBeCloseTo(queryServiceTimeMs(2) * WORKLOAD.queriesPerRequest)
   })
 })
 
