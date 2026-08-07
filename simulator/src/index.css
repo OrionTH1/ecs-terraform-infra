@@ -29,7 +29,7 @@
   --motion-drain: 320ms;
   --motion-settle: 380ms;
   --motion-provision: 560ms;
-  --motion-copy-breathe: 2600ms;
+  --motion-copy-breathe: 1400ms;
 }
 
 @keyframes node-materialize {
@@ -173,12 +173,10 @@
 @keyframes copy-breathe {
   0%,
   100% {
-    opacity: 0.4;
-    transform: scale(0.82);
+    background-color: var(--color-status-healthy);
   }
   50% {
-    opacity: 1;
-    transform: scale(1);
+    background-color: color-mix(in srgb, white 45%, var(--color-status-healthy));
   }
 }
 
