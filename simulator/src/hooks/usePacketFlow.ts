@@ -8,7 +8,12 @@ import {
   READER_TO_VOLUME_EDGE_ID,
 } from '../canvas/initial-graph'
 import { buildRequestItinerary, divertToWriter, queriesForNextRequest } from '../simulation/request-itinerary'
-import { IMAGE_PULL_LAYERS_PER_SECOND, buildImagePullItinerary, type ImagePullLegs } from '../simulation/image-pull'
+import {
+  MIN_IMAGE_PULL_SECONDS,
+  buildImagePullItinerary,
+  imagePullSpeed,
+  type ImagePullLegs,
+} from '../simulation/image-pull'
 import type { TaskRoute } from './useTaskGraph'
 import {
   MAX_LIVE_PACKETS,
@@ -222,6 +227,7 @@ export function usePacketFlow({
   const pending = useRef(new Map<string, number>())
   const nextPacketId = useRef(0)
   const rotation = useRef(0)
+  const pullsInFlight = useRef(new Set<string>())
   const writeRotation = useRef(0)
   const inputs = useRef<PacketFlowArgs>({ entries, taskRoutes, directEntries, imagePullRoutes, liveEdgeIds })
 
@@ -311,6 +317,7 @@ export function usePacketFlow({
 
         packets.current.push({
           id: nextPacketId.current++,
+          routeKey: null,
           legs,
           legIndex: 0,
           legProgress: 0,
@@ -358,14 +365,39 @@ export function usePacketFlow({
       }
 
       for (const route of inputs.current.imagePullRoutes) {
-        spawnAtRate(
-          route.registryEgressEdgeId,
-          IMAGE_PULL_LAYERS_PER_SECOND,
-          deltaSeconds,
-          'pull',
-          () => buildImagePullItinerary(route, inputs.current.liveEdgeIds),
-          carried,
+        if (pullsInFlight.current.has(route.registryEgressEdgeId)) continue
+        if (packets.current.length >= MAX_LIVE_PACKETS) continue
+
+        if (route.secondsRemaining < MIN_IMAGE_PULL_SECONDS) continue
+
+        const geometryCache = new Map<string, PathGeometry | null>()
+        const shape = buildImagePullItinerary(route, inputs.current.liveEdgeIds)
+        if (shape.length === 0) continue
+
+        const routeLength = shape.reduce(
+          (total, entry) => total + (readGeometry(entry.edgeId, geometryCache)?.length ?? 0),
+          0,
         )
+        if (routeLength === 0) continue
+
+        const legs = buildImagePullItinerary(
+          route,
+          inputs.current.liveEdgeIds,
+          imagePullSpeed(routeLength, route.secondsRemaining),
+        )
+
+        pullsInFlight.current.add(route.registryEgressEdgeId)
+        packets.current.push({
+          id: nextPacketId.current++,
+          routeKey: route.registryEgressEdgeId,
+          legs,
+          legIndex: 0,
+          legProgress: 0,
+          dwellUntil: null,
+          stalledSince: null,
+          lastPosition: null,
+          color: 'pull',
+        })
       }
 
       for (const entry of currentDirectEntries) {
@@ -394,13 +426,17 @@ export function usePacketFlow({
       const cache = new Map<string, PathGeometry | null>()
       const alive: Packet[] = []
       let drawn = 0
-      const { liveEdgeIds: currentLiveEdgeIds, taskRoutes } = inputs.current
+      const { liveEdgeIds: currentLiveEdgeIds, taskRoutes, imagePullRoutes } = inputs.current
       const writeLegs = taskRoutes[0]?.writeLeg ?? null
+      const pullingRouteKeys = new Set(imagePullRoutes.map((route) => route.registryEgressEdgeId))
+      const stillPulling = new Set<string>()
 
       const hasGraphChanged = currentLiveEdgeIds !== routedAgainst
       routedAgainst = currentLiveEdgeIds
 
       for (const packet of packets.current) {
+        if (packet.routeKey !== null && !pullingRouteKeys.has(packet.routeKey)) continue
+
         if (hasGraphChanged && !isRouteIntact(packet.legs, packet.legIndex, currentLiveEdgeIds)) {
           if (writeLegs === null) continue
 
@@ -420,6 +456,7 @@ export function usePacketFlow({
         ) {
           alive.push({
             id: nextPacketId.current++,
+            routeKey: null,
             legs: [
               {
                 edgeId: PAGE_CACHE_EDGE_ID,
@@ -443,6 +480,7 @@ export function usePacketFlow({
         if (placement.kind === 'dwelling') {
           packet.stalledSince = null
           alive.push(packet)
+          if (packet.routeKey !== null) stillPulling.add(packet.routeKey)
           continue
         }
 
@@ -451,6 +489,7 @@ export function usePacketFlow({
           if (now - stalledSince > MAX_STALL_MS) continue
           packet.stalledSince = stalledSince
           alive.push(packet)
+          if (packet.routeKey !== null) stillPulling.add(packet.routeKey)
           const held = packet.lastPosition
           if (held) {
             const entry = drawnPackets[drawn]
@@ -471,6 +510,7 @@ export function usePacketFlow({
           packet.lastPosition.y = placement.y
         }
         alive.push(packet)
+        if (packet.routeKey !== null) stillPulling.add(packet.routeKey)
 
         const entry = drawnPackets[drawn]
         entry.x = placement.x
@@ -482,6 +522,7 @@ export function usePacketFlow({
       }
 
       packets.current = alive
+      pullsInFlight.current = stillPulling
       return drawn
     }
 

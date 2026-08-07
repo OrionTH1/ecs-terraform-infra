@@ -15,7 +15,11 @@ import {
   taskToRegistryEdgeId,
   taskToStorageEdgeId,
 } from '../canvas/initial-graph'
-import { isPullingImageStatus, type ImagePullLegs } from '../simulation/image-pull'
+import { isPullingImageStatus, pullSecondsRemaining, type ImagePullLegs } from '../simulation/image-pull'
+import { TASK_LIFECYCLE } from '../simulation/simulation-config'
+import { useSimulationStore } from '../store/useSimulationStore'
+
+const IMAGE_PULL_DURATION_MS = TASK_LIFECYCLE.provisioningMs + TASK_LIFECYCLE.startingMs
 import { isRegisteredTarget } from '../simulation/target-group'
 import { useLeavingTasks } from './useLeavingTasks'
 import { useTaskColumnLayout } from './useTaskColumnLayout'
@@ -64,6 +68,8 @@ export function useTaskGraph({
   taskLatencyMs,
 }: TaskGraphArgs): TaskGraph {
   const leavingTasks = useLeavingTasks(tasks)
+  const clock = useSimulationStore((state) => state.clock)
+  const timeScale = useSimulationStore((state) => state.timeScale)
 
   const orderedTasks = useMemo(
     () => [...tasks, ...leavingTasks].sort((a, b) => a.createdAt - b.createdAt || a.instanceId - b.instanceId),
@@ -205,8 +211,9 @@ export function useTaskGraph({
           registryEdgeId: ENDPOINT_TO_ECR_EDGE_ID,
           storageEgressEdgeId: taskToStorageEdgeId(task.id),
           storageEdgeId: ENDPOINT_TO_STORAGE_EDGE_ID,
+          secondsRemaining: pullSecondsRemaining(clock - task.createdAt, IMAGE_PULL_DURATION_MS, timeScale),
         })),
-    [orderedTasks],
+    [orderedTasks, clock, timeScale],
   )
 
   return { taskNodes, targetGroupNode, serviceFrame, taskEdges, healthyTaskRoutes, imagePullRoutes }

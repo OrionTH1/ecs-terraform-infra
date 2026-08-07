@@ -1,7 +1,8 @@
 import { PACKET_SPEED_PX_PER_SECOND, type ItineraryLeg } from './packets'
 import type { TaskStatus } from '../types/task-data'
 
-export const IMAGE_PULL_LAYERS_PER_SECOND = 1.4
+export const MAX_IMAGE_PULL_SPEED_PX_PER_SECOND = 2400
+export const MIN_IMAGE_PULL_SECONDS = 0.25
 
 const IMAGE_PULL_STATUSES: TaskStatus[] = ['provisioning', 'starting']
 
@@ -10,14 +11,30 @@ export interface ImagePullLegs {
   registryEdgeId: string
   storageEgressEdgeId: string
   storageEdgeId: string
+  secondsRemaining: number
 }
 
-function leg(edgeId: string, reversed: boolean): ItineraryLeg {
-  return { edgeId, reversed, color: 'pull', speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND, entersNodeAtEnd: true }
+export function imagePullSpeed(routeLengthPx: number, secondsRemaining: number): number {
+  if (secondsRemaining <= 0) return MAX_IMAGE_PULL_SPEED_PX_PER_SECOND
+
+  return Math.min(MAX_IMAGE_PULL_SPEED_PX_PER_SECOND, routeLengthPx / secondsRemaining)
 }
 
-function roundTrip(egressEdgeId: string, serviceEdgeId: string): ItineraryLeg[] {
-  return [leg(egressEdgeId, false), leg(serviceEdgeId, false), leg(serviceEdgeId, true), leg(egressEdgeId, true)]
+export function pullSecondsRemaining(elapsedSimMs: number, pullDurationMs: number, timeScale: number): number {
+  return Math.max(0, pullDurationMs - elapsedSimMs) / timeScale / 1000
+}
+
+function leg(edgeId: string, reversed: boolean, speedPxPerSecond: number): ItineraryLeg {
+  return { edgeId, reversed, color: 'pull', speedPxPerSecond, entersNodeAtEnd: true }
+}
+
+function roundTrip(egressEdgeId: string, serviceEdgeId: string, speed: number): ItineraryLeg[] {
+  return [
+    leg(egressEdgeId, false, speed),
+    leg(serviceEdgeId, false, speed),
+    leg(serviceEdgeId, true, speed),
+    leg(egressEdgeId, true, speed),
+  ]
 }
 
 export function isPullingImageStatus(status: TaskStatus): boolean {
@@ -28,9 +45,13 @@ export function isPullingImage(statuses: TaskStatus[]): boolean {
   return statuses.some(isPullingImageStatus)
 }
 
-export function buildImagePullItinerary(legs: ImagePullLegs, liveEdgeIds: Set<string>): ItineraryLeg[] {
+export function buildImagePullItinerary(
+  legs: ImagePullLegs,
+  liveEdgeIds: Set<string>,
+  speedPxPerSecond = PACKET_SPEED_PX_PER_SECOND,
+): ItineraryLeg[] {
   return [
-    ...roundTrip(legs.registryEgressEdgeId, legs.registryEdgeId),
-    ...roundTrip(legs.storageEgressEdgeId, legs.storageEdgeId),
+    ...roundTrip(legs.registryEgressEdgeId, legs.registryEdgeId, speedPxPerSecond),
+    ...roundTrip(legs.storageEgressEdgeId, legs.storageEdgeId, speedPxPerSecond),
   ].filter((entry) => liveEdgeIds.has(entry.edgeId))
 }

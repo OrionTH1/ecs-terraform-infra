@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { buildImagePullItinerary, isPullingImage, isPullingImageStatus } from './image-pull'
+import {
+  MAX_IMAGE_PULL_SPEED_PX_PER_SECOND,
+  buildImagePullItinerary,
+  imagePullSpeed,
+  isPullingImage,
+  isPullingImageStatus,
+  pullSecondsRemaining,
+} from './image-pull'
 import type { TaskStatus } from '../types/task-data'
 
 const TASK_TO_INTERFACE = 'task-1-interface-endpoints'
@@ -12,6 +19,7 @@ const LEGS = {
   registryEdgeId: INTERFACE_TO_ECR,
   storageEgressEdgeId: TASK_TO_GATEWAY,
   storageEdgeId: GATEWAY_TO_STORAGE,
+  secondsRemaining: 20,
 }
 
 const EVERYTHING_UP = new Set([TASK_TO_INTERFACE, INTERFACE_TO_ECR, TASK_TO_GATEWAY, GATEWAY_TO_STORAGE])
@@ -70,6 +78,35 @@ describe('what a layer download looks like on the wire', () => {
 
   it('gives back nothing at all when no edge survives', () => {
     expect(buildImagePullItinerary(LEGS, new Set())).toEqual([])
+  })
+})
+
+describe('fitting the trip inside the step it draws', () => {
+  it('crosses the whole route in exactly the time the pull has left', () => {
+    expect(imagePullSpeed(2000, 10)).toBe(200)
+  })
+
+  it('refuses to go faster than the eye can follow, however little time is left', () => {
+    expect(imagePullSpeed(2000, 0.01)).toBe(MAX_IMAGE_PULL_SPEED_PX_PER_SECOND)
+    expect(imagePullSpeed(2000, 0)).toBe(MAX_IMAGE_PULL_SPEED_PX_PER_SECOND)
+  })
+
+  it('shortens the wall clock budget as the simulation speed goes up', () => {
+    const atRealTime = pullSecondsRemaining(0, 20_000, 1)
+    const atTwentyFive = pullSecondsRemaining(0, 20_000, 25)
+
+    expect(atRealTime).toBe(20)
+    expect(atTwentyFive).toBe(0.8)
+  })
+
+  it('runs out of budget once the step is over instead of going negative', () => {
+    expect(pullSecondsRemaining(30_000, 20_000, 1)).toBe(0)
+  })
+
+  it('gives every leg the speed the trip was budgeted at', () => {
+    const speeds = new Set(buildImagePullItinerary(LEGS, EVERYTHING_UP, 640).map((leg) => leg.speedPxPerSecond))
+
+    expect(speeds).toEqual(new Set([640]))
   })
 })
 

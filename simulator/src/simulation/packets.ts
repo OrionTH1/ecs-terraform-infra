@@ -26,6 +26,7 @@ export interface ItineraryLeg {
 
 export interface Packet {
   id: number
+  routeKey: string | null
   legs: ItineraryLeg[]
   legIndex: number
   legProgress: number
