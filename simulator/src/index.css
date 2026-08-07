@@ -279,7 +279,6 @@
   justify-content: center;
   width: auto;
   height: auto;
-  min-width: 17px;
   min-height: 14px;
   border: none;
   border-radius: 0;
@@ -288,6 +287,12 @@
   z-index: 20;
   pointer-events: all;
   cursor: pointer;
+}
+
+.react-flow .react-flow__handle.sg-handle::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
 }
 
 .react-flow .react-flow__handle.sg-handle:focus,
