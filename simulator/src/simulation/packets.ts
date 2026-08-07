@@ -6,6 +6,7 @@ export const MAX_STALL_MS = 600
 export const PACKET_RADIUS = 3.5
 export const PACKET_GLOW_PX = 4
 export const PACKET_LANE_OFFSET_PX = 7
+export const PACKET_FADE_PX = 14
 
 const MIN_PACKETS_PER_SECOND = 0.8
 const MAX_PACKETS_PER_SECOND = 3

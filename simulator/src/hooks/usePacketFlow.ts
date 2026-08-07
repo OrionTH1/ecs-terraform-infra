@@ -12,6 +12,7 @@ import type { TaskRoute } from './useTaskGraph'
 import {
   MAX_LIVE_PACKETS,
   MAX_STALL_MS,
+  PACKET_FADE_PX,
   PACKET_LANE_OFFSET_PX,
   PACKET_SPEED_PX_PER_SECOND,
   REPLICATION_PACKET_SPEED_PX_PER_SECOND,
@@ -60,6 +61,7 @@ interface PacketFlowOptions extends PacketFlowArgs {
 interface DrawnPacket {
   x: number
   y: number
+  alpha: number
   color: PacketColor
   shape: PacketShape
 }
@@ -113,7 +115,7 @@ function pointAtProgress(
 }
 
 type Placement =
-  | { kind: 'moving'; x: number; y: number; legIndex: number }
+  | { kind: 'moving'; x: number; y: number; legIndex: number; alpha: number }
   | { kind: 'stalled' }
   | { kind: 'arrived' }
 
@@ -162,11 +164,15 @@ function advanceAlongRoute(
       pointAtProgress(geometry, leg.reversed ? 1 - packet.legProgress : packet.legProgress, scratch)
 
       const lane = leg.reversed ? PACKET_LANE_OFFSET_PX : -PACKET_LANE_OFFSET_PX
+      const fade = Math.min(PACKET_FADE_PX, geometry.length / 4)
+      const travelledPx = packet.legProgress * geometry.length
+
       return {
         kind: 'moving',
         x: scratch.x + scratch.normalX * lane,
         y: scratch.y + scratch.normalY * lane,
         legIndex: packet.legIndex,
+        alpha: Math.min(1, travelledPx / fade, (geometry.length - travelledPx) / fade),
       }
     }
 
@@ -206,6 +212,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
     const drawnPackets: DrawnPacket[] = Array.from({ length: MAX_LIVE_PACKETS }, () => ({
       x: 0,
       y: 0,
+      alpha: 1,
       color: 'default' as PacketColor,
       shape: 'request' as PacketShape,
     }))
@@ -230,6 +237,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
       context!.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
       context!.clearRect(0, 0, cssWidth, cssHeight)
 
+      context!.globalAlpha = 1
       const [offsetX, offsetY, zoom] = store.getState().transform
       const size = SPRITE_SIZE_PX * zoom
       const half = size / 2
@@ -242,6 +250,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
         if (screenX < -size || screenY < -size || screenX > cssWidth + size || screenY > cssHeight + size) continue
 
         const sprite = packet.shape === 'response' ? sprites.response : sprites.request[packet.color]
+        context!.globalAlpha = packet.alpha
         context!.drawImage(sprite, screenX - half, screenY - half, size, size)
       }
     }
@@ -389,6 +398,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
             const entry = drawnPackets[drawn]
             entry.x = held.x
             entry.y = held.y
+            entry.alpha = 1
             entry.color = packet.color
             entry.shape = packet.legs[packet.legIndex]?.reversed ? 'response' : 'request'
             drawn += 1
@@ -407,6 +417,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
         const entry = drawnPackets[drawn]
         entry.x = placement.x
         entry.y = placement.y
+        entry.alpha = placement.alpha
         entry.color = packet.legs[placement.legIndex]?.color ?? packet.color
         entry.shape = packet.legs[placement.legIndex]?.reversed ? 'response' : 'request'
         drawn += 1
