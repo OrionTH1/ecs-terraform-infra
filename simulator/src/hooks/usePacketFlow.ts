@@ -19,6 +19,8 @@ import {
 
 const MAX_FRAME_DELTA_SECONDS = 0.1
 
+const scratch = { x: 0, y: 0 }
+
 export interface PacketEntry {
   edgeId: string
   requestsPerMinute: number
@@ -62,9 +64,38 @@ function isCommittedWrite(packet: Packet): boolean {
   return packet.route.at(-1) !== PAGE_CACHE_EDGE_ID && packet.legColors.at(-1) === 'write'
 }
 
+const SAMPLE_SPACING_PX = 16
+
 interface PathGeometry {
-  element: SVGPathElement
   length: number
+  samples: Float64Array
+}
+
+const sampledPaths = new Map<string, { shape: string; geometry: PathGeometry }>()
+
+function samplePath(element: SVGPathElement, length: number): PathGeometry {
+  const steps = Math.max(2, Math.ceil(length / SAMPLE_SPACING_PX))
+  const samples = new Float64Array((steps + 1) * 2)
+
+  for (let step = 0; step <= steps; step += 1) {
+    const point = element.getPointAtLength((step / steps) * length)
+    samples[step * 2] = point.x
+    samples[step * 2 + 1] = point.y
+  }
+
+  return { length, samples }
+}
+
+function pointAtProgress(geometry: PathGeometry, progress: number, into: { x: number; y: number }) {
+  const steps = geometry.samples.length / 2 - 1
+  const scaled = Math.min(Math.max(progress, 0), 1) * steps
+  const index = Math.min(Math.floor(scaled), steps - 1)
+  const fraction = scaled - index
+
+  const x = geometry.samples[index * 2]
+  const y = geometry.samples[index * 2 + 1]
+  into.x = x + (geometry.samples[(index + 1) * 2] - x) * fraction
+  into.y = y + (geometry.samples[(index + 1) * 2 + 1] - y) * fraction
 }
 
 type Placement =
@@ -77,8 +108,22 @@ function readGeometry(edgeId: string, cache: Map<string, PathGeometry | null>): 
   if (cached !== undefined) return cached
 
   const element = document.getElementById(pathElementId(edgeId)) as SVGPathElement | null
-  const length = element?.getTotalLength() ?? 0
-  const geometry = element && length > 0 ? { element, length } : null
+  const shape = element?.getAttribute('d') ?? ''
+
+  let geometry: PathGeometry | null = null
+  if (element && shape !== '') {
+    const remembered = sampledPaths.get(edgeId)
+    if (remembered && remembered.shape === shape) {
+      geometry = remembered.geometry
+    } else {
+      const length = element.getTotalLength()
+      if (length > 0) {
+        geometry = samplePath(element, length)
+        sampledPaths.set(edgeId, { shape, geometry })
+      }
+    }
+  }
+
   cache.set(edgeId, geometry)
   return geometry
 }
@@ -97,8 +142,8 @@ function advanceAlongRoute(
     const distanceLeft = (1 - packet.legProgress) * geometry.length
     if (remaining < distanceLeft) {
       packet.legProgress += remaining / geometry.length
-      const point = geometry.element.getPointAtLength(packet.legProgress * geometry.length)
-      return { kind: 'moving', x: point.x, y: point.y, legIndex: packet.legIndex }
+      pointAtProgress(geometry, packet.legProgress, scratch)
+      return { kind: 'moving', x: scratch.x, y: scratch.y, legIndex: packet.legIndex }
     }
 
     remaining -= distanceLeft
