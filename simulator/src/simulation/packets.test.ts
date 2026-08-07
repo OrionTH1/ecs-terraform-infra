@@ -14,7 +14,7 @@ const REPLICA = { instanceEdgeId: READER, volumeEdgeId: READER_VOLUME }
 const PRIMARY = { instanceEdgeId: WRITER, volumeEdgeId: WRITER_VOLUME }
 
 function leg(edgeId: string, reversed = false): ItineraryLeg {
-  return { edgeId, reversed, color: 'default', speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND }
+  return { edgeId, reversed, color: 'default', speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND, entersNodeAtEnd: true }
 }
 
 const READ_ITINERARY = [

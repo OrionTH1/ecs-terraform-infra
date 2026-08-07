@@ -26,19 +26,15 @@ export function queriesForNextRequest(rotation: number): QueryKind[] {
   )
 }
 
-function databaseLeg(edgeId: string, reversed: boolean): ItineraryLeg {
-  return { edgeId, reversed, color: 'default', speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND }
-}
-
-function transitLeg(edgeId: string, reversed: boolean): ItineraryLeg {
-  return { edgeId, reversed, color: 'default', speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND }
+function leg(edgeId: string, reversed: boolean, entersNodeAtEnd = true): ItineraryLeg {
+  return { edgeId, reversed, color: 'default', speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND, entersNodeAtEnd }
 }
 
 export function buildRequestItinerary(request: ItineraryRequest): ItineraryLeg[] {
   const { entryEdgeId, albEdgeId, junctionEdgeId, queries, liveEdgeIds } = request
 
-  const inbound = [transitLeg(entryEdgeId, false), transitLeg(albEdgeId, false)]
-  const outbound = [transitLeg(albEdgeId, true), transitLeg(entryEdgeId, true)]
+  const inbound = [leg(entryEdgeId, false), leg(albEdgeId, false)]
+  const outbound = [leg(albEdgeId, true), leg(entryEdgeId, true)]
 
   if (junctionEdgeId === null) return [...inbound, ...outbound]
 
@@ -46,12 +42,12 @@ export function buildRequestItinerary(request: ItineraryRequest): ItineraryLeg[]
     const legs = kind === 'write' ? request.writeLegs : request.readLegs
     if (legs === null) return []
 
-    const outward = [databaseLeg(junctionEdgeId, false), databaseLeg(legs.instanceEdgeId, false)]
-    const homeward = [databaseLeg(legs.instanceEdgeId, true), databaseLeg(junctionEdgeId, true)]
+    const outward = [leg(junctionEdgeId, false, false), leg(legs.instanceEdgeId, false)]
+    const homeward = [leg(legs.instanceEdgeId, true, false), leg(junctionEdgeId, true)]
 
     if (liveEdgeIds.has(legs.volumeEdgeId)) {
-      outward.push(databaseLeg(legs.volumeEdgeId, false))
-      homeward.unshift(databaseLeg(legs.volumeEdgeId, true))
+      outward.push(leg(legs.volumeEdgeId, false))
+      homeward.unshift(leg(legs.volumeEdgeId, true))
     }
 
     return [...outward, ...homeward]

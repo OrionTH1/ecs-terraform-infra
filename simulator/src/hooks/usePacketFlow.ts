@@ -167,10 +167,13 @@ function advanceAlongRoute(
   packet.legProgress += deltaSeconds / secondsForLeg
 
   if (packet.legProgress >= 1) {
+    const heldAtNode = leg.entersNodeAtEnd
+
     packet.legIndex += 1
     packet.legProgress = 0
 
     if (packet.legIndex >= packet.legs.length) return { kind: 'arrived' }
+    if (!heldAtNode) return advanceAlongRoute(packet, now, 0, cache)
 
     packet.dwellUntil = now + PACKET_DWELL_MS
     return { kind: 'dwelling' }
@@ -181,13 +184,17 @@ function advanceAlongRoute(
   const lane = leg.reversed ? PACKET_LANE_OFFSET_PX : -PACKET_LANE_OFFSET_PX
   const fadeSeconds = Math.min(PACKET_FADE_MS / 1000, secondsForLeg / 3)
   const secondsOnLeg = packet.legProgress * secondsForLeg
+  const leavesNodeAtStart = packet.legs[packet.legIndex - 1]?.entersNodeAtEnd ?? true
+
+  const fadeIn = leavesNodeAtStart ? secondsOnLeg / fadeSeconds : 1
+  const fadeOut = leg.entersNodeAtEnd ? (secondsForLeg - secondsOnLeg) / fadeSeconds : 1
 
   return {
     kind: 'moving',
     x: scratch.x + scratch.normalX * lane,
     y: scratch.y + scratch.normalY * lane,
     legIndex: packet.legIndex,
-    alpha: Math.min(1, secondsOnLeg / fadeSeconds, (secondsForLeg - secondsOnLeg) / fadeSeconds),
+    alpha: Math.min(1, fadeIn, fadeOut),
   }
 }
 
@@ -339,6 +346,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
               reversed: false,
               color: entry.color,
               speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND,
+              entersNodeAtEnd: true,
             },
           ],
           carried,
@@ -384,6 +392,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
                 reversed: false,
                 color: 'write',
                 speedPxPerSecond: REPLICATION_PACKET_SPEED_PX_PER_SECOND,
+                entersNodeAtEnd: true,
               },
             ],
             legIndex: 0,

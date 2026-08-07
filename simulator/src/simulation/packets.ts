@@ -21,6 +21,7 @@ export interface ItineraryLeg {
   reversed: boolean
   color: PacketColor
   speedPxPerSecond: number
+  entersNodeAtEnd: boolean
 }
 
 export interface Packet {

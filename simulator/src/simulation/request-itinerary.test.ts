@@ -79,6 +79,29 @@ describe('the shape of a request', () => {
   })
 })
 
+describe('the junction is a drawing artifact, not a resource', () => {
+  it('does not treat arriving at the junction as entering a node', () => {
+    const legs = itinerary(['read'])
+    const towardsJunction = legs.find((entry) => entry.edgeId === JUNCTION && !entry.reversed)
+
+    expect(towardsJunction?.entersNodeAtEnd).toBe(false)
+  })
+
+  it('does not treat coming back to the junction as entering a node either', () => {
+    const legs = itinerary(['read'])
+    const backFromReader = legs.find((entry) => entry.edgeId === READER && entry.reversed)
+
+    expect(backFromReader?.entersNodeAtEnd).toBe(false)
+  })
+
+  it('still holds the request at every real resource on the way', () => {
+    const legs = itinerary(['read'])
+    const holding = legs.filter((entry) => entry.entersNodeAtEnd).map((entry) => entry.edgeId)
+
+    expect(holding).toEqual([ENTRY, ALB, READER, READER_VOLUME, READER_VOLUME, JUNCTION, ALB, ENTRY])
+  })
+})
+
 describe('when the database cannot be reached', () => {
   it('turns the request around at the task instead of stranding it', () => {
     const legs = buildRequestItinerary({
