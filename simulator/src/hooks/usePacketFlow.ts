@@ -12,7 +12,8 @@ import type { TaskRoute } from './useTaskGraph'
 import {
   MAX_LIVE_PACKETS,
   MAX_STALL_MS,
-  PACKET_FADE_PX,
+  PACKET_DWELL_MS,
+  PACKET_FADE_MS,
   PACKET_LANE_OFFSET_PX,
   PACKET_SPEED_PX_PER_SECOND,
   REPLICATION_PACKET_SPEED_PX_PER_SECOND,
@@ -116,6 +117,7 @@ function pointAtProgress(
 
 type Placement =
   | { kind: 'moving'; x: number; y: number; legIndex: number; alpha: number }
+  | { kind: 'dwelling' }
   | { kind: 'stalled' }
   | { kind: 'arrived' }
 
@@ -146,42 +148,47 @@ function readGeometry(edgeId: string, cache: Map<string, PathGeometry | null>): 
 
 function advanceAlongRoute(
   packet: Packet,
+  now: number,
   deltaSeconds: number,
   cache: Map<string, PathGeometry | null>,
 ): Placement {
-  let remaining = deltaSeconds
-
-  while (packet.legIndex < packet.legs.length) {
-    const leg = packet.legs[packet.legIndex]
-    const geometry = readGeometry(leg.edgeId, cache)
-    if (!geometry) return { kind: 'stalled' }
-
-    const secondsForLeg = geometry.length / leg.speedPxPerSecond
-    const secondsLeft = (1 - packet.legProgress) * secondsForLeg
-
-    if (remaining < secondsLeft) {
-      packet.legProgress += remaining / secondsForLeg
-      pointAtProgress(geometry, leg.reversed ? 1 - packet.legProgress : packet.legProgress, scratch)
-
-      const lane = leg.reversed ? PACKET_LANE_OFFSET_PX : -PACKET_LANE_OFFSET_PX
-      const fade = Math.min(PACKET_FADE_PX, geometry.length / 4)
-      const travelledPx = packet.legProgress * geometry.length
-
-      return {
-        kind: 'moving',
-        x: scratch.x + scratch.normalX * lane,
-        y: scratch.y + scratch.normalY * lane,
-        legIndex: packet.legIndex,
-        alpha: Math.min(1, travelledPx / fade, (geometry.length - travelledPx) / fade),
-      }
-    }
-
-    remaining -= secondsLeft
-    packet.legIndex += 1
-    packet.legProgress = 0
+  if (packet.dwellUntil !== null) {
+    if (now < packet.dwellUntil) return { kind: 'dwelling' }
+    packet.dwellUntil = null
   }
 
-  return { kind: 'arrived' }
+  const leg = packet.legs[packet.legIndex]
+  if (!leg) return { kind: 'arrived' }
+
+  const geometry = readGeometry(leg.edgeId, cache)
+  if (!geometry) return { kind: 'stalled' }
+
+  const secondsForLeg = geometry.length / leg.speedPxPerSecond
+  packet.legProgress += deltaSeconds / secondsForLeg
+
+  if (packet.legProgress >= 1) {
+    packet.legIndex += 1
+    packet.legProgress = 0
+
+    if (packet.legIndex >= packet.legs.length) return { kind: 'arrived' }
+
+    packet.dwellUntil = now + PACKET_DWELL_MS
+    return { kind: 'dwelling' }
+  }
+
+  pointAtProgress(geometry, leg.reversed ? 1 - packet.legProgress : packet.legProgress, scratch)
+
+  const lane = leg.reversed ? PACKET_LANE_OFFSET_PX : -PACKET_LANE_OFFSET_PX
+  const fadeSeconds = Math.min(PACKET_FADE_MS / 1000, secondsForLeg / 3)
+  const secondsOnLeg = packet.legProgress * secondsForLeg
+
+  return {
+    kind: 'moving',
+    x: scratch.x + scratch.normalX * lane,
+    y: scratch.y + scratch.normalY * lane,
+    legIndex: packet.legIndex,
+    alpha: Math.min(1, secondsOnLeg / fadeSeconds, (secondsForLeg - secondsOnLeg) / fadeSeconds),
+  }
 }
 
 function justCommittedAWrite(packet: Packet, previousLegIndex: number): boolean {
@@ -276,6 +283,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
           legs: buildLegs(),
           legIndex: 0,
           legProgress: 0,
+          dwellUntil: null,
           stalledSince: null,
           lastPosition: null,
           color,
@@ -361,7 +369,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
         }
 
         const legBefore = packet.legIndex
-        const placement = advanceAlongRoute(packet, deltaSeconds, cache)
+        const placement = advanceAlongRoute(packet, now, deltaSeconds, cache)
 
         if (
           justCommittedAWrite(packet, legBefore) &&
@@ -380,6 +388,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
             ],
             legIndex: 0,
             legProgress: 0,
+            dwellUntil: null,
             stalledSince: null,
             lastPosition: null,
             color: 'write',
@@ -387,6 +396,12 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
         }
 
         if (placement.kind === 'arrived') continue
+
+        if (placement.kind === 'dwelling') {
+          packet.stalledSince = null
+          alive.push(packet)
+          continue
+        }
 
         if (placement.kind === 'stalled') {
           const stalledSince = packet.stalledSince ?? now

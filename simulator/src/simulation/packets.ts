@@ -6,7 +6,8 @@ export const MAX_STALL_MS = 600
 export const PACKET_RADIUS = 3.5
 export const PACKET_GLOW_PX = 4
 export const PACKET_LANE_OFFSET_PX = 7
-export const PACKET_FADE_PX = 14
+export const PACKET_FADE_MS = 150
+export const PACKET_DWELL_MS = 220
 
 const MIN_PACKETS_PER_SECOND = 0.8
 const MAX_PACKETS_PER_SECOND = 3
@@ -27,6 +28,7 @@ export interface Packet {
   legs: ItineraryLeg[]
   legIndex: number
   legProgress: number
+  dwellUntil: number | null
   stalledSince: number | null
   lastPosition: { x: number; y: number } | null
   color: PacketColor
