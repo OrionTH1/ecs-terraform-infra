@@ -4,7 +4,7 @@ export const MAX_LIVE_PACKETS = 260
 export const MAX_STALL_MS = 600
 
 const MIN_PACKETS_PER_SECOND = 0.8
-const MAX_PACKETS_PER_SECOND = 8
+const MAX_PACKETS_PER_SECOND = 6
 const REQUESTS_PER_SECOND_PER_PACKET = 4
 const SECONDS_PER_MINUTE = 60
 
@@ -15,9 +15,9 @@ export const PACKET_RADIUS = 3.5
 export const PACKET_BASE_CLASS = 'pointer-events-none absolute top-0 left-0 h-[7px] w-[7px] rounded-full'
 
 export const PACKET_COLOR_CLASS: Record<PacketColor, string> = {
-  default: 'bg-border-interaction shadow-[0_0_8px_2px_rgba(59,130,246,0.4)]',
-  write: 'bg-status-warning shadow-[0_0_8px_2px_rgba(245,158,11,0.4)]',
-  blocked: 'bg-status-error shadow-[0_0_8px_2px_rgba(239,68,68,0.45)]',
+  default: 'bg-border-interaction shadow-[0_0_4px_1px_rgba(59,130,246,0.45)]',
+  write: 'bg-status-warning shadow-[0_0_4px_1px_rgba(245,158,11,0.45)]',
+  blocked: 'bg-status-error shadow-[0_0_4px_1px_rgba(239,68,68,0.5)]',
 }
 
 export interface Packet {
