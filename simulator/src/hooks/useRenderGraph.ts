@@ -145,7 +145,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
   const wafBlockedRequests = useSimulationStore((state) => state.wafBlockedRequests)
   const blockedIps = useSimulationStore((state) => state.blockedIps)
   const rdsSlots = useSimulationStore((state) => state.rdsSlots)
-  const latency = useSimulationStore((state) => state.latency)
+  const latency = useSimulationStore((state) => state.displayedLatency)
   const latencyHistory = useSimulationStore((state) => state.latencyHistory)
   const desiredCount = useSimulationStore((state) => state.desiredCount)
   const scaleOutBreachAt = useSimulationStore((state) => state.scaleOutBreachAt)

@@ -62,7 +62,7 @@ export function SimulatorCanvas() {
   const tasks = useSimulationStore((state) => state.tasks)
   const resources = useSimulationStore((state) => state.resources)
   const rdsSlots = useSimulationStore((state) => state.rdsSlots)
-  const taskLatencyMs = useSimulationStore((state) => state.latency.taskMs)
+  const taskLatencyMs = useSimulationStore((state) => Math.round(state.displayedLatency.taskMs))
 
   useSimulationClock()
   useToolShortcuts()

@@ -10,6 +10,16 @@ const SECONDS_PER_MINUTE = 60
 
 export type PacketColor = 'default' | 'write' | 'blocked'
 
+export const PACKET_RADIUS = 3.5
+
+export const PACKET_BASE_CLASS = 'pointer-events-none absolute top-0 left-0 h-[7px] w-[7px] rounded-full'
+
+export const PACKET_COLOR_CLASS: Record<PacketColor, string> = {
+  default: 'bg-border-interaction shadow-[0_0_8px_2px_rgba(59,130,246,0.4)]',
+  write: 'bg-status-warning shadow-[0_0_8px_2px_rgba(245,158,11,0.4)]',
+  blocked: 'bg-status-error shadow-[0_0_8px_2px_rgba(239,68,68,0.45)]',
+}
+
 export interface Packet {
   id: number
   route: string[]

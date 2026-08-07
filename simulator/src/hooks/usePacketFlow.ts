@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { PAGE_CACHE_EDGE_ID } from '../canvas/initial-graph'
 import { RDS_READ_FRACTION } from '../simulation/simulation-config'
 import type { TaskRoute } from './useTaskGraph'
 import {
   MAX_LIVE_PACKETS,
   MAX_STALL_MS,
+  PACKET_BASE_CLASS,
+  PACKET_COLOR_CLASS,
+  PACKET_RADIUS,
   PACKET_SPEED_PX_PER_SECOND,
   REPLICATION_PACKET_SPEED_PX_PER_SECOND,
   packetsPerSecond,
@@ -12,7 +15,6 @@ import {
   repairRoute,
   type Packet,
   type PacketColor,
-  type RenderedPacket,
 } from '../simulation/packets'
 
 const MAX_FRAME_DELTA_SECONDS = 0.1
@@ -33,6 +35,20 @@ interface PacketFlowArgs {
   taskRoutes: TaskRoute[]
   directEntries: DirectPacketEntry[]
   liveEdgeIds: Set<string>
+}
+
+interface PacketFlowOptions extends PacketFlowArgs {
+  slots: RefObject<(HTMLDivElement | null)[]>
+}
+
+function paintSlot(element: HTMLDivElement, x: number, y: number, color: PacketColor) {
+  element.style.transform = `translate3d(${x - PACKET_RADIUS}px, ${y - PACKET_RADIUS}px, 0)`
+
+  if (element.dataset.color !== color) {
+    element.dataset.color = color
+    element.className = `${PACKET_BASE_CLASS} ${PACKET_COLOR_CLASS[color]}`
+  }
+  if (element.style.visibility !== 'visible') element.style.visibility = 'visible'
 }
 
 interface RouteBuild {
@@ -93,9 +109,7 @@ function advanceAlongRoute(
   return { kind: 'arrived' }
 }
 
-export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds }: PacketFlowArgs): RenderedPacket[] {
-  const [rendered, setRendered] = useState<RenderedPacket[]>([])
-
+export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds, slots }: PacketFlowOptions) {
   const packets = useRef<Packet[]>([])
   const pending = useRef(new Map<string, number>())
   const nextPacketId = useRef(0)
@@ -191,10 +205,11 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
       pending.current = carried
     }
 
-    function advance(now: number, deltaSeconds: number): RenderedPacket[] {
+    function advance(now: number, deltaSeconds: number): number {
       const cache = new Map<string, PathGeometry | null>()
       const alive: Packet[] = []
-      const positions: RenderedPacket[] = []
+      const elements = slots.current
+      let painted = 0
       const { liveEdgeIds: currentLiveEdgeIds, taskRoutes } = inputs.current
       const writeLeg = taskRoutes[0]?.writeLeg ?? null
       const fallbackEdgeIds = writeLeg ? [writeLeg.instanceEdgeId, writeLeg.volumeEdgeId] : []
@@ -234,30 +249,45 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
           if (now - stalledSince > MAX_STALL_MS) continue
           packet.stalledSince = stalledSince
           alive.push(packet)
-          if (packet.lastPosition) positions.push({ id: packet.id, ...packet.lastPosition, color: packet.color })
+          const held = packet.lastPosition
+          const slot = elements[painted]
+          if (held && slot) {
+            paintSlot(slot, held.x, held.y, packet.color)
+            painted += 1
+          }
           continue
         }
 
         packet.stalledSince = null
-        packet.lastPosition = { x: placement.x, y: placement.y }
+        if (packet.lastPosition === null) packet.lastPosition = { x: placement.x, y: placement.y }
+        else {
+          packet.lastPosition.x = placement.x
+          packet.lastPosition.y = placement.y
+        }
         alive.push(packet)
-        positions.push({
-          id: packet.id,
-          x: placement.x,
-          y: placement.y,
-          color: packet.legColors[placement.legIndex] ?? packet.color,
-        })
+
+        const slot = elements[painted]
+        if (slot) {
+          paintSlot(slot, placement.x, placement.y, packet.legColors[placement.legIndex] ?? packet.color)
+          painted += 1
+        }
       }
 
       packets.current = alive
-      return positions
+      return painted
     }
 
     function step(now: number) {
       const deltaSeconds = Math.min((now - previous) / 1000, MAX_FRAME_DELTA_SECONDS)
 
       spawn(deltaSeconds)
-      setRendered(advance(now, deltaSeconds))
+
+      const painted = advance(now, deltaSeconds)
+      const elements = slots.current
+      for (let slot = painted; slot < elements.length; slot += 1) {
+        const element = elements[slot]
+        if (element && element.style.visibility !== 'hidden') element.style.visibility = 'hidden'
+      }
 
       previous = now
       frameId = requestAnimationFrame(step)
@@ -265,7 +295,5 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
 
     frameId = requestAnimationFrame(step)
     return () => cancelAnimationFrame(frameId)
-  }, [])
-
-  return rendered
+  }, [slots])
 }

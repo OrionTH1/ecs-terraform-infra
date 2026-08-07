@@ -38,6 +38,7 @@ import {
   IDLE_LATENCY,
   appendLatencySample,
   computeLatency,
+  sameDisplayedLatency,
   smoothLatency,
   type LatencyBreakdown,
 } from '../simulation/latency'
@@ -99,6 +100,7 @@ interface SimulationState {
   hasSeededRdsWriter: boolean
   hasSeededRdsReader: boolean
   latency: LatencyBreakdown
+  displayedLatency: LatencyBreakdown
   latencyHistory: number[]
   lastLatencySampleAt: number
   killTask: (taskId: string) => void
@@ -193,6 +195,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   hasSeededRdsWriter: false,
   hasSeededRdsReader: false,
   latency: IDLE_LATENCY,
+  displayedLatency: IDLE_LATENCY,
   latencyHistory: [],
   lastLatencySampleAt: 0,
 
@@ -441,6 +444,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       clock: now,
       resources,
       latency,
+      displayedLatency: sameDisplayedLatency(state.displayedLatency, latency) ? state.displayedLatency : latency,
       latencyHistory: isLatencySampleDue
         ? appendLatencySample(state.latencyHistory, latency.totalMs)
         : state.latencyHistory,

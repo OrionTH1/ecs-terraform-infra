@@ -86,6 +86,15 @@ export function smoothLatency(
   }
 }
 
+export function sameDisplayedLatency(a: LatencyBreakdown, b: LatencyBreakdown): boolean {
+  return (
+    Math.round(a.totalMs) === Math.round(b.totalMs) &&
+    Math.round(a.taskMs) === Math.round(b.taskMs) &&
+    Math.round(a.writerMs) === Math.round(b.writerMs) &&
+    Math.round(a.readerMs) === Math.round(b.readerMs)
+  )
+}
+
 export function appendLatencySample(history: number[], sampleMs: number): number[] {
   return [...history, sampleMs].slice(-LATENCY.historyLength)
 }
