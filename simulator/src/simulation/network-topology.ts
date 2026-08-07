@@ -4,6 +4,7 @@ export interface SubnetTier {
   cidrByAvailabilityZone: Record<string, string>
 }
 
+export const REGION = 'us-east-1'
 export const VPC_CIDR = '10.0.0.0/16'
 
 export const VPC_TOOLTIP =

@@ -93,6 +93,13 @@ export interface NetworkZoneNodeData extends InfraNodeData {
   summary: string
 }
 
+export interface VpcEndpointNodeData extends InfraNodeData {
+  kind: 'interface' | 'gateway'
+  services: string[]
+  footnote: string
+  isResolving: boolean
+}
+
 export type ClusterVolumeNodeData = InfraNodeData
 
 export type RdsInstanceRole = 'writer' | 'reader'
@@ -119,6 +126,7 @@ export type TargetGroupFlowNode = Node<TargetGroupNodeData, 'targetGroup'>
 export type DbJunctionFlowNode = Node<Record<string, unknown>, 'dbJunction'>
 export type AuroraClusterFlowNode = Node<AuroraClusterNodeData, 'auroraCluster'>
 export type NetworkZoneFlowNode = Node<NetworkZoneNodeData, 'networkZone'>
+export type VpcEndpointFlowNode = Node<VpcEndpointNodeData, 'vpcEndpoint'>
 export type ClusterVolumeFlowNode = Node<ClusterVolumeNodeData, 'clusterVolume'>
 export type RdsInstanceFlowNode = Node<RdsInstanceNodeData, 'rdsInstance'>
 
@@ -134,5 +142,6 @@ export type SimulatorFlowNode =
   | TaskFlowNode
   | AuroraClusterFlowNode
   | NetworkZoneFlowNode
+  | VpcEndpointFlowNode
   | ClusterVolumeFlowNode
   | RdsInstanceFlowNode

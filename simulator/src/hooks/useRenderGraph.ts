@@ -23,6 +23,7 @@ import {
 } from '../simulation/aurora'
 import { currentAlarm } from '../simulation/autoscaling-alarm'
 import { countServiceTasks } from '../simulation/task-counts'
+import { isPullingImage } from '../simulation/vpc-endpoints'
 import { BOOT_GRAPH, type ResourceLedger } from '../simulation/boot-graph'
 import { AUTOSCALING, RDS_READ_FRACTION } from '../simulation/simulation-config'
 import { splitReadWrite } from '../simulation/traffic-distribution'
@@ -42,6 +43,7 @@ import type {
   AutoScalingNodeData,
   EcsServiceNodeData,
   NetworkZoneNodeData,
+  VpcEndpointNodeData,
   ProvisioningInfo,
   RdsInstanceNodeData,
   SimulatorFlowNode,
@@ -157,6 +159,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones 
   const hoveredNodeId = useSecurityGroupStore((state) => state.hoveredNodeId)
 
   const serviceTaskCounts = useMemo(() => countServiceTasks(tasks.map((task) => task.status)), [tasks])
+  const isPullingTaskImage = useMemo(() => isPullingImage(tasks.map((task) => task.status)), [tasks])
 
   const isScalingCommandLive = useRecentChange(desiredCount, SCALING_COMMAND_MS)
   const alarm = useMemo(
@@ -213,6 +216,14 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones 
 
           const data: NetworkZoneNodeData = { ...node.data, width: frame.width, height: frame.height }
           return { ...node, position: frame.position, data }
+        }
+
+        if (node.type === 'vpcEndpoint') {
+          const position = networkZones.positionsByNodeId.get(node.id)
+          if (position === undefined) return node
+
+          const data: VpcEndpointNodeData = { ...node.data, isResolving: isPullingTaskImage }
+          return { ...node, position, data }
         }
 
         if (node.type === 'waf') {
@@ -309,6 +320,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones 
     rdsReads,
     hasNoHealthyTargets,
     serviceTaskCounts,
+    isPullingTaskImage,
     taskGraph,
     networkZones,
     auroraTraffic,

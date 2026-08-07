@@ -8,6 +8,7 @@ import { TargetGroupNode } from '../nodes/infra/TargetGroupNode'
 import { DbJunctionNode } from '../nodes/infra/DbJunctionNode'
 import { TaskNode } from '../nodes/infra/TaskNode'
 import { NetworkZoneNode } from '../nodes/infra/NetworkZoneNode'
+import { VpcEndpointNode } from '../nodes/infra/VpcEndpointNode'
 import { AuroraClusterNode } from '../nodes/infra/AuroraClusterNode'
 import { ClusterVolumeNode } from '../nodes/infra/ClusterVolumeNode'
 import { RdsInstanceNode } from '../nodes/infra/RdsInstanceNode'
@@ -53,6 +54,7 @@ const nodeTypes = {
   task: TaskNode,
   auroraCluster: AuroraClusterNode,
   networkZone: NetworkZoneNode,
+  vpcEndpoint: VpcEndpointNode,
   clusterVolume: ClusterVolumeNode,
   rdsInstance: RdsInstanceNode,
   user: UserNode,

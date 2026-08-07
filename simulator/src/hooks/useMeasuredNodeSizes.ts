@@ -6,7 +6,7 @@ export interface MeasuredSize {
   height: number
 }
 
-const MEASURED_TYPES = new Set(['task', 'autoScaling', 'alb', 'waf'])
+const MEASURED_TYPES = new Set(['task', 'autoScaling', 'alb', 'waf', 'vpcEndpoint'])
 
 export function useMeasuredNodeSizes(): Map<string, MeasuredSize> {
   const serialized = useStore((state) => {

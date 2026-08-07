@@ -3,6 +3,7 @@ import { IDLE_LATENCY } from '../simulation/latency'
 import { runningFloorAcu } from '../simulation/aurora-capacity'
 import { ALB_TO_ECS_PAIR, ECS_TO_RDS_PAIR } from '../simulation/security-groups'
 import { NO_ALARM } from '../simulation/autoscaling-alarm'
+import { GATEWAY_ENDPOINT, INTERFACE_ENDPOINTS } from '../simulation/vpc-endpoints'
 import {
   AVAILABILITY_ZONES,
   PRIVATE_SUBNETS,
@@ -11,8 +12,10 @@ import {
   VPC_TOOLTIP,
   subnetSummary,
 } from '../simulation/network-topology'
-import { FRAME_PADDING, frameAround } from './frame-metrics'
+import { FRAME_PADDING, frameAround, frameContentBox } from './frame-metrics'
 import { networkZoneFrames } from './network-zones'
+import type { XYPosition } from '@xyflow/react'
+import type { ContentBox, FrameBox } from './frame-metrics'
 import type { ResourceId } from '../simulation/boot-graph'
 import type { SimulatorFlowNode } from '../types/node-data'
 import type { SimulatorFlowEdge } from '../types/edge-data'
@@ -35,6 +38,8 @@ export const DESIRED_COUNT_EDGE_ID = 'auto-scaling-ecs-service-desired-count'
 export const VPC_NODE_ID = 'vpc'
 export const PUBLIC_SUBNETS_NODE_ID = 'public-subnets'
 export const PRIVATE_SUBNETS_NODE_ID = 'private-subnets'
+export const INTERFACE_ENDPOINTS_NODE_ID = 'interface-endpoints'
+export const GATEWAY_ENDPOINT_NODE_ID = 'gateway-endpoint'
 
 export const ALB_POSITION = { x: 360, y: 200 }
 
@@ -67,6 +72,11 @@ export const AURORA_FRAME = frameAround({
   right: RDS_INSTANCE_X + FALLBACK_CARD_WIDTH,
   bottom: RDS_READER_POSITION.y + FALLBACK_CARD_HEIGHT,
 })
+
+export const ENDPOINT_CARD_WIDTH = 210
+export const ENDPOINT_CARD_HEIGHT = 148
+export const ENDPOINT_ROW_GAP = 44
+export const ENDPOINT_COLUMN_GAP = 24
 
 const VPC_BORDER_BEYOND_AURORA_FRAME = FRAME_PADDING * 2
 const MANAGED_STORAGE_GAP = 150
@@ -138,6 +148,36 @@ const AUTO_SCALING_TOOLTIP =
   `${AWS_ALARM_EVALUATION.scaleOutMs / 60_000} minutes above target but only scales in after ${AWS_ALARM_EVALUATION.scaleInMs / 60_000} minutes below it. ` +
   'Both windows are shortened here so the demo stays watchable.'
 
+const INITIAL_SERVICE_FRAME = {
+  position: { x: TASK_COLUMN_X - FRAME_PADDING * 2, y: TASK_COLUMN_CENTER_Y },
+  width: FALLBACK_TASK_WIDTH + FRAME_PADDING * 4,
+  height: 0,
+}
+
+export function endpointPositions(serviceFrame: FrameBox): { interface: XYPosition; gateway: XYPosition } {
+  const y = serviceFrame.position.y + serviceFrame.height + ENDPOINT_ROW_GAP
+
+  return {
+    interface: { x: serviceFrame.position.x, y },
+    gateway: { x: serviceFrame.position.x + ENDPOINT_CARD_WIDTH + ENDPOINT_COLUMN_GAP, y },
+  }
+}
+
+export function endpointRowBox(serviceFrame: FrameBox, height: number): ContentBox {
+  const positions = endpointPositions(serviceFrame)
+
+  return {
+    left: positions.interface.x,
+    top: positions.interface.y,
+    right: positions.gateway.x + ENDPOINT_CARD_WIDTH,
+    bottom: positions.interface.y + height,
+  }
+}
+
+export function privateTierBoxes(serviceFrame: FrameBox, endpointHeight: number): ContentBox[] {
+  return [frameContentBox(serviceFrame), frameContentBox(AURORA_FRAME), endpointRowBox(serviceFrame, endpointHeight)]
+}
+
 const INITIAL_ZONES = networkZoneFrames(
   {
     left: ALB_POSITION.x,
@@ -145,13 +185,10 @@ const INITIAL_ZONES = networkZoneFrames(
     right: ALB_POSITION.x + FALLBACK_CARD_WIDTH,
     bottom: ALB_POSITION.y + FALLBACK_CARD_HEIGHT,
   },
-  {
-    position: { x: TASK_COLUMN_X - FRAME_PADDING * 2, y: TASK_COLUMN_CENTER_Y },
-    width: FALLBACK_TASK_WIDTH + FRAME_PADDING * 4,
-    height: 0,
-  },
-  AURORA_FRAME,
+  privateTierBoxes(INITIAL_SERVICE_FRAME, ENDPOINT_CARD_HEIGHT),
 )
+
+const INITIAL_ENDPOINTS = endpointPositions(INITIAL_SERVICE_FRAME)
 
 export const initialNodes: SimulatorFlowNode[] = [
   {
@@ -291,6 +328,38 @@ export const initialNodes: SimulatorFlowNode[] = [
     deletable: false,
     selectable: false,
     zIndex: -1,
+  },
+  {
+    id: INTERFACE_ENDPOINTS_NODE_ID,
+    type: 'vpcEndpoint',
+    position: INITIAL_ENDPOINTS.interface,
+    data: {
+      label: INTERFACE_ENDPOINTS.label,
+      tooltip: INTERFACE_ENDPOINTS.tooltip,
+      status: 'idle',
+      kind: INTERFACE_ENDPOINTS.kind,
+      services: INTERFACE_ENDPOINTS.services,
+      footnote: INTERFACE_ENDPOINTS.footnote,
+      isResolving: false,
+    },
+    draggable: false,
+    deletable: false,
+  },
+  {
+    id: GATEWAY_ENDPOINT_NODE_ID,
+    type: 'vpcEndpoint',
+    position: INITIAL_ENDPOINTS.gateway,
+    data: {
+      label: GATEWAY_ENDPOINT.label,
+      tooltip: GATEWAY_ENDPOINT.tooltip,
+      status: 'idle',
+      kind: GATEWAY_ENDPOINT.kind,
+      services: GATEWAY_ENDPOINT.services,
+      footnote: GATEWAY_ENDPOINT.footnote,
+      isResolving: false,
+    },
+    draggable: false,
+    deletable: false,
   },
   {
     id: CLUSTER_VOLUME_NODE_ID,

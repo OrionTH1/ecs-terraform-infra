@@ -33,12 +33,8 @@ function subnetTierFrame(content: ContentBox): FrameBox {
   }
 }
 
-export function networkZoneFrames(
-  albBox: ContentBox,
-  serviceFrame: FrameBox,
-  auroraFrame: FrameBox,
-): NetworkZoneFrames {
-  const privateContent = unionBox([frameContentBox(serviceFrame), frameContentBox(auroraFrame)])
+export function networkZoneFrames(albBox: ContentBox, privateBoxes: ContentBox[]): NetworkZoneFrames {
+  const privateContent = unionBox(privateBoxes)
   const band = unionBox([albBox, privateContent])
 
   const publicSubnets = subnetTierFrame({ ...band, left: albBox.left, right: albBox.right })

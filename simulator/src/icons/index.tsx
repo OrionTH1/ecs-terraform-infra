@@ -5,6 +5,8 @@ import {
   Container,
   Database,
   Gauge,
+  Waypoints,
+  Route,
   HardDrive,
   Hand,
   Network,
@@ -65,6 +67,14 @@ export function UserGroupIcon({ className }: IconProps) {
 
 export function WafIcon({ className }: IconProps) {
   return <Glyph icon={ShieldCheck} size={16} className={className} />
+}
+
+export function EndpointIcon({ className }: IconProps) {
+  return <Glyph icon={Waypoints} size={16} className={className} />
+}
+
+export function GatewayIcon({ className }: IconProps) {
+  return <Glyph icon={Route} size={16} className={className} />
 }
 
 export function RegenerateIcon({ className }: IconProps) {
