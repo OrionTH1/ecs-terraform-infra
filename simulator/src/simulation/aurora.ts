@@ -30,6 +30,13 @@ export interface AuroraEndpointTraffic {
   rejectedRequestsPerMinute: number
 }
 
+export function needsWriterPromotion(
+  writerLifecycle: RdsInstanceLifecycle | undefined,
+  readerLifecycle: RdsInstanceLifecycle | undefined,
+): boolean {
+  return readerLifecycle === 'available' && writerLifecycle === 'provisioning'
+}
+
 export function isAbsorbingFallbackReads(
   reads: number,
   { isWriterAvailable, isReaderAvailable }: AuroraAvailability,

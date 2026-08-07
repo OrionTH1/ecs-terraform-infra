@@ -23,6 +23,7 @@ import {
   RDS_FIRST_INSTANCE_ID,
   RDS_SECOND_INSTANCE_ID,
   isAcceptingTraffic,
+  needsWriterPromotion,
   routeAuroraTraffic,
   vacantInstanceId,
 } from '../simulation/aurora'
@@ -382,6 +383,18 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
           acu: runningFloorAcu(),
         }
       }
+    }
+
+    if (writer && reader && needsWriterPromotion(writer.lifecycle, reader.lifecycle)) {
+      const stillBeingCreated = writer
+      writer = {
+        instanceId: reader.instanceId,
+        lifecycle: 'promoting',
+        stageEnteredAt: now,
+        durationMs: AURORA_FAILOVER_MS,
+        acu: reader.acu,
+      }
+      reader = stillBeingCreated
     }
 
     const healthyTaskCount = tasks.filter((task) => task.status === 'healthy').length

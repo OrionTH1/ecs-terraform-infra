@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useSimulationStore } from './useSimulationStore'
 import { RDS_FIRST_INSTANCE_ID, RDS_SECOND_INSTANCE_ID } from '../simulation/aurora'
 import { BOOT_CRITICAL_PATH_MS, BOOT_GRAPH } from '../simulation/boot-graph'
-import { AURORA_FAILOVER_MS, RDS_INSTANCE_FAILED_LINGER_MS } from '../simulation/simulation-config'
+import {
+  AURORA_FAILOVER_MS,
+  AURORA_REBUILD_WRITER_MS,
+  RDS_INSTANCE_FAILED_LINGER_MS,
+} from '../simulation/simulation-config'
 
 const TICK_REAL_MS = 16
 const BOOT_TIME_SCALE = 600
@@ -122,6 +126,59 @@ describe('failure with no replica to promote', () => {
 
     expect(slots().writer?.lifecycle).toBe('provisioning')
     expect(slots().reader?.lifecycle).toBe('provisioning')
+    expect(instanceIds()).toEqual([RDS_FIRST_INSTANCE_ID, RDS_SECOND_INSTANCE_ID])
+  })
+})
+
+describe('losing both instances while the replica is still being rebuilt', () => {
+  it('promotes the replica the moment it is ready, instead of waiting out the writer rebuild', () => {
+    useSimulationStore.getState().killRdsInstance('reader')
+    advance(RDS_INSTANCE_FAILED_LINGER_MS + 2_000)
+    useSimulationStore.getState().killRdsInstance('writer')
+    advance(RDS_INSTANCE_FAILED_LINGER_MS + 2_000)
+
+    expect(slots().writer?.lifecycle).toBe('provisioning')
+    expect(slots().reader?.lifecycle).toBe('provisioning')
+
+    advance(BOOT_GRAPH.rdsReader.durationMs)
+
+    expect(slots().writer?.lifecycle).toBe('promoting')
+  })
+
+  it('hands the writer role to the instance that finished first', () => {
+    useSimulationStore.getState().killRdsInstance('reader')
+    advance(RDS_INSTANCE_FAILED_LINGER_MS + 2_000)
+    const rebuildingReplicaId = slots().reader?.instanceId
+
+    useSimulationStore.getState().killRdsInstance('writer')
+    advance(RDS_INSTANCE_FAILED_LINGER_MS + 2_000 + BOOT_GRAPH.rdsReader.durationMs)
+
+    expect(slots().writer?.instanceId).toBe(rebuildingReplicaId)
+  })
+
+  it('keeps the half-built primary as the replica rather than restarting it', () => {
+    useSimulationStore.getState().killRdsInstance('reader')
+    advance(RDS_INSTANCE_FAILED_LINGER_MS + 2_000)
+    useSimulationStore.getState().killRdsInstance('writer')
+    advance(RDS_INSTANCE_FAILED_LINGER_MS + 2_000)
+    const rebuildingPrimaryId = slots().writer?.instanceId
+
+    advance(BOOT_GRAPH.rdsReader.durationMs)
+
+    expect(slots().reader?.instanceId).toBe(rebuildingPrimaryId)
+    expect(instanceIds()).toEqual([RDS_FIRST_INSTANCE_ID, RDS_SECOND_INSTANCE_ID])
+  })
+
+  it('ends with both instances serving, without a third one ever existing', () => {
+    useSimulationStore.getState().killRdsInstance('reader')
+    advance(RDS_INSTANCE_FAILED_LINGER_MS + 2_000)
+    useSimulationStore.getState().killRdsInstance('writer')
+    advance(RDS_INSTANCE_FAILED_LINGER_MS + 2_000)
+
+    advance(BOOT_GRAPH.rdsReader.durationMs + AURORA_FAILOVER_MS + AURORA_REBUILD_WRITER_MS)
+
+    expect(slots().writer?.lifecycle).toBe('available')
+    expect(slots().reader?.lifecycle).toBe('available')
     expect(instanceIds()).toEqual([RDS_FIRST_INSTANCE_ID, RDS_SECOND_INSTANCE_ID])
   })
 })

@@ -3,6 +3,7 @@ import {
   RDS_FIRST_INSTANCE_ID,
   RDS_SECOND_INSTANCE_ID,
   isAbsorbingFallbackReads,
+  needsWriterPromotion,
   isAcceptingTraffic,
   rdsInstanceTerraformAddress,
   routeAuroraTraffic,
@@ -64,6 +65,25 @@ describe('aurora endpoint routing', () => {
   it('does not count reads that fell back to the writer as committed writes', () => {
     expect(routeAuroraTraffic(READS, WRITES, READER_DOWN).committedWritesPerMinute).toBe(WRITES)
     expect(routeAuroraTraffic(READS, WRITES, WRITER_DOWN).committedWritesPerMinute).toBe(0)
+  })
+})
+
+describe('a cluster left without a writer', () => {
+  it('promotes a replica that became available while the primary was still being created', () => {
+    expect(needsWriterPromotion('provisioning', 'available')).toBe(true)
+  })
+
+  it('leaves a healthy pair alone', () => {
+    expect(needsWriterPromotion('available', 'available')).toBe(false)
+  })
+
+  it('does not interrupt a promotion already under way', () => {
+    expect(needsWriterPromotion('promoting', 'available')).toBe(false)
+  })
+
+  it('waits when the replica is not serving yet', () => {
+    expect(needsWriterPromotion('provisioning', 'provisioning')).toBe(false)
+    expect(needsWriterPromotion('provisioning', 'failed')).toBe(false)
   })
 })
 
