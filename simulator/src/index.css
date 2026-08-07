@@ -274,8 +274,17 @@
   border: none;
   background: none;
   box-shadow: none;
-  transform: none;
   cursor: crosshair;
+}
+
+.react-flow .react-flow__handle-left.sg-handle.connectionindicator,
+.react-flow .react-flow__handle-left.sg-handle.connectionindicator:hover {
+  transform: translate(-50%, -50%);
+}
+
+.react-flow .react-flow__handle-right.sg-handle.connectionindicator,
+.react-flow .react-flow__handle-right.sg-handle.connectionindicator:hover {
+  transform: translate(50%, -50%);
 }
 
 .sg-bar {
