@@ -37,11 +37,11 @@ export function SecurityGroupHandle({ nodeType, id, ...handleProps }: SecurityGr
       role="button"
       aria-expanded={isOpen}
       aria-label={`${direction} ${boundary.rules[0].securityGroup}: ${boundary.rules.map(formatRule).join(', ')}`}
-      onMouseEnter={() => hoverBoundary(key, boundary.pairId)}
+      onMouseEnter={() => hoverBoundary(key, nodeId ?? '', boundary.pairId)}
       onMouseLeave={() => clearBoundary(key)}
-      onFocus={() => hoverBoundary(key, boundary.pairId)}
+      onFocus={() => hoverBoundary(key, nodeId ?? '', boundary.pairId)}
       onBlur={() => clearBoundary(key)}
-      onClick={() => toggleBoundary(key, boundary.pairId)}
+      onClick={() => toggleBoundary(key, nodeId ?? '', boundary.pairId)}
     >
       <span
         className={`pointer-events-none flex items-center gap-[3px] ${isIngress ? 'flex-row-reverse' : 'flex-row'}`}

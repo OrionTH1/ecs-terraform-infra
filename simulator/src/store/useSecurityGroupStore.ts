@@ -3,8 +3,9 @@ import { create } from 'zustand'
 interface SecurityGroupState {
   hoveredPairId: string | null
   hoveredKey: string | null
-  hoverBoundary: (key: string, pairId: string | null) => void
-  toggleBoundary: (key: string, pairId: string | null) => void
+  hoveredNodeId: string | null
+  hoverBoundary: (key: string, nodeId: string, pairId: string | null) => void
+  toggleBoundary: (key: string, nodeId: string, pairId: string | null) => void
   clearBoundary: (key: string) => void
   clearAllBoundaries: () => void
 }
@@ -12,15 +13,21 @@ interface SecurityGroupState {
 export const useSecurityGroupStore = create<SecurityGroupState>((set) => ({
   hoveredPairId: null,
   hoveredKey: null,
-  hoverBoundary: (key, pairId) => set({ hoveredKey: key, hoveredPairId: pairId }),
-  toggleBoundary: (key, pairId) =>
+  hoveredNodeId: null,
+  hoverBoundary: (key, nodeId, pairId) =>
+    set({ hoveredKey: key, hoveredNodeId: nodeId, hoveredPairId: pairId }),
+  toggleBoundary: (key, nodeId, pairId) =>
     set((state) =>
       state.hoveredKey === key
-        ? { hoveredKey: null, hoveredPairId: null }
-        : { hoveredKey: key, hoveredPairId: pairId },
+        ? { hoveredKey: null, hoveredNodeId: null, hoveredPairId: null }
+        : { hoveredKey: key, hoveredNodeId: nodeId, hoveredPairId: pairId },
     ),
   clearBoundary: (key) =>
-    set((state) => (state.hoveredKey === key ? { hoveredKey: null, hoveredPairId: null } : state)),
+    set((state) =>
+      state.hoveredKey === key ? { hoveredKey: null, hoveredNodeId: null, hoveredPairId: null } : state,
+    ),
   clearAllBoundaries: () =>
-    set((state) => (state.hoveredKey === null ? state : { hoveredKey: null, hoveredPairId: null })),
+    set((state) =>
+      state.hoveredKey === null ? state : { hoveredKey: null, hoveredNodeId: null, hoveredPairId: null },
+    ),
 }))

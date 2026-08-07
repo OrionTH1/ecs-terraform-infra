@@ -128,6 +128,8 @@ function hasRequiredInstances(edgeId: string, availability: AuroraAvailability):
 
 const SCALING_COMMAND_MS = 1400
 
+const OPEN_BOUNDARY_Z_INDEX = 1000
+
 function isEdgeVisible(ledger: ResourceLedger, edge: SimulatorFlowEdge, availability: AuroraAvailability): boolean {
   if (!hasRequiredInstances(edge.id, availability)) return false
 
@@ -149,6 +151,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
   const scaleOutBreachAt = useSimulationStore((state) => state.scaleOutBreachAt)
   const scaleInBreachAt = useSimulationStore((state) => state.scaleInBreachAt)
   const hoveredPairId = useSecurityGroupStore((state) => state.hoveredPairId)
+  const hoveredNodeId = useSecurityGroupStore((state) => state.hoveredNodeId)
 
   const serviceTaskCounts = useMemo(() => countServiceTasks(tasks.map((task) => task.status)), [tasks])
 
@@ -279,9 +282,15 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
         return node
       })
 
-    return taskGraph.targetGroupNode
+    const assembled = taskGraph.targetGroupNode
       ? [taskGraph.targetGroupNode, ...projected, ...taskGraph.taskNodes]
       : [...projected, ...taskGraph.taskNodes]
+
+    if (hoveredNodeId === null) return assembled
+
+    return assembled.map((node) =>
+      node.id === hoveredNodeId ? { ...node, zIndex: OPEN_BOUNDARY_Z_INDEX } : node,
+    )
   }, [
     nodes,
     resources,
@@ -300,6 +309,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph }: RenderGraph
     requestsPerMinutePerTask,
     latency,
     latencyHistory,
+    hoveredNodeId,
   ])
 
   const renderEdges = useMemo(() => {
