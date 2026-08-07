@@ -27,7 +27,7 @@ export const DESIRED_COUNT_EDGE_ID = 'auto-scaling-ecs-service-desired-count'
 const ALB_POSITION = { x: 360, y: 200 }
 const CONTROL_PLANE_Y = ALB_POSITION.y - 330
 
-export const TASK_COLUMN_X = 780
+export const TASK_COLUMN_X = 920
 export const TASK_COLUMN_CENTER_Y = ALB_POSITION.y
 export const TASK_ROW_GAP = 10
 export const FALLBACK_TASK_HEIGHT = 40
