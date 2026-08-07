@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useSimulationStore } from './useSimulationStore'
 import { BOOT_CRITICAL_PATH_MS } from '../simulation/boot-graph'
 import { runningFloorAcu } from '../simulation/aurora-capacity'
-import { AURORA_SERVERLESS, COLD_START_MS, WAF_RATE_LIMIT_PER_MINUTE } from '../simulation/simulation-config'
+import {
+  AURORA_FAILOVER_MS,
+  AURORA_SERVERLESS,
+  COLD_START_MS,
+  RDS_INSTANCE_FAILED_LINGER_MS,
+  WAF_RATE_LIMIT_PER_MINUTE,
+} from '../simulation/simulation-config'
 
 const TICK_REAL_MS = 16
 const BOOT_TIME_SCALE = 600
@@ -80,6 +86,34 @@ describe('capacity under load', () => {
     advance(20 * 60_000)
 
     expect(slots().writer?.acu ?? 0).toBeLessThan(underLoad)
+  })
+})
+
+describe('capacity across a promotion', () => {
+  it('carries the replica capacity into the writer slot instead of restarting from the floor', () => {
+    drive(10_000)
+    advance(20 * 60_000)
+    const replicaAcu = slots().reader?.acu ?? 0
+
+    expect(replicaAcu).toBeGreaterThan(runningFloorAcu())
+
+    useSimulationStore.getState().killRdsInstance('writer')
+    advance(RDS_INSTANCE_FAILED_LINGER_MS + 2_000)
+
+    expect(slots().writer?.lifecycle).toBe('promoting')
+    expect(slots().writer?.acu ?? 0).toBeGreaterThanOrEqual(replicaAcu)
+  })
+
+  it('keeps that capacity through the failover window, so writes resume at full size', () => {
+    drive(10_000)
+    advance(20 * 60_000)
+    const replicaAcu = slots().reader?.acu ?? 0
+
+    useSimulationStore.getState().killRdsInstance('writer')
+    advance(RDS_INSTANCE_FAILED_LINGER_MS + AURORA_FAILOVER_MS + 5_000)
+
+    expect(slots().writer?.lifecycle).toBe('available')
+    expect(slots().writer?.acu ?? 0).toBeGreaterThanOrEqual(replicaAcu)
   })
 })
 

@@ -407,14 +407,18 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
 
     const deltaMs = now - state.clock
 
-    const writerAcu = writer
-      ? advanceAcu(writer.acu, demandedAcu(queriesForRequests(auroraTraffic.writerRequestsPerMinute)), deltaMs)
-      : runningFloorAcu()
+    const writerAcu =
+      writer && isAcceptingTraffic(writer.lifecycle)
+        ? advanceAcu(writer.acu, demandedAcu(queriesForRequests(auroraTraffic.writerRequestsPerMinute)), deltaMs)
+        : (writer?.acu ?? runningFloorAcu())
     const readerDemand = Math.max(
       demandedAcu(queriesForRequests(auroraTraffic.readerRequestsPerMinute)),
       readerFloorAcu(writerAcu, AURORA_SERVERLESS.promotionTier),
     )
-    const readerAcu = reader ? advanceAcu(reader.acu, readerDemand, deltaMs) : runningFloorAcu()
+    const readerAcu =
+      reader && isAcceptingTraffic(reader.lifecycle)
+        ? advanceAcu(reader.acu, readerDemand, deltaMs)
+        : (reader?.acu ?? runningFloorAcu())
 
     if (writer && writer.acu !== writerAcu) writer = { ...writer, acu: writerAcu }
     if (reader && reader.acu !== readerAcu) reader = { ...reader, acu: readerAcu }
