@@ -32,7 +32,14 @@ import { useSimulationStore } from '../store/useSimulationStore'
 import { useSecurityGroupStore } from '../store/useSecurityGroupStore'
 import { isAcceptingTraffic } from '../simulation/aurora'
 import { isCreated } from '../simulation/boot-graph'
-import { ALB_NODE_ID, FIT_VIEW_OPTIONS, MIN_ZOOM, initialEdges, initialNodes } from './initial-graph'
+import {
+  ALB_NODE_ID,
+  CONNECTION_RADIUS,
+  FIT_VIEW_OPTIONS,
+  MIN_ZOOM,
+  initialEdges,
+  initialNodes,
+} from './initial-graph'
 
 const nodeTypes = {
   alb: AlbNode,
@@ -88,7 +95,7 @@ export function SimulatorCanvas() {
 
   useSettleViewport(renderNodes.length)
 
-  const { isValidConnection, onConnect } = useCanvasConnections({ nodes, edges, setEdges })
+  const { isValidConnection, onConnect, onConnectEnd } = useCanvasConnections({ nodes, edges, setEdges })
   const { onDragOver, onDrop, addNodeAtViewportCenter } = useNodePalette({ nodes, onNodesChange })
   const isCompact = useIsCompactViewport()
   const shell = useRef<HTMLDivElement>(null)
@@ -135,7 +142,9 @@ export function SimulatorCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectEnd={onConnectEnd}
         isValidConnection={isValidConnection}
+        connectionRadius={CONNECTION_RADIUS}
         onDragOver={onDragOver}
         onDrop={onDrop}
         onPaneClick={clearAllBoundaries}

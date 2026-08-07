@@ -20,6 +20,18 @@ export function collectTakenIps(nodes: SimulatorFlowNode[], exceptNodeId: string
   return nodes.filter((node) => node.id !== exceptNodeId).flatMap(sourceIpsOf)
 }
 
+export function canReachLoadBalancer(
+  nodes: SimulatorFlowNode[],
+  edges: { source: string; target: string }[],
+  sourceId: string | null | undefined,
+  loadBalancerId: string,
+): boolean {
+  const source = nodes.find((node) => node.id === sourceId)
+  if (source === undefined || !isTrafficSource(source)) return false
+
+  return !edges.some((edge) => edge.source === source.id && edge.target === loadBalancerId)
+}
+
 export function toTrafficSource(node: SimulatorFlowNode): TrafficSourceNode | null {
   if (node.type === 'user') {
     return { id: node.id, sourceIps: [node.data.sourceIp], requestsPerMinute: node.data.requestsPerMinute }

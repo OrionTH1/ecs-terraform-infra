@@ -86,8 +86,8 @@ ALB → ECS Service (N tasks) → (Aurora, opcional/decorativo). Posição arras
 Site estático em Vercel ou GitHub Pages, sem custo. Pode viver neste mesmo monorepo (ex.: `simulator/`) ou em repo próprio linkado no README principal — decisão de organização, não bloqueia o design acima.
 
 ## Falta
-- [ ] Simulação do serverless do Aurora. Atualmente a Reader Instance e a Writer Instance não tem nenhum indicativo de ACU. Isso também resolve o problema da implementação de latencia criar um gargalo na Reader Instance, pois atualmente a Reader Instance não escala automaticamente como um serverless.
-- [ ] Transformar os Edges entre nodes dentro da infra em representações dos VPC Endpoints da rede.
-- [ ] Arrumar alguma forma de criar representações visuais da rede AWS, como a VPC, as subnets, os route tables, security groups e etc.
-- [ ] Descobrir se é viável escalar mais a infra do terraform para deixar o projeto com uma infra mais over. Argumento é que a infra começa a gargalar com 6.400 requests por minuto, o que dá 9 milhões de requests por dia, então talvez a infra já esteja aguentando muito.
-- [ ] Rever se é melhor trocar a unidade de request da infra para segundos.
+- [ ] Um bug quando deleta o writer instances, todas requests são apagadas
+- [ ] Tentar tornar o ECS Cluster com duas colunas de ECS Tasks
+- [ ] Tentar criar representações visuais de requests de retorno, exemplo o Reader instance retornando uma response para a ECS Task
+- [ ] Tentar simular o S3, também com uma representação visual de retorno
+- [ ] Tentar descobrir o problema de perfomance quando dá zoom no ECS Cluster

@@ -71,6 +71,7 @@ export function taskToJunctionEdgeId(taskId: string): string {
 
 export const FIT_VIEW_OPTIONS = { padding: 0.22, maxZoom: 1 }
 export const MIN_ZOOM = 0.08
+export const CONNECTION_RADIUS = 48
 
 export function albToTaskEdgeId(taskId: string): string {
   return `${ALB_NODE_ID}-${taskId}`
