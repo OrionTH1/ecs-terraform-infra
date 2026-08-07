@@ -77,7 +77,6 @@ export function NodeCard({
       {compact ? (
         <div key="compact" className="content-resolve flex items-center gap-2 px-3 py-2">
           <span className="inline-flex shrink-0 text-fg-muted">{icon}</span>
-          <span className="shrink-0 font-sans text-[13px] font-medium text-fg">{title}</span>
           {children}
         </div>
       ) : (

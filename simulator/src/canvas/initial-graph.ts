@@ -30,7 +30,7 @@ const CONTROL_PLANE_Y = ALB_POSITION.y - 330
 export const TASK_COLUMN_X = 920
 export const TASK_COLUMN_CENTER_Y = ALB_POSITION.y
 export const TASK_ROW_GAP = 10
-export const FALLBACK_TASK_HEIGHT = 40
+export const FALLBACK_TASK_HEIGHT = 58
 export const FALLBACK_TASK_WIDTH = 230
 export const NODE_LEAVE_MS = 340
 

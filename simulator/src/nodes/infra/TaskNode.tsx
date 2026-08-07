@@ -5,7 +5,8 @@ import { useTaskBlast } from '../../hooks/useTaskBlast'
 import type { NodeStatus } from '../../types/node-data'
 import { TASK_STATUS_MESSAGE, type TaskFlowNode, type TaskStatus } from '../../types/task-data'
 import { NodeCard } from '../shared/NodeCard'
-import { LatencyReadout } from '../shared/LatencyReadout'
+import { formatDuration, latencyTone, type LatencyTone } from '../shared/latency-format'
+import { p50Ms } from '../../simulation/latency'
 import { RateReadout } from '../shared/RateReadout'
 import { SecurityGroupHandle } from '../shared/SecurityGroupHandle'
 import { StageProgress, type StageTone } from '../shared/StageProgress'
@@ -38,6 +39,12 @@ const STATUS_TO_STAGE_TONE: Record<TaskStatus, StageTone> = {
   failed: 'error',
 }
 
+const LATENCY_TONE_CLASS: Record<LatencyTone, string> = {
+  idle: 'text-fg',
+  warning: 'text-status-warning',
+  error: 'text-status-error',
+}
+
 const TASK_TOOLTIP =
   'One ECS Fargate task behind the ALB target group. Only healthy tasks are registered in the target group and receive traffic.'
 
@@ -68,9 +75,17 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
       }
     >
       {isSettled ? (
-        <div className="flex w-[132px] items-baseline justify-end gap-2">
-          <RateReadout value={data.requestsPerMinute} />
-          <LatencyReadout meanMs={data.latencyMs} showTail={false} />
+        <div className="flex w-[168px] flex-col gap-0.5">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="font-sans text-[13px] font-medium text-fg">Task {data.taskNumber}</span>
+            <span className="font-sans text-[10px] font-medium uppercase tracking-wider text-fg-muted">p50</span>
+          </div>
+          <div className="flex items-baseline justify-between gap-3">
+            <RateReadout value={data.requestsPerMinute} />
+            <span className={`font-mono text-[11px] tabular-nums ${LATENCY_TONE_CLASS[latencyTone(data.latencyMs)]}`}>
+              {formatDuration(p50Ms(data.latencyMs))}
+            </span>
+          </div>
         </div>
       ) : (
         <div className="flex w-[204px] flex-col gap-1.5">
