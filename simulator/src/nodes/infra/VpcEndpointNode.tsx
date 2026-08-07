@@ -1,4 +1,4 @@
-import type { NodeProps } from '@xyflow/react'
+import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { VpcEndpointFlowNode } from '../../types/node-data'
 import { NodeCard } from '../shared/NodeCard'
 import { EndpointIcon, GatewayIcon } from '../../icons'
@@ -11,6 +11,12 @@ export function VpcEndpointNode({ data }: NodeProps<VpcEndpointFlowNode>) {
       title={data.label}
       tooltip={data.tooltip}
       status={data.status}
+      handles={
+        <>
+          <Handle type="target" position={Position.Top} id="in" isConnectable={false} />
+          <Handle type="source" position={Position.Bottom} id="out" isConnectable={false} />
+        </>
+      }
     >
       <div className="flex w-[168px] flex-col gap-1.5">
         <div className="flex flex-col gap-1">

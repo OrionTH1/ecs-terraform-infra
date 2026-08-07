@@ -40,6 +40,18 @@ export const PUBLIC_SUBNETS_NODE_ID = 'public-subnets'
 export const PRIVATE_SUBNETS_NODE_ID = 'private-subnets'
 export const INTERFACE_ENDPOINTS_NODE_ID = 'interface-endpoints'
 export const GATEWAY_ENDPOINT_NODE_ID = 'gateway-endpoint'
+export const ECR_NODE_ID = 'ecr'
+export const LAYER_STORAGE_NODE_ID = 'layer-storage'
+export const ENDPOINT_TO_ECR_EDGE_ID = 'interface-endpoints-ecr'
+export const ENDPOINT_TO_STORAGE_EDGE_ID = 'gateway-endpoint-layer-storage'
+
+export function taskToRegistryEdgeId(taskId: string): string {
+  return `${taskId}-${INTERFACE_ENDPOINTS_NODE_ID}`
+}
+
+export function taskToStorageEdgeId(taskId: string): string {
+  return `${taskId}-${GATEWAY_ENDPOINT_NODE_ID}`
+}
 
 export const ALB_POSITION = { x: 360, y: 200 }
 
@@ -76,6 +88,7 @@ export const AURORA_FRAME = frameAround({
 export const ENDPOINT_CARD_WIDTH = 210
 export const ENDPOINT_CARD_HEIGHT = 148
 export const ENDPOINT_ROW_GAP = 44
+export const REGIONAL_SERVICE_GAP = 96
 export const ENDPOINT_COLUMN_GAP = 24
 
 const VPC_BORDER_BEYOND_AURORA_FRAME = FRAME_PADDING * 2
@@ -188,7 +201,27 @@ const INITIAL_ZONES = networkZoneFrames(
   privateTierBoxes(INITIAL_SERVICE_FRAME, ENDPOINT_CARD_HEIGHT),
 )
 
+export function regionalServicePositions(
+  vpcFrame: FrameBox,
+  serviceFrame: FrameBox,
+): { registry: XYPosition; storage: XYPosition } {
+  const endpoints = endpointPositions(serviceFrame)
+  const y = vpcFrame.position.y + vpcFrame.height + REGIONAL_SERVICE_GAP
+
+  return {
+    registry: { x: endpoints.interface.x, y },
+    storage: { x: endpoints.gateway.x, y },
+  }
+}
+
 const INITIAL_ENDPOINTS = endpointPositions(INITIAL_SERVICE_FRAME)
+const INITIAL_REGIONAL_SERVICES = regionalServicePositions(INITIAL_ZONES.vpc, INITIAL_SERVICE_FRAME)
+
+const ECR_TOOLTIP =
+  'The registry holds the manifest and the layer metadata, and it answers over the interface endpoints — but it never hands over the bytes. GetDownloadUrlForLayer is called once per layer that is not already cached, and what comes back is a pre-signed S3 URL: an address, not an image. That is the whole reason the task itself needs S3 egress. Tag immutability is on here and every push is scanned, so a task can never silently start a different image behind the same tag.'
+
+const LAYER_STORAGE_TOOLTIP =
+  'Where ECR actually keeps the layers. The task follows the pre-signed URL it just received from the registry and reads the bytes straight from here through the gateway endpoint — the registry does not fetch them on the task\'s behalf, which is exactly why allow_egress_to_s3_gateway sits on ecs_sg. This bucket belongs to ECR, not to this project, which owns no bucket of its own. On Fargate nothing is cached between tasks: every task you watch start here downloads the whole image again.'
 
 export const initialNodes: SimulatorFlowNode[] = [
   {
@@ -362,6 +395,38 @@ export const initialNodes: SimulatorFlowNode[] = [
     deletable: false,
   },
   {
+    id: ECR_NODE_ID,
+    type: 'regionalService',
+    position: INITIAL_REGIONAL_SERVICES.registry,
+    data: {
+      label: 'ECR',
+      tooltip: ECR_TOOLTIP,
+      status: 'idle',
+      role: 'registry',
+      detail: 'GetDownloadUrlForLayer',
+      footnote: 'returns a presigned url, not bytes',
+      isServing: false,
+    },
+    draggable: false,
+    deletable: false,
+  },
+  {
+    id: LAYER_STORAGE_NODE_ID,
+    type: 'regionalService',
+    position: INITIAL_REGIONAL_SERVICES.storage,
+    data: {
+      label: 'Layer Storage',
+      tooltip: LAYER_STORAGE_TOOLTIP,
+      status: 'idle',
+      role: 'storage',
+      detail: 'image layer bytes',
+      footnote: 'no cache between fargate tasks',
+      isServing: false,
+    },
+    draggable: false,
+    deletable: false,
+  },
+  {
     id: CLUSTER_VOLUME_NODE_ID,
     type: 'clusterVolume',
     position: CLUSTER_VOLUME_POSITION,
@@ -428,6 +493,30 @@ export const initialNodes: SimulatorFlowNode[] = [
 ]
 
 export const initialEdges: SimulatorFlowEdge[] = [
+  {
+    id: ENDPOINT_TO_ECR_EDGE_ID,
+    type: 'requestFlow',
+    source: INTERFACE_ENDPOINTS_NODE_ID,
+    sourceHandle: 'out',
+    target: ECR_NODE_ID,
+    targetHandle: 'in',
+    data: { requestsPerMinute: 0 },
+    deletable: false,
+    reconnectable: false,
+    selectable: false,
+  },
+  {
+    id: ENDPOINT_TO_STORAGE_EDGE_ID,
+    type: 'requestFlow',
+    source: GATEWAY_ENDPOINT_NODE_ID,
+    sourceHandle: 'out',
+    target: LAYER_STORAGE_NODE_ID,
+    targetHandle: 'in',
+    data: { requestsPerMinute: 0 },
+    deletable: false,
+    reconnectable: false,
+    selectable: false,
+  },
   {
     id: WAF_TO_ALB_EDGE_ID,
     type: 'signal',

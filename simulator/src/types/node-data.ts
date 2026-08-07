@@ -100,6 +100,13 @@ export interface VpcEndpointNodeData extends InfraNodeData {
   isResolving: boolean
 }
 
+export interface RegionalServiceNodeData extends InfraNodeData {
+  role: 'registry' | 'storage'
+  detail: string
+  footnote: string
+  isServing: boolean
+}
+
 export type ClusterVolumeNodeData = InfraNodeData
 
 export type RdsInstanceRole = 'writer' | 'reader'
@@ -127,6 +134,7 @@ export type DbJunctionFlowNode = Node<Record<string, unknown>, 'dbJunction'>
 export type AuroraClusterFlowNode = Node<AuroraClusterNodeData, 'auroraCluster'>
 export type NetworkZoneFlowNode = Node<NetworkZoneNodeData, 'networkZone'>
 export type VpcEndpointFlowNode = Node<VpcEndpointNodeData, 'vpcEndpoint'>
+export type RegionalServiceFlowNode = Node<RegionalServiceNodeData, 'regionalService'>
 export type ClusterVolumeFlowNode = Node<ClusterVolumeNodeData, 'clusterVolume'>
 export type RdsInstanceFlowNode = Node<RdsInstanceNodeData, 'rdsInstance'>
 
@@ -143,5 +151,6 @@ export type SimulatorFlowNode =
   | AuroraClusterFlowNode
   | NetworkZoneFlowNode
   | VpcEndpointFlowNode
+  | RegionalServiceFlowNode
   | ClusterVolumeFlowNode
   | RdsInstanceFlowNode

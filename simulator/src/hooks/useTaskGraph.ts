@@ -6,9 +6,16 @@ import {
   JUNCTION_TO_WRITER_EDGE_ID,
   READER_TO_VOLUME_EDGE_ID,
   WRITER_TO_VOLUME_EDGE_ID,
+  GATEWAY_ENDPOINT_NODE_ID,
+  INTERFACE_ENDPOINTS_NODE_ID,
+  ENDPOINT_TO_ECR_EDGE_ID,
+  ENDPOINT_TO_STORAGE_EDGE_ID,
   albToTaskEdgeId,
   taskToJunctionEdgeId,
+  taskToRegistryEdgeId,
+  taskToStorageEdgeId,
 } from '../canvas/initial-graph'
+import { isPullingImageStatus, type ImagePullLegs } from '../simulation/image-pull'
 import { isRegisteredTarget } from '../simulation/target-group'
 import { useLeavingTasks } from './useLeavingTasks'
 import { useTaskColumnLayout } from './useTaskColumnLayout'
@@ -45,6 +52,7 @@ export interface TaskGraph {
   serviceFrame: FrameBox
   taskEdges: RequestFlowEdge[]
   healthyTaskRoutes: TaskRoute[]
+  imagePullRoutes: ImagePullLegs[]
 }
 
 export function useTaskGraph({
@@ -131,6 +139,32 @@ export function useTaskGraph({
         })
       }
 
+      if (isPullingImageStatus(task.status)) {
+        edges.push({
+          id: taskToRegistryEdgeId(task.id),
+          type: 'requestFlow',
+          source: task.id,
+          sourceHandle: 'pull',
+          target: INTERFACE_ENDPOINTS_NODE_ID,
+          targetHandle: 'in',
+          data: { requestsPerMinute: 0 },
+          deletable: false,
+          reconnectable: false,
+        })
+
+        edges.push({
+          id: taskToStorageEdgeId(task.id),
+          type: 'requestFlow',
+          source: task.id,
+          sourceHandle: 'pull',
+          target: GATEWAY_ENDPOINT_NODE_ID,
+          targetHandle: 'in',
+          data: { requestsPerMinute: 0 },
+          deletable: false,
+          reconnectable: false,
+        })
+      }
+
       if (task.status !== 'healthy' || !isDatabaseReachable) continue
 
       edges.push({
@@ -162,5 +196,18 @@ export function useTaskGraph({
     [tasks, isDatabaseReachable, readLeg, writeLeg],
   )
 
-  return { taskNodes, targetGroupNode, serviceFrame, taskEdges, healthyTaskRoutes }
+  const imagePullRoutes = useMemo(
+    (): ImagePullLegs[] =>
+      orderedTasks
+        .filter((task) => isPullingImageStatus(task.status))
+        .map((task) => ({
+          registryEgressEdgeId: taskToRegistryEdgeId(task.id),
+          registryEdgeId: ENDPOINT_TO_ECR_EDGE_ID,
+          storageEgressEdgeId: taskToStorageEdgeId(task.id),
+          storageEdgeId: ENDPOINT_TO_STORAGE_EDGE_ID,
+        })),
+    [orderedTasks],
+  )
+
+  return { taskNodes, targetGroupNode, serviceFrame, taskEdges, healthyTaskRoutes, imagePullRoutes }
 }

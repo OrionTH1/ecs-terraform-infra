@@ -1,5 +1,4 @@
 import { REGION } from './network-topology'
-import type { TaskStatus } from '../types/task-data'
 
 export type VpcEndpointKind = 'interface' | 'gateway'
 
@@ -10,8 +9,6 @@ export interface VpcEndpointGroup {
   services: string[]
   footnote: string
 }
-
-const IMAGE_PULL_STATUSES: TaskStatus[] = ['provisioning', 'starting']
 
 export const INTERFACE_ENDPOINTS: VpcEndpointGroup = {
   kind: 'interface',
@@ -32,7 +29,3 @@ export const GATEWAY_ENDPOINT: VpcEndpointGroup = {
 }
 
 export const VPC_ENDPOINT_GROUPS = [INTERFACE_ENDPOINTS, GATEWAY_ENDPOINT]
-
-export function isPullingImage(statuses: TaskStatus[]): boolean {
-  return statuses.some((status) => IMAGE_PULL_STATUSES.includes(status))
-}

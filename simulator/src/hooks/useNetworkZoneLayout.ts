@@ -8,8 +8,10 @@ import {
   FALLBACK_CARD_HEIGHT,
   FALLBACK_CARD_WIDTH,
   FALLBACK_WAF_HEIGHT,
+  ECR_NODE_ID,
   GATEWAY_ENDPOINT_NODE_ID,
   INTERFACE_ENDPOINTS_NODE_ID,
+  LAYER_STORAGE_NODE_ID,
   PRIVATE_SUBNETS_NODE_ID,
   PUBLIC_SUBNETS_NODE_ID,
   TASK_COLUMN_X,
@@ -17,6 +19,7 @@ import {
   WAF_NODE_ID,
   endpointPositions,
   privateTierBoxes,
+  regionalServicePositions,
 } from '../canvas/initial-graph'
 import { networkZoneFrames } from '../canvas/network-zones'
 import { useMeasuredNodeSizes } from './useMeasuredNodeSizes'
@@ -53,6 +56,7 @@ export function useNetworkZoneLayout({ serviceFrame }: NetworkZoneLayoutArgs): N
     const wafHeight = sizes.get(WAF_NODE_ID)?.height ?? FALLBACK_WAF_HEIGHT
     const autoScalingHeight = sizes.get(AUTO_SCALING_NODE_ID)?.height ?? FALLBACK_AUTO_SCALING_HEIGHT
     const endpoints = endpointPositions(serviceFrame)
+    const regionalServices = regionalServicePositions(zones.vpc, serviceFrame)
 
     return {
       framesByNodeId: new Map([
@@ -63,6 +67,8 @@ export function useNetworkZoneLayout({ serviceFrame }: NetworkZoneLayoutArgs): N
       positionsByNodeId: new Map([
         [INTERFACE_ENDPOINTS_NODE_ID, endpoints.interface],
         [GATEWAY_ENDPOINT_NODE_ID, endpoints.gateway],
+        [ECR_NODE_ID, regionalServices.registry],
+        [LAYER_STORAGE_NODE_ID, regionalServices.storage],
       ]),
       wafPosition: { x: ALB_POSITION.x, y: zones.controlPlaneBottom - wafHeight },
       autoScalingPosition: { x: TASK_COLUMN_X, y: zones.controlPlaneBottom - autoScalingHeight },

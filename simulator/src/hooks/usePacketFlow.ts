@@ -8,6 +8,7 @@ import {
   READER_TO_VOLUME_EDGE_ID,
 } from '../canvas/initial-graph'
 import { buildRequestItinerary, divertToWriter, queriesForNextRequest } from '../simulation/request-itinerary'
+import { IMAGE_PULL_LAYERS_PER_SECOND, buildImagePullItinerary, type ImagePullLegs } from '../simulation/image-pull'
 import type { TaskRoute } from './useTaskGraph'
 import {
   MAX_LIVE_PACKETS,
@@ -51,6 +52,7 @@ interface PacketFlowArgs {
   entries: PacketEntry[]
   taskRoutes: TaskRoute[]
   directEntries: DirectPacketEntry[]
+  imagePullRoutes: ImagePullLegs[]
   liveEdgeIds: Set<string>
 }
 
@@ -207,15 +209,23 @@ function justCommittedAWrite(packet: Packet, previousLegIndex: number): boolean 
   return false
 }
 
-export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds, canvas, store }: PacketFlowOptions) {
+export function usePacketFlow({
+  entries,
+  taskRoutes,
+  directEntries,
+  imagePullRoutes,
+  liveEdgeIds,
+  canvas,
+  store,
+}: PacketFlowOptions) {
   const packets = useRef<Packet[]>([])
   const pending = useRef(new Map<string, number>())
   const nextPacketId = useRef(0)
   const rotation = useRef(0)
   const writeRotation = useRef(0)
-  const inputs = useRef<PacketFlowArgs>({ entries, taskRoutes, directEntries, liveEdgeIds })
+  const inputs = useRef<PacketFlowArgs>({ entries, taskRoutes, directEntries, imagePullRoutes, liveEdgeIds })
 
-  inputs.current = { entries, taskRoutes, directEntries, liveEdgeIds }
+  inputs.current = { entries, taskRoutes, directEntries, imagePullRoutes, liveEdgeIds }
 
   useEffect(() => {
     const element = canvas.current
@@ -281,13 +291,27 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
       buildLegs: () => ItineraryLeg[],
       carried: Map<string, number>,
     ) {
-      const rate = packetsPerSecond(requestsPerMinute)
+      spawnAtRate(edgeId, packetsPerSecond(requestsPerMinute), deltaSeconds, color, buildLegs, carried)
+    }
+
+    function spawnAtRate(
+      edgeId: string,
+      rate: number,
+      deltaSeconds: number,
+      color: PacketColor,
+      buildLegs: () => ItineraryLeg[],
+      carried: Map<string, number>,
+    ) {
       let remaining = (pending.current.get(edgeId) ?? 0) + rate * deltaSeconds
 
       while (remaining >= 1 && packets.current.length < MAX_LIVE_PACKETS) {
+        const legs = buildLegs()
+        remaining -= 1
+        if (legs.length === 0) continue
+
         packets.current.push({
           id: nextPacketId.current++,
-          legs: buildLegs(),
+          legs,
           legIndex: 0,
           legProgress: 0,
           dwellUntil: null,
@@ -295,7 +319,6 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
           lastPosition: null,
           color,
         })
-        remaining -= 1
       }
 
       carried.set(edgeId, rate > 0 ? remaining % 1 : 0)
@@ -332,6 +355,17 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
             carried,
           )
         }
+      }
+
+      for (const route of inputs.current.imagePullRoutes) {
+        spawnAtRate(
+          route.registryEgressEdgeId,
+          IMAGE_PULL_LAYERS_PER_SECOND,
+          deltaSeconds,
+          'pull',
+          () => buildImagePullItinerary(route, inputs.current.liveEdgeIds),
+          carried,
+        )
       }
 
       for (const entry of currentDirectEntries) {

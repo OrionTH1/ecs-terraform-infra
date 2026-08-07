@@ -30,6 +30,8 @@ Sobre a origem 3: `backend/` é uma imagem placeholder para dar ao ECS algo que 
 | `PRIVATE_SUBNETS.cidrByAvailabilityZone` | 10.0.10.0/24, 10.0.11.0/24 | `network.private_subnet_cidrs` |
 | `AVAILABILITY_ZONES` | us-east-1a, us-east-1b | as chaves dos dois mapas de subnet |
 | Regras de `SECURITY_GROUP_BOUNDARIES` | portas e peers | `network/security_groups.tf`, regra por regra |
+| `INTERFACE_ENDPOINTS.services` | ecr.api, ecr.dkr, logs, secretsmanager | `aws_vpc_endpoint.interface` (`for_each`) |
+| `GATEWAY_ENDPOINT.services` | `us-east-1.s3` | `aws_vpc_endpoint.s3` (Gateway) |
 
 A métrica de autoscaling é `ALBRequestCountPerTarget`, não CPU — igual ao `aws_appautoscaling_policy` do repo.
 
@@ -98,6 +100,15 @@ Com uma consulta por request, o writer não sai do piso em operação normal —
 
 O teto de 4 ACU foi escolhido para caber o pico normal com um passo de folga, e para que o runaway bata no limite em vez de escalar indefinidamente — que é a função de um teto.
 
+## O caminho do image pull
+
+Vem da documentação da AWS, não de escolha nossa:
+
+- `GetDownloadUrlForLayer` devolve **uma URL pré-assinada de S3**, não bytes, e é chamada **uma vez por camada não cacheada**. Por isso o pacote volta ao ECR e retorna à task antes de sair de novo para o S3 — são dois round trips da própria task, e o ECR nunca fala com o S3 em nome dela. É também o que explica `allow_egress_to_s3_gateway` estar no `ecs_sg`.
+- Tasks Fargate Linux **não compartilham cache de camadas**: cada task baixa a imagem inteira. Por isso todas as tasks de um scale-out puxam em paralelo, cada uma com o seu próprio fluxo, em vez de a segunda reaproveitar a primeira.
+
+Fontes: [GetDownloadUrlForLayer](https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_GetDownloadUrlForLayer.html) e [Fargate container image pull behavior](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-pull-behavior.html).
+
 ## Consequências que caem desses números
 
 Duas conclusões que não foram escolhidas — são resultado da aritmética acima:
@@ -120,5 +131,6 @@ Registrados aqui para não passarem por calibrados:
 
 - `AWS_ALARM_EVALUATION` (3 min / 15 min) descreve o comportamento real do target tracking, mas o motor roda com `AUTOSCALING.scaleOutEvaluationMs = 90s` e `scaleInEvaluationMs = 5 min` para caber no ritmo da demo. As tooltips citam os valores reais.
 - O simulador distribui com round-robin; o target group real usa `least_outstanding_requests`. Com tasks de capacidade igual e carga uniforme os dois convergem, mas não são a mesma coisa.
+- **`IMAGE_PULL_LAYERS_PER_SECOND` = 1,4.** Não é medição de nada. O número real de camadas de uma imagem é propriedade da imagem, e `backend/` é placeholder — inventar uma contagem seria fingir precisão. O que o simulador afirma com esse valor é só o *formato* do tráfego: uma ida ao ECR e uma ida ao S3 por camada, repetidas enquanto a task está puxando. O ritmo foi escolhido para ser assistível.
 - **Qual instância Aurora fica em qual AZ.** O simulador rotula a instância `[0]` como `us-east-1a` e a `[1]` como `us-east-1b`. O Terraform não escolhe isso: `aws_rds_cluster_instance` não recebe `availability_zone`, e o RDS distribui as instâncias entre as AZs do `db_subnet_group` por conta própria. O que o Terraform garante é que as duas subnets privadas estão em AZs diferentes — a atribuição específica é uma suposição para o desenho, e é o que dá sentido visual ao failover.
 - `max_connections` a 2 ACU. A tabela da AWS publica 189 (1 ACU) e 823 (4 ACU) para Aurora PostgreSQL, mas não o valor de 2 ACU. O simulador não usa esse número justamente por isso — interpolar seria inventar.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { GATEWAY_ENDPOINT, INTERFACE_ENDPOINTS, VPC_ENDPOINT_GROUPS, isPullingImage } from './vpc-endpoints'
+import { GATEWAY_ENDPOINT, INTERFACE_ENDPOINTS, VPC_ENDPOINT_GROUPS } from './vpc-endpoints'
+import { isPullingImage } from './image-pull'
 import { AVAILABILITY_ZONES, REGION } from './network-topology'
 import type { TaskStatus } from '../types/task-data'
 

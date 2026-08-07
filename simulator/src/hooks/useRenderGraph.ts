@@ -23,7 +23,7 @@ import {
 } from '../simulation/aurora'
 import { currentAlarm } from '../simulation/autoscaling-alarm'
 import { countServiceTasks } from '../simulation/task-counts'
-import { isPullingImage } from '../simulation/vpc-endpoints'
+import { isPullingImage } from '../simulation/image-pull'
 import { BOOT_GRAPH, type ResourceLedger } from '../simulation/boot-graph'
 import { AUTOSCALING, RDS_READ_FRACTION } from '../simulation/simulation-config'
 import { splitReadWrite } from '../simulation/traffic-distribution'
@@ -43,6 +43,7 @@ import type {
   AutoScalingNodeData,
   EcsServiceNodeData,
   NetworkZoneNodeData,
+  RegionalServiceNodeData,
   VpcEndpointNodeData,
   ProvisioningInfo,
   RdsInstanceNodeData,
@@ -223,6 +224,14 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones 
           if (position === undefined) return node
 
           const data: VpcEndpointNodeData = { ...node.data, isResolving: isPullingTaskImage }
+          return { ...node, position, data }
+        }
+
+        if (node.type === 'regionalService') {
+          const position = networkZones.positionsByNodeId.get(node.id)
+          if (position === undefined) return node
+
+          const data: RegionalServiceNodeData = { ...node.data, isServing: isPullingTaskImage }
           return { ...node, position, data }
         }
 

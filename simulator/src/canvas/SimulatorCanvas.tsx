@@ -9,6 +9,7 @@ import { DbJunctionNode } from '../nodes/infra/DbJunctionNode'
 import { TaskNode } from '../nodes/infra/TaskNode'
 import { NetworkZoneNode } from '../nodes/infra/NetworkZoneNode'
 import { VpcEndpointNode } from '../nodes/infra/VpcEndpointNode'
+import { RegionalServiceNode } from '../nodes/infra/RegionalServiceNode'
 import { AuroraClusterNode } from '../nodes/infra/AuroraClusterNode'
 import { ClusterVolumeNode } from '../nodes/infra/ClusterVolumeNode'
 import { RdsInstanceNode } from '../nodes/infra/RdsInstanceNode'
@@ -55,6 +56,7 @@ const nodeTypes = {
   auroraCluster: AuroraClusterNode,
   networkZone: NetworkZoneNode,
   vpcEndpoint: VpcEndpointNode,
+  regionalService: RegionalServiceNode,
   clusterVolume: ClusterVolumeNode,
   rdsInstance: RdsInstanceNode,
   user: UserNode,
@@ -168,6 +170,7 @@ export function SimulatorCanvas() {
         <PacketLayer
           entries={packetEntries}
           taskRoutes={taskGraph.healthyTaskRoutes}
+          imagePullRoutes={taskGraph.imagePullRoutes}
           directEntries={directPacketEntries}
           liveEdgeIds={liveEdgeIds}
         />

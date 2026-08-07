@@ -7,6 +7,7 @@ import {
   Gauge,
   Waypoints,
   Route,
+  Package,
   HardDrive,
   Hand,
   Network,
@@ -75,6 +76,10 @@ export function EndpointIcon({ className }: IconProps) {
 
 export function GatewayIcon({ className }: IconProps) {
   return <Glyph icon={Route} size={16} className={className} />
+}
+
+export function RegistryIcon({ className }: IconProps) {
+  return <Glyph icon={Package} size={16} className={className} />
 }
 
 export function RegenerateIcon({ className }: IconProps) {
