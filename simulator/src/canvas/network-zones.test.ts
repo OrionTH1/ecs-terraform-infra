@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { networkZoneFrames } from './network-zones'
+import { SUBNET_FRAME_MIN_WIDTH, networkZoneFrames } from './network-zones'
 import { frameContentBox, type FrameBox } from './frame-metrics'
 import { ALB_POSITION, AURORA_FRAME as REAL_AURORA_FRAME, FALLBACK_CARD_HEIGHT, FALLBACK_CARD_WIDTH } from './initial-graph'
 
@@ -46,6 +46,25 @@ describe('nesting', () => {
     const { publicSubnets, privateSubnets } = zones()
 
     expect(frameContentBox(publicSubnets).right).toBeLessThan(frameContentBox(privateSubnets).left)
+  })
+
+  it('stands the two tiers side by side on the same top and bottom edge', () => {
+    const { publicSubnets, privateSubnets } = zones()
+
+    expect(publicSubnets.position.y).toBe(privateSubnets.position.y)
+    expect(publicSubnets.height).toBe(privateSubnets.height)
+  })
+
+  it('keeps the narrow tier wide enough for its own header to fit', () => {
+    const { publicSubnets } = zones()
+
+    expect(publicSubnets.width).toBeGreaterThanOrEqual(SUBNET_FRAME_MIN_WIDTH)
+  })
+
+  it('leaves the tier that is already wide at its content width', () => {
+    const { privateSubnets } = zones()
+
+    expect(privateSubnets.width).toBeGreaterThan(SUBNET_FRAME_MIN_WIDTH)
   })
 })
 

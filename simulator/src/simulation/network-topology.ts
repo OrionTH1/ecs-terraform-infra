@@ -35,7 +35,7 @@ export const AVAILABILITY_ZONES = Object.keys(PRIVATE_SUBNETS.cidrByAvailability
 export function subnetSummary(tier: SubnetTier): string {
   return Object.entries(tier.cidrByAvailabilityZone)
     .map(([zone, cidr]) => `${zone} ${cidr}`)
-    .join('  ·  ')
+    .join(' · ')
 }
 
 export function availabilityZoneAt(index: number): string {
