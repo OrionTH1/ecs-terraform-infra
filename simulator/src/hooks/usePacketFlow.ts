@@ -18,6 +18,8 @@ import {
 
 const MAX_FRAME_DELTA_SECONDS = 0.1
 
+const MAX_PACKET_PIXEL_RATIO = 2
+
 const scratch = { x: 0, y: 0 }
 
 export interface PacketEntry {
@@ -172,12 +174,12 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
       color: 'default' as PacketColor,
     }))
 
-    let pixelRatio = window.devicePixelRatio || 1
+    let pixelRatio = Math.min(window.devicePixelRatio || 1, MAX_PACKET_PIXEL_RATIO)
     let cssWidth = 0
     let cssHeight = 0
 
     function resize() {
-      pixelRatio = window.devicePixelRatio || 1
+      pixelRatio = Math.min(window.devicePixelRatio || 1, MAX_PACKET_PIXEL_RATIO)
       cssWidth = element!.clientWidth
       cssHeight = element!.clientHeight
       element!.width = Math.round(cssWidth * pixelRatio)

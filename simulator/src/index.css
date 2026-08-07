@@ -250,6 +250,10 @@
   right: -6px;
 }
 
+[data-moving='true'] .react-flow__viewport {
+  will-change: transform;
+}
+
 .react-flow .react-flow__handle.sg-handle {
   display: flex;
   align-items: center;

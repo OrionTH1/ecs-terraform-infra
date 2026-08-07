@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { Background, BackgroundVariant, Controls, ReactFlow, useNodesState, useEdgesState } from '@xyflow/react'
 import { AlbNode } from '../nodes/infra/AlbNode'
 import { WafNode } from '../nodes/infra/WafNode'
@@ -91,6 +91,11 @@ export function SimulatorCanvas() {
   const { isValidConnection, onConnect } = useCanvasConnections({ nodes, edges, setEdges })
   const { onDragOver, onDrop, addNodeAtViewportCenter } = useNodePalette({ nodes, onNodesChange })
   const isCompact = useIsCompactViewport()
+  const shell = useRef<HTMLDivElement>(null)
+
+  const markMoving = useCallback((moving: boolean) => {
+    shell.current?.setAttribute('data-moving', String(moving))
+  }, [])
   const clearAllBoundaries = useSecurityGroupStore((state) => state.clearAllBoundaries)
 
   const userEdges = useMemo(() => edges.filter((edge) => edge.target === ALB_NODE_ID), [edges])
@@ -121,7 +126,7 @@ export function SimulatorCanvas() {
   )
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden" data-active-tool={activeTool.id}>
+    <div ref={shell} className="relative h-dvh w-full overflow-hidden" data-active-tool={activeTool.id}>
       <ReactFlow
         nodes={renderNodes}
         edges={renderEdges}
@@ -134,6 +139,8 @@ export function SimulatorCanvas() {
         onDragOver={onDragOver}
         onDrop={onDrop}
         onPaneClick={clearAllBoundaries}
+        onMoveStart={() => markMoving(true)}
+        onMoveEnd={() => markMoving(false)}
         panOnDrag={activeTool.panOnDrag}
         minZoom={MIN_ZOOM}
         fitView
