@@ -72,11 +72,10 @@ describe('the shape of a request', () => {
     expect(legs.some((leg) => leg.edgeId === READER)).toBe(true)
   })
 
-  it('colours only the database legs of a write', () => {
-    const legs = itinerary(['write'])
+  it('gives every leg of a request the same colour, whatever the query is', () => {
+    const colours = new Set([...itinerary(['write']), ...itinerary(['read'])].map((leg) => leg.color))
 
-    expect(legs.filter((leg) => leg.color === 'write').every((leg) => leg.edgeId !== ENTRY)).toBe(true)
-    expect(legs[0].color).toBe('default')
+    expect(colours).toEqual(new Set(['default']))
   })
 })
 

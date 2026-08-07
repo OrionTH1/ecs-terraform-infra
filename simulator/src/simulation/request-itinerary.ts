@@ -26,13 +26,8 @@ export function queriesForNextRequest(rotation: number): QueryKind[] {
   )
 }
 
-function databaseLeg(edgeId: string, reversed: boolean, kind: QueryKind): ItineraryLeg {
-  return {
-    edgeId,
-    reversed,
-    color: kind === 'write' ? 'write' : 'default',
-    speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND,
-  }
+function databaseLeg(edgeId: string, reversed: boolean): ItineraryLeg {
+  return { edgeId, reversed, color: 'default', speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND }
 }
 
 function transitLeg(edgeId: string, reversed: boolean): ItineraryLeg {
@@ -51,12 +46,12 @@ export function buildRequestItinerary(request: ItineraryRequest): ItineraryLeg[]
     const legs = kind === 'write' ? request.writeLegs : request.readLegs
     if (legs === null) return []
 
-    const outward = [databaseLeg(junctionEdgeId, false, kind), databaseLeg(legs.instanceEdgeId, false, kind)]
-    const homeward = [databaseLeg(legs.instanceEdgeId, true, kind), databaseLeg(junctionEdgeId, true, kind)]
+    const outward = [databaseLeg(junctionEdgeId, false), databaseLeg(legs.instanceEdgeId, false)]
+    const homeward = [databaseLeg(legs.instanceEdgeId, true), databaseLeg(junctionEdgeId, true)]
 
     if (liveEdgeIds.has(legs.volumeEdgeId)) {
-      outward.push(databaseLeg(legs.volumeEdgeId, false, kind))
-      homeward.unshift(databaseLeg(legs.volumeEdgeId, true, kind))
+      outward.push(databaseLeg(legs.volumeEdgeId, false))
+      homeward.unshift(databaseLeg(legs.volumeEdgeId, true))
     }
 
     return [...outward, ...homeward]

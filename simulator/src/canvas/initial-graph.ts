@@ -42,7 +42,7 @@ export const FALLBACK_AUTO_SCALING_HEIGHT = 210
 const FALLBACK_CARD_WIDTH = 210
 const FALLBACK_CARD_HEIGHT = 132
 
-const RDS_INSTANCE_X = TASK_COLUMN_X + 470
+const RDS_INSTANCE_X = TASK_COLUMN_X + 650
 
 export const RDS_WRITER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y - 130 }
 export const RDS_READER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y + 130 }
@@ -58,7 +58,7 @@ const AURORA_FRAME = frameAround({
 export const DB_JUNCTION_NODE_ID = 'db-junction'
 export const DB_JUNCTION_SIZE = 12
 export const DB_JUNCTION_POSITION = {
-  x: TASK_COLUMN_X + 320,
+  x: TASK_COLUMN_X + 440,
   y: ALB_POSITION.y - DB_JUNCTION_SIZE / 2,
 }
 
