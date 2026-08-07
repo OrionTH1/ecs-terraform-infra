@@ -108,6 +108,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
   useEffect(() => {
     let frameId = 0
     let previous = performance.now()
+    let routedAgainst: Set<string> | null = null
 
     function spawnAlong(
       edgeId: string,
@@ -198,11 +199,16 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
       const writeLeg = taskRoutes[0]?.writeLeg ?? null
       const fallbackEdgeIds = writeLeg ? [writeLeg.instanceEdgeId, writeLeg.volumeEdgeId] : []
 
+      const hasGraphChanged = currentLiveEdgeIds !== routedAgainst
+      routedAgainst = currentLiveEdgeIds
+
       for (const packet of packets.current) {
-        const repaired = repairRoute(packet, packet.legIndex, currentLiveEdgeIds, fallbackEdgeIds)
-        if (repaired === null) continue
-        packet.route = repaired.route
-        packet.legColors = repaired.legColors
+        if (hasGraphChanged) {
+          const repaired = repairRoute(packet, packet.legIndex, currentLiveEdgeIds, fallbackEdgeIds)
+          if (repaired === null) continue
+          packet.route = repaired.route
+          packet.legColors = repaired.legColors
+        }
 
         const placement = advanceAlongRoute(packet, deltaSeconds, cache)
 
