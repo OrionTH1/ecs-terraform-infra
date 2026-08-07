@@ -105,7 +105,7 @@ function readGeometry(edgeId: string, cache: Map<string, PathGeometry | null>): 
   const cached = cache.get(edgeId)
   if (cached !== undefined) return cached
 
-  const element = document.getElementById(pathElementId(edgeId)) as SVGPathElement | null
+  const element = document.getElementById(pathElementId(edgeId)) as unknown as SVGPathElement | null
   const shape = element?.getAttribute('d') ?? ''
 
   let geometry: PathGeometry | null = null
