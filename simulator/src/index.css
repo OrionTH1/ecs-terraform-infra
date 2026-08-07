@@ -195,6 +195,13 @@
   transition: transform var(--motion-settle) var(--ease-converge);
 }
 
+[data-moving='true'] .react-flow__node-task,
+[data-moving='true'] .react-flow__node-targetGroup,
+[data-moving='true'] .react-flow__node-ecsService,
+[data-moving='true'] .react-flow__node-autoScaling {
+  transition: none;
+}
+
 .react-flow .react-flow__edge-path,
 .react-flow .react-flow__edge path {
   transition: stroke-opacity var(--motion-state) var(--ease-state);
