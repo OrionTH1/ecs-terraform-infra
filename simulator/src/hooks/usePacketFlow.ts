@@ -67,18 +67,27 @@ function readGeometry(edgeId: string, cache: Map<string, PathGeometry | null>): 
   return geometry
 }
 
-function locate(packet: Packet, now: number, cache: Map<string, PathGeometry | null>): Placement {
-  let travelled = ((now - packet.startedAt) / 1000) * packet.speedPxPerSecond
+function advanceAlongRoute(
+  packet: Packet,
+  deltaSeconds: number,
+  cache: Map<string, PathGeometry | null>,
+): Placement {
+  let remaining = packet.speedPxPerSecond * deltaSeconds
 
-  for (const [legIndex, edgeId] of packet.route.entries()) {
-    const geometry = readGeometry(edgeId, cache)
+  while (packet.legIndex < packet.route.length) {
+    const geometry = readGeometry(packet.route[packet.legIndex], cache)
     if (!geometry) return { kind: 'stalled' }
 
-    if (travelled <= geometry.length) {
-      const point = geometry.element.getPointAtLength(travelled)
-      return { kind: 'moving', x: point.x, y: point.y, legIndex }
+    const distanceLeft = (1 - packet.legProgress) * geometry.length
+    if (remaining < distanceLeft) {
+      packet.legProgress += remaining / geometry.length
+      const point = geometry.element.getPointAtLength(packet.legProgress * geometry.length)
+      return { kind: 'moving', x: point.x, y: point.y, legIndex: packet.legIndex }
     }
-    travelled -= geometry.length
+
+    remaining -= distanceLeft
+    packet.legIndex += 1
+    packet.legProgress = 0
   }
 
   return { kind: 'arrived' }
@@ -104,7 +113,6 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
       edgeId: string,
       requestsPerMinute: number,
       deltaSeconds: number,
-      now: number,
       color: PacketColor,
       buildRoute: () => RouteBuild,
       carried: Map<string, number>,
@@ -117,7 +125,8 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
           id: nextPacketId.current++,
           ...buildRoute(),
           speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND,
-          startedAt: now,
+          legIndex: 0,
+          legProgress: 0,
           stalledSince: null,
           lastPosition: null,
           color,
@@ -128,7 +137,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
       carried.set(edgeId, rate > 0 ? remaining % 1 : 0)
     }
 
-    function spawn(deltaSeconds: number, now: number) {
+    function spawn(deltaSeconds: number) {
       const { entries: currentEntries, taskRoutes, directEntries: currentDirectEntries } = inputs.current
       const carried = new Map<string, number>()
 
@@ -138,7 +147,6 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
             entry.edgeId,
             entry.requestsPerMinute,
             deltaSeconds,
-            now,
             'default',
             () => {
               const taskRoute = taskRoutes[rotation.current % taskRoutes.length]
@@ -173,7 +181,6 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
           entry.edgeId,
           entry.requestsPerMinute,
           deltaSeconds,
-          now,
           entry.color,
           () => ({ route: [entry.edgeId], legColors: [entry.color] }),
           carried,
@@ -183,7 +190,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
       pending.current = carried
     }
 
-    function advance(now: number): RenderedPacket[] {
+    function advance(now: number, deltaSeconds: number): RenderedPacket[] {
       const cache = new Map<string, PathGeometry | null>()
       const alive: Packet[] = []
       const positions: RenderedPacket[] = []
@@ -192,7 +199,12 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
       const fallbackEdgeIds = writeLeg ? [writeLeg.instanceEdgeId, writeLeg.volumeEdgeId] : []
 
       for (const packet of packets.current) {
-        const placement = locate(packet, now, cache)
+        const repaired = repairRoute(packet, packet.legIndex, currentLiveEdgeIds, fallbackEdgeIds)
+        if (repaired === null) continue
+        packet.route = repaired.route
+        packet.legColors = repaired.legColors
+
+        const placement = advanceAlongRoute(packet, deltaSeconds, cache)
 
         if (placement.kind === 'arrived') {
           if (isCommittedWrite(packet) && currentLiveEdgeIds.has(PAGE_CACHE_EDGE_ID) && alive.length < MAX_LIVE_PACKETS) {
@@ -201,7 +213,8 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
               route: [PAGE_CACHE_EDGE_ID],
               legColors: ['write'],
               speedPxPerSecond: REPLICATION_PACKET_SPEED_PX_PER_SECOND,
-              startedAt: now,
+              legIndex: 0,
+              legProgress: 0,
               stalledSince: null,
               lastPosition: null,
               color: 'write',
@@ -214,16 +227,10 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
           const stalledSince = packet.stalledSince ?? now
           if (now - stalledSince > MAX_STALL_MS) continue
           packet.stalledSince = stalledSince
-          packet.startedAt += now - previous
           alive.push(packet)
           if (packet.lastPosition) positions.push({ id: packet.id, ...packet.lastPosition, color: packet.color })
           continue
         }
-
-        const repaired = repairRoute(packet, placement.legIndex, currentLiveEdgeIds, fallbackEdgeIds)
-        if (repaired === null) continue
-        packet.route = repaired.route
-        packet.legColors = repaired.legColors
 
         packet.stalledSince = null
         packet.lastPosition = { x: placement.x, y: placement.y }
@@ -243,8 +250,8 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds 
     function step(now: number) {
       const deltaSeconds = Math.min((now - previous) / 1000, MAX_FRAME_DELTA_SECONDS)
 
-      spawn(deltaSeconds, now)
-      setRendered(advance(now))
+      spawn(deltaSeconds)
+      setRendered(advance(now, deltaSeconds))
 
       previous = now
       frameId = requestAnimationFrame(step)

@@ -15,7 +15,8 @@ export interface Packet {
   route: string[]
   legColors: PacketColor[]
   speedPxPerSecond: number
-  startedAt: number
+  legIndex: number
+  legProgress: number
   stalledSince: number | null
   lastPosition: { x: number; y: number } | null
   color: PacketColor
