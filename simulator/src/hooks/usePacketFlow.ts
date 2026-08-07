@@ -241,7 +241,8 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
 
         if (screenX < -size || screenY < -size || screenX > cssWidth + size || screenY > cssHeight + size) continue
 
-        context!.drawImage(sprites[packet.shape][packet.color], screenX - half, screenY - half, size, size)
+        const sprite = packet.shape === 'response' ? sprites.response : sprites.request[packet.color]
+        context!.drawImage(sprite, screenX - half, screenY - half, size, size)
       }
     }
 

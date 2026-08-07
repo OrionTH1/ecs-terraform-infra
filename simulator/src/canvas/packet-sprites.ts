@@ -1,7 +1,8 @@
 import { PACKET_GLOW_PX, PACKET_RADIUS, type PacketColor } from '../simulation/packets'
 
 const SPRITE_RESOLUTION = 6
-const RESPONSE_RING_WIDTH_PX = 1.6
+const RESPONSE_RING_WIDTH_PX = 1.4
+const RESPONSE_TOKEN = '--color-status-healthy'
 
 const COLOR_TOKEN: Record<PacketColor, string> = {
   default: '--color-border-interaction',
@@ -19,7 +20,10 @@ export const SPRITE_SIZE_PX = (PACKET_RADIUS + PACKET_GLOW_PX) * 2
 
 export type PacketShape = 'request' | 'response'
 
-export type PacketSprites = Record<PacketShape, Record<PacketColor, HTMLCanvasElement>>
+export interface PacketSprites {
+  request: Record<PacketColor, HTMLCanvasElement>
+  response: HTMLCanvasElement
+}
 
 function readToken(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
@@ -33,7 +37,7 @@ function toRgb(color: string): [number, number, number] {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255]
 }
 
-function drawSprite(color: PacketColor, shape: PacketShape): HTMLCanvasElement {
+function drawSprite(token: string, glowAlpha: number, shape: PacketShape): HTMLCanvasElement {
   const size = SPRITE_SIZE_PX * SPRITE_RESOLUTION
   const sprite = document.createElement('canvas')
   sprite.width = size
@@ -42,13 +46,13 @@ function drawSprite(color: PacketColor, shape: PacketShape): HTMLCanvasElement {
   const context = sprite.getContext('2d')
   if (!context) return sprite
 
-  const [red, green, blue] = toRgb(readToken(COLOR_TOKEN[color]) || '#3b82f6')
+  const [red, green, blue] = toRgb(readToken(token) || '#3b82f6')
   const centre = size / 2
   const core = PACKET_RADIUS * SPRITE_RESOLUTION
   const solid = `rgb(${red}, ${green}, ${blue})`
 
   const glow = context.createRadialGradient(centre, centre, core * 0.6, centre, centre, centre)
-  glow.addColorStop(0, `rgba(${red}, ${green}, ${blue}, ${GLOW_ALPHA[color] * (shape === 'response' ? 0.6 : 1)})`)
+  glow.addColorStop(0, `rgba(${red}, ${green}, ${blue}, ${glowAlpha})`)
   glow.addColorStop(1, `rgba(${red}, ${green}, ${blue}, 0)`)
 
   context.fillStyle = glow
@@ -77,14 +81,10 @@ function drawSprite(color: PacketColor, shape: PacketShape): HTMLCanvasElement {
 export function buildPacketSprites(): PacketSprites {
   return {
     request: {
-      default: drawSprite('default', 'request'),
-      write: drawSprite('write', 'request'),
-      blocked: drawSprite('blocked', 'request'),
+      default: drawSprite(COLOR_TOKEN.default, GLOW_ALPHA.default, 'request'),
+      write: drawSprite(COLOR_TOKEN.write, GLOW_ALPHA.write, 'request'),
+      blocked: drawSprite(COLOR_TOKEN.blocked, GLOW_ALPHA.blocked, 'request'),
     },
-    response: {
-      default: drawSprite('default', 'response'),
-      write: drawSprite('write', 'response'),
-      blocked: drawSprite('blocked', 'response'),
-    },
+    response: drawSprite(RESPONSE_TOKEN, 0.5, 'response'),
   }
 }
