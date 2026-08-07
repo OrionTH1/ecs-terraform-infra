@@ -31,23 +31,7 @@ export function RdsInstanceNode({ data }: NodeProps<RdsInstanceFlowNode>) {
           {data.role === 'writer' ? (
             <Handle type="source" position={Position.Bottom} id="replicate-out" isConnectable={false} />
           ) : null}
-          {data.role === 'writer' ? (
-          <div className="flex items-center gap-1.5 border-t border-border pt-1.5">
-            <span
-              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                data.isAbsorbingFallbackReads ? 'bg-status-warning cache-pulse' : 'bg-border'
-              }`}
-            />
-            <span
-              className={`font-mono text-[10px] ${
-                data.isAbsorbingFallbackReads ? 'text-status-warning' : 'text-fg-muted'
-              }`}
-            >
-              {data.isAbsorbingFallbackReads ? 'absorbing reads · no replica' : 'writes only'}
-            </span>
-          </div>
-        ) : null}
-        {data.role === 'reader' ? (
+          {data.role === 'reader' ? (
             <Handle type="target" position={Position.Top} id="replicate-in" isConnectable={false} />
           ) : null}
         </>

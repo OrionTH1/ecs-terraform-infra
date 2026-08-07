@@ -5,6 +5,7 @@ import { StorageIcon } from '../../icons'
 
 const AVAILABILITY_ZONES = 3
 const COPIES_PER_ZONE = 2
+const TOTAL_COPIES = AVAILABILITY_ZONES * COPIES_PER_ZONE
 
 export function ClusterVolumeNode({ data }: NodeProps<ClusterVolumeFlowNode>) {
   return (
@@ -26,7 +27,15 @@ export function ClusterVolumeNode({ data }: NodeProps<ClusterVolumeFlowNode>) {
               </span>
               <div className="flex justify-center gap-1">
                 {Array.from({ length: COPIES_PER_ZONE }, (_, copy) => (
-                  <span key={copy} className="h-1.5 w-1.5 rounded-full bg-status-healthy" />
+                  <span
+                    key={copy}
+                    className="copy-breathe h-1.5 w-1.5 rounded-full bg-status-healthy"
+                    style={{
+                      animationDelay: `calc(var(--motion-copy-breathe) * ${
+                        (zone * COPIES_PER_ZONE + copy) / TOTAL_COPIES
+                      })`,
+                    }}
+                  />
                 ))}
               </div>
             </div>

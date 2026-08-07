@@ -29,6 +29,7 @@
   --motion-drain: 320ms;
   --motion-settle: 380ms;
   --motion-provision: 560ms;
+  --motion-copy-breathe: 2600ms;
 }
 
 @keyframes node-materialize {
@@ -167,6 +168,22 @@
   to {
     stroke-dashoffset: -16;
   }
+}
+
+@keyframes copy-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.82);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.copy-breathe {
+  animation: copy-breathe var(--motion-copy-breathe) ease-in-out infinite;
 }
 
 .replication-dash {
@@ -455,7 +472,8 @@
   .edge-draw,
   .signal-dash,
   .replication-dash,
-  .cache-pulse {
+  .cache-pulse,
+  .copy-breathe {
     animation: none;
   }
 
