@@ -41,7 +41,7 @@ export function CompactControlBar({ onAddNode }: CompactControlBarProps) {
               type="button"
               aria-expanded={openSection === section.id}
               onClick={() => toggle(section.id)}
-              className={`flex min-h-[40px] flex-1 cursor-pointer items-center justify-center gap-1 rounded-md px-2 font-sans text-[11px] font-medium uppercase tracking-wider press-ack ${
+              className={`flex min-h-10 flex-1 cursor-pointer items-center justify-center gap-1 rounded-md px-2 font-sans text-[11px] font-medium uppercase tracking-wider press-ack ${
                 openSection === section.id ? 'bg-surface-raised text-fg' : 'text-fg-muted'
               }`}
             >

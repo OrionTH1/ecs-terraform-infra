@@ -27,7 +27,7 @@ export function ComponentPaletteItem({
       type="button"
       title={isDisabled ? disabledReason : `Add a ${label} to the canvas`}
       disabled={isDisabled}
-      className={`flex w-full min-h-[44px] items-center gap-2 rounded-lg px-2.5 py-2 text-left press-ack ${
+      className={`flex w-full min-h-11 items-center gap-2 rounded-lg px-2.5 py-2 text-left press-ack ${
         isDisabled
           ? 'cursor-not-allowed text-fg-muted opacity-50'
           : 'cursor-pointer text-fg hover:bg-surface-raised active:bg-surface-raised md:cursor-grab'

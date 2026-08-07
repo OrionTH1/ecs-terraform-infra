@@ -31,7 +31,7 @@ export function SpeedPanel() {
             key={scale}
             type="button"
             onClick={() => setTimeScale(scale)}
-            className={`min-w-[40px] flex-1 cursor-pointer rounded-md border px-1.5 py-1 font-mono text-[12px] tabular-nums press-ack ${
+            className={`min-w-10 flex-1 cursor-pointer rounded-md border px-1.5 py-1 font-mono text-[12px] tabular-nums press-ack ${
               scale === timeScale
                 ? 'border-border-interaction bg-surface-raised text-fg'
                 : 'border-border bg-surface text-fg-muted hover:border-border-interaction hover:text-fg'
