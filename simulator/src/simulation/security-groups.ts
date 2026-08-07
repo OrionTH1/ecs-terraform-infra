@@ -17,8 +17,10 @@ export const ALB_TO_ECS_PAIR = 'alb-to-ecs'
 export const ECS_TO_RDS_PAIR = 'ecs-to-rds'
 
 const PUBLIC_INTERNET = '0.0.0.0/0'
+const S3_PREFIX_LIST = 'pl-s3'
 const APP_PORT = 8080
 const POSTGRES_PORT = 5432
+const HTTPS_PORT = 443
 
 export function boundaryKey(nodeType: string, handleId: string): string {
   return `${nodeType}:${handleId}`
@@ -29,7 +31,7 @@ export const SECURITY_GROUP_BOUNDARIES: Record<string, SecurityGroupBoundary> = 
     pairId: null,
     rules: [
       { direction: 'ingress', securityGroup: 'alb_sg', protocol: 'tcp', port: 80, peer: PUBLIC_INTERNET },
-      { direction: 'ingress', securityGroup: 'alb_sg', protocol: 'tcp', port: 443, peer: PUBLIC_INTERNET },
+      { direction: 'ingress', securityGroup: 'alb_sg', protocol: 'tcp', port: HTTPS_PORT, peer: PUBLIC_INTERNET },
     ],
   },
   [boundaryKey('alb', 'out')]: {
@@ -42,7 +44,11 @@ export const SECURITY_GROUP_BOUNDARIES: Record<string, SecurityGroupBoundary> = 
   },
   [boundaryKey('task', 'out')]: {
     pairId: ECS_TO_RDS_PAIR,
-    rules: [{ direction: 'egress', securityGroup: 'ecs_sg', protocol: 'tcp', port: POSTGRES_PORT, peer: 'rds_sg' }],
+    rules: [
+      { direction: 'egress', securityGroup: 'ecs_sg', protocol: 'tcp', port: POSTGRES_PORT, peer: 'rds_sg' },
+      { direction: 'egress', securityGroup: 'ecs_sg', protocol: 'tcp', port: HTTPS_PORT, peer: 'vpc_endpoints_sg' },
+      { direction: 'egress', securityGroup: 'ecs_sg', protocol: 'tcp', port: HTTPS_PORT, peer: S3_PREFIX_LIST },
+    ],
   },
   [boundaryKey('rdsInstance', 'in')]: {
     pairId: ECS_TO_RDS_PAIR,

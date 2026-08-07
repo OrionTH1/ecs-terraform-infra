@@ -7,6 +7,7 @@ import {
   formatRule,
   securityGroupBoundary,
   type SecurityGroupBoundary,
+  type SecurityGroupRule,
 } from './security-groups'
 import {
   JUNCTION_TO_READER_EDGE_ID,
@@ -18,6 +19,13 @@ import {
 
 function boundariesInPair(pairId: string): SecurityGroupBoundary[] {
   return Object.values(SECURITY_GROUP_BOUNDARIES).filter((boundary) => boundary.pairId === pairId)
+}
+
+function facingRules(pairId: string): SecurityGroupRule[] {
+  const [one, other] = boundariesInPair(pairId)
+  const securityGroups = new Set([one, other].flatMap((boundary) => boundary.rules.map((rule) => rule.securityGroup)))
+
+  return [one, other].flatMap((boundary) => boundary.rules.filter((rule) => securityGroups.has(rule.peer)))
 }
 
 describe('the catalog', () => {
@@ -64,9 +72,16 @@ describe('rules that come in pairs', () => {
   })
 
   it.each([ALB_TO_ECS_PAIR, ECS_TO_RDS_PAIR])('agrees on the port at both ends of %s', (pairId) => {
-    const ports = new Set(boundariesInPair(pairId).flatMap((boundary) => boundary.rules.map((rule) => rule.port)))
+    const ports = new Set(facingRules(pairId).map((rule) => rule.port))
 
     expect(ports.size).toBe(1)
+  })
+
+  it('leaves the egress that does not face the pair out of the handshake', () => {
+    const taskEgress = securityGroupBoundary('task', 'out')?.rules ?? []
+
+    expect(taskEgress).toHaveLength(3)
+    expect(facingRules(ECS_TO_RDS_PAIR)).toHaveLength(2)
   })
 
   it('points each side of a pair at the security group of the other', () => {
