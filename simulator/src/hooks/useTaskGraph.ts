@@ -207,11 +207,13 @@ export function useTaskGraph({
       orderedTasks
         .filter((task) => isPullingImageStatus(task.status))
         .map((task) => ({
+          taskId: task.id,
           registryEgressEdgeId: taskToRegistryEdgeId(task.id),
           registryEdgeId: ENDPOINT_TO_ECR_EDGE_ID,
           storageEgressEdgeId: taskToStorageEdgeId(task.id),
           storageEdgeId: ENDPOINT_TO_STORAGE_EDGE_ID,
           secondsRemaining: pullSecondsRemaining(clock - task.createdAt, IMAGE_PULL_DURATION_MS, timeScale),
+          timeScale,
         })),
     [orderedTasks, clock, timeScale],
   )

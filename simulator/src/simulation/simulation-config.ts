@@ -29,13 +29,15 @@ export const TASK_LIFECYCLE = {
 }
 
 export const STAGE_DURATION_MS: Record<TaskStatus, number | null> = {
-  provisioning: TASK_LIFECYCLE.provisioningMs,
+  provisioning: null,
   starting: TASK_LIFECYCLE.startingMs,
   registering: TASK_LIFECYCLE.registeringMs,
   healthy: null,
   draining: TASK_LIFECYCLE.drainingMs,
   failed: null,
 }
+
+export const IMAGE_PULL_TIMEOUT_MS = TASK_LIFECYCLE.provisioningMs * 3
 
 export const SCALE_IN_LATENCY_MS = AUTOSCALING.scaleInEvaluationMs
 

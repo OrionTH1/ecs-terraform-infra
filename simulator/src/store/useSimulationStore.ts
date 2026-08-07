@@ -9,6 +9,7 @@ import {
   LATENCY,
   RDS_INSTANCE_FAILED_LINGER_MS,
   RDS_READ_FRACTION,
+  IMAGE_PULL_TIMEOUT_MS,
   TASK_LIFECYCLE,
 } from '../simulation/simulation-config'
 import {
@@ -105,6 +106,7 @@ interface SimulationState {
   killRdsInstance: (role: RdsInstanceRole) => void
   setSourceRates: (rates: SourceRate[]) => void
   setTimeScale: (timeScale: number) => void
+  completeImagePull: (taskId: string) => void
   tick: (elapsedRealMs: number) => void
 }
 
@@ -143,7 +145,7 @@ function sameIds(current: string[], next: string[]): boolean {
 function advanceTask(task: TaskRuntime, now: number): TaskRuntime | null {
   const elapsed = now - task.stageEnteredAt
 
-  if (task.status === 'provisioning' && elapsed >= TASK_LIFECYCLE.provisioningMs) {
+  if (task.status === 'provisioning' && elapsed >= IMAGE_PULL_TIMEOUT_MS) {
     return { ...task, status: 'starting', stageEnteredAt: now }
   }
   if (task.status === 'starting' && elapsed >= TASK_LIFECYCLE.startingMs) {
@@ -229,6 +231,18 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     set((state) => (sameRates(state.sourceRates, rates) ? state : { sourceRates: rates })),
 
   setTimeScale: (timeScale) => set({ timeScale, hasChosenTimeScale: true }),
+
+  completeImagePull: (taskId) =>
+    set((state) => {
+      const task = state.tasks.find((entry) => entry.id === taskId)
+      if (task === undefined || task.status !== 'provisioning') return state
+
+      return {
+        tasks: state.tasks.map((entry) =>
+          entry.id === taskId ? { ...entry, status: 'starting' as const, stageEnteredAt: state.clock } : entry,
+        ),
+      }
+    }),
 
   tick: (elapsedRealMs) => {
     const state = get()

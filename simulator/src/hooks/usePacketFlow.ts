@@ -1,5 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import type { useStoreApi } from '@xyflow/react'
+import { useSimulationStore } from '../store/useSimulationStore'
 import { SPRITE_SIZE_PX, buildPacketSprites, type PacketShape } from '../canvas/packet-sprites'
 import {
   JUNCTION_TO_READER_EDGE_ID,
@@ -10,8 +11,9 @@ import {
 import { buildRequestItinerary, divertToWriter, queriesForNextRequest } from '../simulation/request-itinerary'
 import {
   buildImagePullItinerary,
-  fitsInsideThePull,
   imagePullSpeed,
+  pullDwellMs,
+  travelSecondsFor,
   type ImagePullLegs,
 } from '../simulation/image-pull'
 import type { TaskRoute } from './useTaskGraph'
@@ -182,7 +184,7 @@ function advanceAlongRoute(
     if (packet.legIndex >= packet.legs.length) return { kind: 'arrived' }
     if (!heldAtNode) return advanceAlongRoute(packet, now, 0, cache)
 
-    packet.dwellUntil = now + PACKET_DWELL_MS
+    packet.dwellUntil = now + (leg.dwellMs ?? PACKET_DWELL_MS)
     return { kind: 'dwelling' }
   }
 
@@ -376,12 +378,14 @@ export function usePacketFlow({
           (total, entry) => total + (readGeometry(entry.edgeId, geometryCache)?.length ?? 0),
           0,
         )
-        if (!fitsInsideThePull(routeLength, route.secondsRemaining, shape.length)) continue
+        if (routeLength === 0) continue
+        if (travelSecondsFor(route.secondsRemaining, shape.length, route.timeScale) <= 0) continue
 
         const legs = buildImagePullItinerary(
           route,
           inputs.current.liveEdgeIds,
-          imagePullSpeed(routeLength, route.secondsRemaining, shape.length),
+          imagePullSpeed(routeLength, route.secondsRemaining, shape.length, route.timeScale),
+          pullDwellMs(route.timeScale),
         )
 
         pullsInFlight.current.add(route.registryEgressEdgeId)
@@ -426,7 +430,13 @@ export function usePacketFlow({
       let drawn = 0
       const { liveEdgeIds: currentLiveEdgeIds, taskRoutes, imagePullRoutes } = inputs.current
       const writeLegs = taskRoutes[0]?.writeLeg ?? null
-      const pullingRouteKeys = new Set(imagePullRoutes.map((route) => route.registryEgressEdgeId))
+      const pullingTaskIdByRouteKey = new Map(imagePullRoutes.map((route) => [route.registryEgressEdgeId, route.taskId]))
+      const pullingRouteKeys = new Set(pullingTaskIdByRouteKey.keys())
+
+      function onImagePullComplete(routeKey: string) {
+        const taskId = pullingTaskIdByRouteKey.get(routeKey)
+        if (taskId !== undefined) useSimulationStore.getState().completeImagePull(taskId)
+      }
       const stillPulling = new Set<string>()
 
       const hasGraphChanged = currentLiveEdgeIds !== routedAgainst
@@ -436,6 +446,10 @@ export function usePacketFlow({
         if (packet.routeKey !== null && !pullingRouteKeys.has(packet.routeKey)) continue
 
         if (hasGraphChanged && !isRouteIntact(packet.legs, packet.legIndex, currentLiveEdgeIds)) {
+          if (packet.routeKey !== null) {
+            onImagePullComplete(packet.routeKey)
+            continue
+          }
           if (writeLegs === null) continue
 
           const diverted = divertToWriter(packet.legs, packet.legIndex, REPLICA_EDGES, writeLegs)
@@ -473,7 +487,10 @@ export function usePacketFlow({
           })
         }
 
-        if (placement.kind === 'arrived') continue
+        if (placement.kind === 'arrived') {
+          if (packet.routeKey !== null) onImagePullComplete(packet.routeKey)
+          continue
+        }
 
         if (placement.kind === 'dwelling') {
           packet.stalledSince = null
@@ -484,7 +501,10 @@ export function usePacketFlow({
 
         if (placement.kind === 'stalled') {
           const stalledSince = packet.stalledSince ?? now
-          if (now - stalledSince > MAX_STALL_MS) continue
+          if (now - stalledSince > MAX_STALL_MS) {
+            if (packet.routeKey !== null) onImagePullComplete(packet.routeKey)
+            continue
+          }
           packet.stalledSince = stalledSince
           alive.push(packet)
           if (packet.routeKey !== null) stillPulling.add(packet.routeKey)

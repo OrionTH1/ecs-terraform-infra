@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
 
   buildImagePullItinerary,
-  fitsInsideThePull,
   imagePullSpeed,
+  pullDwellMs,
   isPullingImage,
   travelSecondsFor,
   isPullingImageStatus,
@@ -17,11 +17,13 @@ const TASK_TO_GATEWAY = 'task-1-gateway-endpoint'
 const GATEWAY_TO_STORAGE = 'gateway-endpoint-layer-storage'
 
 const LEGS = {
+  taskId: 'task-1',
   registryEgressEdgeId: TASK_TO_INTERFACE,
   registryEdgeId: INTERFACE_TO_ECR,
   storageEgressEdgeId: TASK_TO_GATEWAY,
   storageEdgeId: GATEWAY_TO_STORAGE,
   secondsRemaining: 20,
+  timeScale: 1,
 }
 
 const EVERYTHING_UP = new Set([TASK_TO_INTERFACE, INTERFACE_TO_ECR, TASK_TO_GATEWAY, GATEWAY_TO_STORAGE])
@@ -85,52 +87,45 @@ describe('what a layer download looks like on the wire', () => {
 
 describe('fitting the trip inside the step it draws', () => {
   it('crosses the whole route in the time left, minus the pauses it takes at each node', () => {
-    expect(imagePullSpeed(2000, 10, 0)).toBe(200)
-    expect(travelSecondsFor(10, 8)).toBeCloseTo(10 - 8 * 0.22)
+    expect(imagePullSpeed(2000, 10, 0, 1)).toBe(200)
+    expect(travelSecondsFor(10, 8, 1)).toBeCloseTo(10 - 8 * 0.22)
   })
 
   it('leaves room for every dwell, so the trip never outlives the step it draws', () => {
     const legCount = 8
     const secondsRemaining = 10
-    const speed = imagePullSpeed(2000, secondsRemaining, legCount)
-    const wallClock = 2000 / speed + (legCount * 220) / 1000
+    const timeScale = 1
+    const speed = imagePullSpeed(2000, secondsRemaining, legCount, timeScale)
+    const wallClock = 2000 / speed + (legCount * pullDwellMs(timeScale)) / 1000
 
     expect(wallClock).toBeCloseTo(secondsRemaining)
   })
 
-  it('draws nothing rather than a blur when the trip cannot fit in the time left', () => {
-    expect(fitsInsideThePull(2000, 0.01, 8)).toBe(false)
-    expect(fitsInsideThePull(2000, 0, 8)).toBe(false)
+  it('shrinks the pause with the simulation speed, since a pause is simulated time too', () => {
+    expect(pullDwellMs(1)).toBe(220)
+    expect(pullDwellMs(25)).toBeCloseTo(8.8)
   })
 
-  it('draws nothing while the edges have no geometry yet', () => {
-    expect(fitsInsideThePull(0, 10, 8)).toBe(false)
-  })
+  it('still has room to travel at high speed, where a fixed pause would eat the whole budget', () => {
+    const atTwentyFive = travelSecondsFor(pullSecondsRemaining(0, 12_000, 25), 8, 25)
 
-  it('draws nothing when the dwells alone would outlast the step', () => {
-    expect(fitsInsideThePull(100, 1, 8)).toBe(false)
-  })
-
-  it('draws the trip whenever it can be crossed without exceeding the speed limit', () => {
-    expect(fitsInsideThePull(2000, 10, 8)).toBe(true)
+    expect(atTwentyFive).toBeGreaterThan(0)
   })
 
   it('shortens the wall clock budget as the simulation speed goes up', () => {
-    const atRealTime = pullSecondsRemaining(0, 20_000, 1)
-    const atTwentyFive = pullSecondsRemaining(0, 20_000, 25)
-
-    expect(atRealTime).toBe(20)
-    expect(atTwentyFive).toBe(0.8)
+    expect(pullSecondsRemaining(0, 20_000, 1)).toBe(20)
+    expect(pullSecondsRemaining(0, 20_000, 25)).toBe(0.8)
   })
 
   it('runs out of budget once the step is over instead of going negative', () => {
     expect(pullSecondsRemaining(30_000, 20_000, 1)).toBe(0)
   })
 
-  it('gives every leg the speed the trip was budgeted at', () => {
-    const speeds = new Set(buildImagePullItinerary(LEGS, EVERYTHING_UP, 640).map((leg) => leg.speedPxPerSecond))
+  it('gives every leg the speed and the pause the trip was budgeted at', () => {
+    const legs = buildImagePullItinerary(LEGS, EVERYTHING_UP, 640, 40)
 
-    expect(speeds).toEqual(new Set([640]))
+    expect(new Set(legs.map((leg) => leg.speedPxPerSecond))).toEqual(new Set([640]))
+    expect(new Set(legs.map((leg) => leg.dwellMs))).toEqual(new Set([40]))
   })
 })
 

@@ -22,6 +22,7 @@ export interface ItineraryLeg {
   color: PacketColor
   speedPxPerSecond: number
   entersNodeAtEnd: boolean
+  dwellMs?: number
 }
 
 export interface Packet {
