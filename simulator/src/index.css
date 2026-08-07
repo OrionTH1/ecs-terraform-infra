@@ -257,6 +257,18 @@
   right: -6px;
 }
 
+@media (hover: none) {
+  .card-remove {
+    opacity: 1;
+  }
+
+  .card-remove::after {
+    content: '';
+    position: absolute;
+    inset: -14px -14px -4px -4px;
+  }
+}
+
 [data-moving='true'] .react-flow__viewport {
   will-change: transform;
 }

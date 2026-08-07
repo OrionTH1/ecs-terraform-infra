@@ -96,7 +96,7 @@ export function NodeCard({
           type="button"
           title={removeLabel}
           aria-label={removeLabel}
-          className="press-ack nodrag absolute -top-2.5 -right-2.5 z-10 inline-flex h-[20px] w-[20px] cursor-pointer items-center justify-center rounded-full border border-border bg-surface-raised text-fg-muted opacity-0 shadow-card hover:border-status-error hover:text-status-error focus-visible:opacity-100 group-hover/card:opacity-100"
+          className="card-remove press-ack nodrag absolute -top-2.5 -right-2.5 z-10 inline-flex h-[20px] w-[20px] cursor-pointer items-center justify-center rounded-full border border-border bg-surface-raised text-fg-muted opacity-0 shadow-card hover:border-status-error hover:text-status-error focus-visible:opacity-100 group-hover/card:opacity-100"
           onClick={(event) => {
             event.stopPropagation()
             onRemove()
