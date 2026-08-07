@@ -28,17 +28,17 @@ export const SECURITY_GROUP_BOUNDARIES: Record<string, SecurityGroupBoundary> = 
   [boundaryKey('alb', 'in')]: {
     pairId: null,
     rules: [
-      { direction: 'ingress', securityGroup: 'allow_http', protocol: 'tcp', port: 80, peer: PUBLIC_INTERNET },
-      { direction: 'ingress', securityGroup: 'allow_http', protocol: 'tcp', port: 443, peer: PUBLIC_INTERNET },
+      { direction: 'ingress', securityGroup: 'alb_sg', protocol: 'tcp', port: 80, peer: PUBLIC_INTERNET },
+      { direction: 'ingress', securityGroup: 'alb_sg', protocol: 'tcp', port: 443, peer: PUBLIC_INTERNET },
     ],
   },
   [boundaryKey('alb', 'out')]: {
     pairId: ALB_TO_ECS_PAIR,
-    rules: [{ direction: 'egress', securityGroup: 'allow_http', protocol: 'tcp', port: APP_PORT, peer: 'ecs_sg' }],
+    rules: [{ direction: 'egress', securityGroup: 'alb_sg', protocol: 'tcp', port: APP_PORT, peer: 'ecs_sg' }],
   },
   [boundaryKey('task', 'in')]: {
     pairId: ALB_TO_ECS_PAIR,
-    rules: [{ direction: 'ingress', securityGroup: 'ecs_sg', protocol: 'tcp', port: APP_PORT, peer: 'allow_http' }],
+    rules: [{ direction: 'ingress', securityGroup: 'ecs_sg', protocol: 'tcp', port: APP_PORT, peer: 'alb_sg' }],
   },
   [boundaryKey('task', 'out')]: {
     pairId: ECS_TO_RDS_PAIR,
@@ -59,6 +59,6 @@ export function boundaryDirection(boundary: SecurityGroupBoundary): SecurityGrou
 }
 
 export function formatRule(rule: SecurityGroupRule): string {
-  const arrow = rule.direction === 'ingress' ? '←' : '→'
-  return `${rule.protocol}/${rule.port} ${arrow} ${rule.peer}`
+  const port = `${rule.protocol}/${rule.port}`
+  return rule.direction === 'ingress' ? `${rule.peer} → ${port}` : `${port} → ${rule.peer}`
 }

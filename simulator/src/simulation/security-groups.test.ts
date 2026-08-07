@@ -116,13 +116,21 @@ describe('which edges belong to a pair', () => {
 })
 
 describe('formatting a rule for the hover', () => {
-  it('points the arrow at the resource when traffic is coming in', () => {
-    expect(formatRule({ direction: 'ingress', securityGroup: 'ecs_sg', protocol: 'tcp', port: 8080, peer: 'allow_http' }))
-      .toBe('tcp/8080 ← allow_http')
+  it('puts the peer first when traffic is coming in, so the arrow follows the flow', () => {
+    expect(formatRule({ direction: 'ingress', securityGroup: 'ecs_sg', protocol: 'tcp', port: 8080, peer: 'alb_sg' }))
+      .toBe('alb_sg → tcp/8080')
   })
 
-  it('points the arrow away from the resource when traffic is leaving', () => {
+  it('puts the peer last when traffic is leaving, keeping the arrow pointing the same way', () => {
     expect(formatRule({ direction: 'egress', securityGroup: 'ecs_sg', protocol: 'tcp', port: 5432, peer: 'rds_sg' }))
       .toBe('tcp/5432 → rds_sg')
+  })
+
+  it('never points the arrow against the way traffic travels on the canvas', () => {
+    for (const boundary of Object.values(SECURITY_GROUP_BOUNDARIES)) {
+      for (const rule of boundary.rules) {
+        expect(formatRule(rule)).not.toContain('←')
+      }
+    }
   })
 })
