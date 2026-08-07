@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { SUBNET_FRAME_MIN_WIDTH, networkZoneFrames } from './network-zones'
 import { frameContentBox, type FrameBox } from './frame-metrics'
-import { ALB_POSITION, AURORA_FRAME as REAL_AURORA_FRAME, FALLBACK_CARD_HEIGHT, FALLBACK_CARD_WIDTH } from './initial-graph'
+import {
+  ALB_POSITION,
+  AURORA_FRAME as REAL_AURORA_FRAME,
+  CLUSTER_VOLUME_POSITION,
+  FALLBACK_CARD_HEIGHT,
+  FALLBACK_CARD_WIDTH,
+} from './initial-graph'
 
 const ALB_BOX = { left: 360, top: 200, right: 570, bottom: 332 }
 const SERVICE_FRAME: FrameBox = { position: { x: 876, y: 20 }, width: 322, height: 360 }
@@ -88,6 +94,21 @@ describe('the canvas the simulator actually draws', () => {
 
     expect(contains(vpc, privateSubnets)).toBe(true)
     expect(contains(privateSubnets, REAL_AURORA_FRAME)).toBe(true)
+  })
+
+  it('leaves the cluster volume outside the vpc, where aurora storage actually lives', () => {
+    const { vpc } = networkZoneFrames(
+      {
+        left: ALB_POSITION.x,
+        top: ALB_POSITION.y,
+        right: ALB_POSITION.x + FALLBACK_CARD_WIDTH,
+        bottom: ALB_POSITION.y + FALLBACK_CARD_HEIGHT,
+      },
+      SERVICE_FRAME,
+      REAL_AURORA_FRAME,
+    )
+
+    expect(CLUSTER_VOLUME_POSITION.x).toBeGreaterThan(frameContentBox(vpc).right)
   })
 })
 

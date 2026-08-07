@@ -44,7 +44,7 @@ export function ClusterVolumeNode({ data }: NodeProps<ClusterVolumeFlowNode>) {
         <span className="font-mono text-[11px] text-fg-muted">
           {AVAILABILITY_ZONES * COPIES_PER_ZONE} copies · {AVAILABILITY_ZONES} AZs
         </span>
-        <span className="font-mono text-[10px] text-fg-muted">shared by every instance</span>
+        <span className="font-mono text-[10px] text-fg-muted">regional · outside the vpc</span>
       </div>
     </NodeCard>
   )

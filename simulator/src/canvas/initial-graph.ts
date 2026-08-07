@@ -58,16 +58,23 @@ const RDS_INSTANCE_X = TASK_COLUMN_X + 650
 
 export const RDS_WRITER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y - 130 }
 export const RDS_READER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y + 130 }
-export const CLUSTER_VOLUME_POSITION = { x: RDS_INSTANCE_X + 310, y: ALB_POSITION.y - 46 }
 
 const INITIAL_CONTROL_PLANE_Y = ALB_POSITION.y - 330
 
 export const AURORA_FRAME = frameAround({
   left: RDS_INSTANCE_X,
   top: RDS_WRITER_POSITION.y,
-  right: CLUSTER_VOLUME_POSITION.x + FALLBACK_CARD_WIDTH,
+  right: RDS_INSTANCE_X + FALLBACK_CARD_WIDTH,
   bottom: RDS_READER_POSITION.y + FALLBACK_CARD_HEIGHT,
 })
+
+const VPC_BORDER_BEYOND_AURORA_FRAME = FRAME_PADDING * 2
+const MANAGED_STORAGE_GAP = 150
+
+export const CLUSTER_VOLUME_POSITION = {
+  x: AURORA_FRAME.position.x + AURORA_FRAME.width + VPC_BORDER_BEYOND_AURORA_FRAME + MANAGED_STORAGE_GAP,
+  y: ALB_POSITION.y - 46,
+}
 
 export const DB_JUNCTION_NODE_ID = 'db-junction'
 export const DB_JUNCTION_SIZE = 12
@@ -275,7 +282,7 @@ export const initialNodes: SimulatorFlowNode[] = [
     data: {
       label: 'Aurora Cluster',
       tooltip:
-        `A DB cluster is compute plus storage: the instances below and one shared cluster volume. Aurora Serverless v2 (Postgres), ${AURORA_SERVERLESS.minAcu}–${AURORA_SERVERLESS.maxAcu} ACU — one ACU is roughly 2 GiB of memory plus matching CPU, and capacity moves in ${AURORA_SERVERLESS.acuStep} ACU steps without dropping connections. A minimum of 0 ACU allows auto-pause, but it never fires here: the target group health check queries the database every ${HEALTH_CHECK.intervalMs / 1000} seconds, so the cluster never reaches the idle interval. The cluster publishes the writer and reader endpoints; it never proxies a query itself, and each endpoint resolves straight to an instance.`,
+        `A DB cluster is compute plus storage, and the two live in different places on this canvas for a reason: only the instances get an address in your subnets, while the cluster volume is regional storage AWS runs outside your VPC. Aurora Serverless v2 (Postgres), ${AURORA_SERVERLESS.minAcu}–${AURORA_SERVERLESS.maxAcu} ACU — one ACU is roughly 2 GiB of memory plus matching CPU, and capacity moves in ${AURORA_SERVERLESS.acuStep} ACU steps without dropping connections. A minimum of 0 ACU allows auto-pause, but it never fires here: the target group health check queries the database every ${HEALTH_CHECK.intervalMs / 1000} seconds, so the cluster never reaches the idle interval. The cluster publishes the writer and reader endpoints; it never proxies a query itself, and each endpoint resolves straight to an instance.`,
       status: 'idle',
       width: AURORA_FRAME.width,
       height: AURORA_FRAME.height,
@@ -292,7 +299,7 @@ export const initialNodes: SimulatorFlowNode[] = [
     data: {
       label: 'Cluster Volume',
       tooltip:
-        'The single virtual volume that holds every table, index and the WAL. Aurora writes each change synchronously to six storage nodes spread across three Availability Zones, and that replication factor is independent of how many DB instances the cluster has. Because storage is shared, adding a reader copies no data at all — the new instance simply attaches to the volume that already holds everything.',
+        'The single virtual volume that holds every table, index and the WAL — and it does not live in your VPC. The DB subnet group places the instances, not the storage: each instance gets an elastic network interface and a private address in one of your subnets, while the volume is a regional service AWS operates. The clearest proof is right here: your subnet group spans two Availability Zones, this volume spans three, so it holds copies in a zone where you have no subnet at all. Aurora writes each change synchronously to six storage nodes across those three zones, and that replication factor is independent of how many DB instances the cluster has. Because storage is shared, adding a reader copies no data — the new instance simply attaches to the volume that already holds everything.',
       status: 'idle',
     },
     draggable: false,
