@@ -23,6 +23,7 @@ interface NodeCardProps {
   removeLabel?: string
   handles?: ReactNode
   children?: ReactNode
+  compact?: boolean
 }
 
 const SETTLE_MS = 560
@@ -52,6 +53,7 @@ export function NodeCard({
   removeLabel = 'Remove node',
   handles,
   children,
+  compact = false,
 }: NodeCardProps) {
   const isProvisioning = provisioning !== null
   const hasJustProvisioned = useRecentChange(isProvisioning, SETTLE_MS) && !isProvisioning
@@ -72,6 +74,14 @@ export function NodeCard({
       onClick={isTargetable ? onTargetClick : undefined}
     >
       {handles}
+      {compact ? (
+        <div key="compact" className="content-resolve flex items-center gap-2 px-3 py-2">
+          <span className="inline-flex shrink-0 text-fg-muted">{icon}</span>
+          <span className="shrink-0 font-sans text-[13px] font-medium text-fg">{title}</span>
+          {children}
+        </div>
+      ) : (
+        <>
       <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
         <span className="inline-flex text-fg-muted">{icon}</span>
         <span className="flex-1 font-sans text-[13px] font-medium text-fg">{title}</span>
@@ -91,6 +101,8 @@ export function NodeCard({
           {children}
         </div>
       ) : null}
+        </>
+      )}
       {onRemove ? (
         <button
           type="button"

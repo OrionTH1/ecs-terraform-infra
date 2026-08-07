@@ -45,7 +45,7 @@ import {
 import { isRunningTask, selectDrainIndexes } from '../simulation/scale-in'
 import { splitReadWrite } from '../simulation/traffic-distribution'
 import { advanceWafSource, createWafSource, windowRequestCount, type WafSourceState } from '../simulation/waf'
-import type { TaskLogEntry, TaskStatus } from '../types/task-data'
+import type { TaskStatus } from '../types/task-data'
 import type { RdsInstanceLifecycle, RdsInstanceRole } from '../types/node-data'
 
 const SCALE_IN_MARGIN = 0.7
@@ -61,7 +61,6 @@ export interface TaskRuntime {
   status: TaskStatus
   stageEnteredAt: number
   createdAt: number
-  log: TaskLogEntry[]
 }
 
 export interface RdsInstanceRuntime {
@@ -95,7 +94,6 @@ interface SimulationState {
   scaleInBreachAt: number | null
   desiredCount: number
   nextInstanceId: number
-  expandedTaskIds: string[]
   rdsSlots: RdsSlots
   hasSeededRdsWriter: boolean
   hasSeededRdsReader: boolean
@@ -105,7 +103,6 @@ interface SimulationState {
   lastLatencySampleAt: number
   killTask: (taskId: string) => void
   killRdsInstance: (role: RdsInstanceRole) => void
-  toggleTaskLog: (taskId: string) => void
   setSourceRates: (rates: SourceRate[]) => void
   setTimeScale: (timeScale: number) => void
   tick: (elapsedRealMs: number) => void
@@ -128,7 +125,6 @@ function launchTasks(count: number, firstInstanceId: number, now: number): TaskR
       status: 'provisioning' as const,
       stageEnteredAt: now,
       createdAt: now,
-      log: [{ message: 'Pulling image from ECR', atMs: now }],
     }
   })
 }
@@ -148,13 +144,13 @@ function advanceTask(task: TaskRuntime, now: number): TaskRuntime | null {
   const elapsed = now - task.stageEnteredAt
 
   if (task.status === 'provisioning' && elapsed >= TASK_LIFECYCLE.provisioningMs) {
-    return { ...task, status: 'starting', stageEnteredAt: now, log: [...task.log, { message: 'Image pulled, starting container', atMs: now }] }
+    return { ...task, status: 'starting', stageEnteredAt: now }
   }
   if (task.status === 'starting' && elapsed >= TASK_LIFECYCLE.startingMs) {
-    return { ...task, status: 'registering', stageEnteredAt: now, log: [...task.log, { message: 'Registering with target group', atMs: now }] }
+    return { ...task, status: 'registering', stageEnteredAt: now }
   }
   if (task.status === 'registering' && elapsed >= TASK_LIFECYCLE.registeringMs) {
-    return { ...task, status: 'healthy', stageEnteredAt: now, log: [...task.log, { message: 'Passed ALB health checks', atMs: now }] }
+    return { ...task, status: 'healthy', stageEnteredAt: now }
   }
   if (task.status === 'draining' && elapsed >= TASK_LIFECYCLE.drainingMs) {
     return null
@@ -190,7 +186,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   scaleInBreachAt: null,
   desiredCount: AUTOSCALING.minCapacity,
   nextInstanceId: 1,
-  expandedTaskIds: [],
   rdsSlots: { writer: null, reader: null },
   hasSeededRdsWriter: false,
   hasSeededRdsReader: false,
@@ -225,17 +220,9 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
               ...task,
               status: 'failed' as const,
               stageEnteredAt: state.clock,
-              log: [...task.log, { message: 'Stopped: essential container exited (137)', atMs: state.clock }],
             }
           : task,
       ),
-    })),
-
-  toggleTaskLog: (taskId) =>
-    set((state) => ({
-      expandedTaskIds: state.expandedTaskIds.includes(taskId)
-        ? state.expandedTaskIds.filter((id) => id !== taskId)
-        : [...state.expandedTaskIds, taskId],
     })),
 
   setSourceRates: (rates) =>
@@ -304,7 +291,7 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       if (drainIndexes.size > 0) {
         tasks = tasks.map((task, index) =>
           drainIndexes.has(index)
-            ? { ...task, status: 'draining', stageEnteredAt: now, log: [...task.log, { message: 'Deregistering from target group', atMs: now }] }
+            ? { ...task, status: 'draining', stageEnteredAt: now }
             : task,
         )
         desiredCount = scaleInTarget
@@ -321,8 +308,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
     }
 
     const tasksChanged = tasks !== state.tasks
-    const liveTaskIds = new Set(tasks.map((task) => task.id))
-    const expandedTaskIds = state.expandedTaskIds.filter((id) => liveTaskIds.has(id))
 
     const hasJustFinishedApplying = isApplyComplete && !state.isApplyComplete
 
@@ -462,7 +447,6 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
       nextInstanceId,
       scaleOutBreachAt,
       scaleInBreachAt,
-      expandedTaskIds: expandedTaskIds.length === state.expandedTaskIds.length ? state.expandedTaskIds : expandedTaskIds,
       rdsSlots: writer === state.rdsSlots.writer && reader === state.rdsSlots.reader ? state.rdsSlots : { writer, reader },
       hasSeededRdsWriter,
       hasSeededRdsReader,

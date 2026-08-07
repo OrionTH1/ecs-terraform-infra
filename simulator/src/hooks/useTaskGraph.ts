@@ -101,7 +101,6 @@ export function useTaskGraph({
           taskNumber: index + 1,
           status: task.status,
           stageEnteredAt: task.stageEnteredAt,
-          log: task.log,
           createdAt: task.createdAt,
           requestsPerMinute: requestsByTaskId.get(task.id) ?? 0,
           latencyMs: taskLatencyMs,
