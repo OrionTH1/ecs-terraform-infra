@@ -26,7 +26,10 @@ describe('when the endpoints are carrying traffic', () => {
 
   it('lights up while a task is still fetching its image', () => {
     expect(isPullingImage(statuses('provisioning'))).toBe(true)
-    expect(isPullingImage(statuses('starting'))).toBe(true)
+  })
+
+  it('goes dark as soon as the task reports the image is pulled', () => {
+    expect(isPullingImage(statuses('starting'))).toBe(false)
   })
 
   it('stays quiet once every task is settled', () => {

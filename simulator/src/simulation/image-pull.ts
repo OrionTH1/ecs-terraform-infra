@@ -2,9 +2,8 @@ import { PACKET_SPEED_PX_PER_SECOND, type ItineraryLeg } from './packets'
 import type { TaskStatus } from '../types/task-data'
 
 export const MAX_IMAGE_PULL_SPEED_PX_PER_SECOND = 2400
-export const MIN_IMAGE_PULL_SECONDS = 0.25
 
-const IMAGE_PULL_STATUSES: TaskStatus[] = ['provisioning', 'starting']
+const IMAGE_PULL_STATUSES: TaskStatus[] = ['provisioning']
 
 export interface ImagePullLegs {
   registryEgressEdgeId: string
@@ -15,9 +14,13 @@ export interface ImagePullLegs {
 }
 
 export function imagePullSpeed(routeLengthPx: number, secondsRemaining: number): number {
-  if (secondsRemaining <= 0) return MAX_IMAGE_PULL_SPEED_PX_PER_SECOND
+  return routeLengthPx / secondsRemaining
+}
 
-  return Math.min(MAX_IMAGE_PULL_SPEED_PX_PER_SECOND, routeLengthPx / secondsRemaining)
+export function fitsInsideThePull(routeLengthPx: number, secondsRemaining: number): boolean {
+  if (secondsRemaining <= 0) return false
+
+  return imagePullSpeed(routeLengthPx, secondsRemaining) <= MAX_IMAGE_PULL_SPEED_PX_PER_SECOND
 }
 
 export function pullSecondsRemaining(elapsedSimMs: number, pullDurationMs: number, timeScale: number): number {

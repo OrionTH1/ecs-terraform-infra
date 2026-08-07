@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 import {
   MAX_IMAGE_PULL_SPEED_PX_PER_SECOND,
   buildImagePullItinerary,
+  fitsInsideThePull,
   imagePullSpeed,
   isPullingImage,
   isPullingImageStatus,
   pullSecondsRemaining,
 } from './image-pull'
-import type { TaskStatus } from '../types/task-data'
+import { TASK_STATUS_MESSAGE, type TaskStatus } from '../types/task-data'
 
 const TASK_TO_INTERFACE = 'task-1-interface-endpoints'
 const INTERFACE_TO_ECR = 'interface-endpoints-ecr'
@@ -86,9 +87,14 @@ describe('fitting the trip inside the step it draws', () => {
     expect(imagePullSpeed(2000, 10)).toBe(200)
   })
 
-  it('refuses to go faster than the eye can follow, however little time is left', () => {
-    expect(imagePullSpeed(2000, 0.01)).toBe(MAX_IMAGE_PULL_SPEED_PX_PER_SECOND)
-    expect(imagePullSpeed(2000, 0)).toBe(MAX_IMAGE_PULL_SPEED_PX_PER_SECOND)
+  it('draws nothing rather than a blur when the trip cannot fit in the time left', () => {
+    expect(fitsInsideThePull(2000, 0.01)).toBe(false)
+    expect(fitsInsideThePull(2000, 0)).toBe(false)
+  })
+
+  it('draws the trip whenever it can be crossed without exceeding the speed limit', () => {
+    expect(fitsInsideThePull(2000, 10)).toBe(true)
+    expect(fitsInsideThePull(MAX_IMAGE_PULL_SPEED_PX_PER_SECOND, 1)).toBe(true)
   })
 
   it('shortens the wall clock budget as the simulation speed goes up', () => {
@@ -113,9 +119,14 @@ describe('fitting the trip inside the step it draws', () => {
 describe('which tasks are pulling', () => {
   const statuses = (...values: TaskStatus[]) => values
 
-  it('counts a task that is still being placed and one that is starting its container', () => {
+  it('counts only the stage whose own label says the image is still coming down', () => {
     expect(isPullingImageStatus('provisioning')).toBe(true)
-    expect(isPullingImageStatus('starting')).toBe(true)
+    expect(TASK_STATUS_MESSAGE.provisioning).toContain('Pulling image')
+  })
+
+  it('stops the moment the task reports the image is already pulled', () => {
+    expect(isPullingImageStatus('starting')).toBe(false)
+    expect(TASK_STATUS_MESSAGE.starting).toContain('Image pulled')
   })
 
   it('stops counting once the task is waiting on health checks', () => {
@@ -128,6 +139,6 @@ describe('which tasks are pulling', () => {
   })
 
   it('reports a pull while any one task is still fetching, however many are healthy', () => {
-    expect(isPullingImage(statuses('healthy', 'healthy', 'starting'))).toBe(true)
+    expect(isPullingImage(statuses('healthy', 'healthy', 'provisioning'))).toBe(true)
   })
 })

@@ -9,8 +9,8 @@ import {
 } from '../canvas/initial-graph'
 import { buildRequestItinerary, divertToWriter, queriesForNextRequest } from '../simulation/request-itinerary'
 import {
-  MIN_IMAGE_PULL_SECONDS,
   buildImagePullItinerary,
+  fitsInsideThePull,
   imagePullSpeed,
   type ImagePullLegs,
 } from '../simulation/image-pull'
@@ -368,8 +368,6 @@ export function usePacketFlow({
         if (pullsInFlight.current.has(route.registryEgressEdgeId)) continue
         if (packets.current.length >= MAX_LIVE_PACKETS) continue
 
-        if (route.secondsRemaining < MIN_IMAGE_PULL_SECONDS) continue
-
         const geometryCache = new Map<string, PathGeometry | null>()
         const shape = buildImagePullItinerary(route, inputs.current.liveEdgeIds)
         if (shape.length === 0) continue
@@ -378,7 +376,7 @@ export function usePacketFlow({
           (total, entry) => total + (readGeometry(entry.edgeId, geometryCache)?.length ?? 0),
           0,
         )
-        if (routeLength === 0) continue
+        if (!fitsInsideThePull(routeLength, route.secondsRemaining)) continue
 
         const legs = buildImagePullItinerary(
           route,

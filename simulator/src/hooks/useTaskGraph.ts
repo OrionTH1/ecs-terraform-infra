@@ -19,7 +19,7 @@ import { isPullingImageStatus, pullSecondsRemaining, type ImagePullLegs } from '
 import { TASK_LIFECYCLE } from '../simulation/simulation-config'
 import { useSimulationStore } from '../store/useSimulationStore'
 
-const IMAGE_PULL_DURATION_MS = TASK_LIFECYCLE.provisioningMs + TASK_LIFECYCLE.startingMs
+const IMAGE_PULL_DURATION_MS = TASK_LIFECYCLE.provisioningMs
 import { isRegisteredTarget } from '../simulation/target-group'
 import { useLeavingTasks } from './useLeavingTasks'
 import { useTaskColumnLayout } from './useTaskColumnLayout'
