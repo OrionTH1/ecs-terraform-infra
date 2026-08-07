@@ -1,17 +1,24 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import type { useStoreApi } from '@xyflow/react'
 import { SPRITE_SIZE_PX, buildPacketSprites } from '../canvas/packet-sprites'
-import { PAGE_CACHE_EDGE_ID } from '../canvas/initial-graph'
-import { RDS_READ_FRACTION } from '../simulation/simulation-config'
+import {
+  JUNCTION_TO_READER_EDGE_ID,
+  JUNCTION_TO_WRITER_EDGE_ID,
+  PAGE_CACHE_EDGE_ID,
+  READER_TO_VOLUME_EDGE_ID,
+} from '../canvas/initial-graph'
+import { buildRequestItinerary, divertToWriter, queriesForNextRequest } from '../simulation/request-itinerary'
 import type { TaskRoute } from './useTaskGraph'
 import {
   MAX_LIVE_PACKETS,
   MAX_STALL_MS,
+  PACKET_LANE_OFFSET_PX,
   PACKET_SPEED_PX_PER_SECOND,
   REPLICATION_PACKET_SPEED_PX_PER_SECOND,
+  isRouteIntact,
   packetsPerSecond,
   pathElementId,
-  repairRoute,
+  type ItineraryLeg,
   type Packet,
   type PacketColor,
 } from '../simulation/packets'
@@ -20,7 +27,12 @@ const MAX_FRAME_DELTA_SECONDS = 0.1
 
 const MAX_PACKET_PIXEL_RATIO = 2
 
-const scratch = { x: 0, y: 0 }
+const scratch = { x: 0, y: 0, normalX: 0, normalY: 0 }
+
+const REPLICA_EDGES = {
+  instanceEdgeId: JUNCTION_TO_READER_EDGE_ID,
+  volumeEdgeId: READER_TO_VOLUME_EDGE_ID,
+}
 
 export interface PacketEntry {
   edgeId: string
@@ -51,16 +63,6 @@ interface DrawnPacket {
   color: PacketColor
 }
 
-interface RouteBuild {
-  route: string[]
-  legColors: PacketColor[]
-}
-
-const WRITES_EVERY = Math.round(1 / (1 - RDS_READ_FRACTION))
-
-function isCommittedWrite(packet: Packet): boolean {
-  return packet.route.at(-1) !== PAGE_CACHE_EDGE_ID && packet.legColors.at(-1) === 'write'
-}
 
 const SAMPLE_SPACING_PX = 16
 
@@ -84,7 +86,11 @@ function samplePath(element: SVGPathElement, length: number): PathGeometry {
   return { length, samples }
 }
 
-function pointAtProgress(geometry: PathGeometry, progress: number, into: { x: number; y: number }) {
+function pointAtProgress(
+  geometry: PathGeometry,
+  progress: number,
+  into: { x: number; y: number; normalX: number; normalY: number },
+) {
   const steps = geometry.samples.length / 2 - 1
   const scaled = Math.min(Math.max(progress, 0), 1) * steps
   const index = Math.min(Math.floor(scaled), steps - 1)
@@ -92,8 +98,17 @@ function pointAtProgress(geometry: PathGeometry, progress: number, into: { x: nu
 
   const x = geometry.samples[index * 2]
   const y = geometry.samples[index * 2 + 1]
-  into.x = x + (geometry.samples[(index + 1) * 2] - x) * fraction
-  into.y = y + (geometry.samples[(index + 1) * 2 + 1] - y) * fraction
+  const nextX = geometry.samples[(index + 1) * 2]
+  const nextY = geometry.samples[(index + 1) * 2 + 1]
+
+  into.x = x + (nextX - x) * fraction
+  into.y = y + (nextY - y) * fraction
+
+  const runX = nextX - x
+  const runY = nextY - y
+  const span = Math.hypot(runX, runY) || 1
+  into.normalX = -runY / span
+  into.normalY = runX / span
 }
 
 type Placement =
@@ -131,25 +146,44 @@ function advanceAlongRoute(
   deltaSeconds: number,
   cache: Map<string, PathGeometry | null>,
 ): Placement {
-  let remaining = packet.speedPxPerSecond * deltaSeconds
+  let remaining = deltaSeconds
 
-  while (packet.legIndex < packet.route.length) {
-    const geometry = readGeometry(packet.route[packet.legIndex], cache)
+  while (packet.legIndex < packet.legs.length) {
+    const leg = packet.legs[packet.legIndex]
+    const geometry = readGeometry(leg.edgeId, cache)
     if (!geometry) return { kind: 'stalled' }
 
-    const distanceLeft = (1 - packet.legProgress) * geometry.length
-    if (remaining < distanceLeft) {
-      packet.legProgress += remaining / geometry.length
-      pointAtProgress(geometry, packet.legProgress, scratch)
-      return { kind: 'moving', x: scratch.x, y: scratch.y, legIndex: packet.legIndex }
+    const secondsForLeg = geometry.length / leg.speedPxPerSecond
+    const secondsLeft = (1 - packet.legProgress) * secondsForLeg
+
+    if (remaining < secondsLeft) {
+      packet.legProgress += remaining / secondsForLeg
+      pointAtProgress(geometry, leg.reversed ? 1 - packet.legProgress : packet.legProgress, scratch)
+
+      const lane = leg.reversed ? PACKET_LANE_OFFSET_PX : -PACKET_LANE_OFFSET_PX
+      return {
+        kind: 'moving',
+        x: scratch.x + scratch.normalX * lane,
+        y: scratch.y + scratch.normalY * lane,
+        legIndex: packet.legIndex,
+      }
     }
 
-    remaining -= distanceLeft
+    remaining -= secondsLeft
     packet.legIndex += 1
     packet.legProgress = 0
   }
 
   return { kind: 'arrived' }
+}
+
+function justCommittedAWrite(packet: Packet, previousLegIndex: number): boolean {
+  for (let index = previousLegIndex; index < Math.min(packet.legIndex, packet.legs.length); index += 1) {
+    const leg = packet.legs[index]
+    if (leg.edgeId === JUNCTION_TO_WRITER_EDGE_ID && !leg.reversed) return true
+  }
+
+  return false
 }
 
 export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds, canvas, store }: PacketFlowOptions) {
@@ -218,7 +252,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
       requestsPerMinute: number,
       deltaSeconds: number,
       color: PacketColor,
-      buildRoute: () => RouteBuild,
+      buildLegs: () => ItineraryLeg[],
       carried: Map<string, number>,
     ) {
       const rate = packetsPerSecond(requestsPerMinute)
@@ -227,8 +261,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
       while (remaining >= 1 && packets.current.length < MAX_LIVE_PACKETS) {
         packets.current.push({
           id: nextPacketId.current++,
-          ...buildRoute(),
-          speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND,
+          legs: buildLegs(),
           legIndex: 0,
           legProgress: 0,
           stalledSince: null,
@@ -256,24 +289,18 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
               const taskRoute = taskRoutes[rotation.current % taskRoutes.length]
               rotation.current += 1
 
-              const isWrite = writeRotation.current % WRITES_EVERY === 0
+              const queries = queriesForNextRequest(writeRotation.current, Math.random())
               writeRotation.current += 1
 
-              const databaseLeg = isWrite ? taskRoute.writeLeg : taskRoute.readLeg
-              if (taskRoute.junctionEdgeId === null || databaseLeg === null) {
-                return { route: [entry.edgeId, taskRoute.albEdgeId], legColors: ['default', 'default'] }
-              }
-
-              const databaseColor: PacketColor = isWrite ? 'write' : 'default'
-              const route = [entry.edgeId, taskRoute.albEdgeId, taskRoute.junctionEdgeId, databaseLeg.instanceEdgeId]
-              const legColors: PacketColor[] = ['default', 'default', 'default', databaseColor]
-
-              if (inputs.current.liveEdgeIds.has(databaseLeg.volumeEdgeId)) {
-                route.push(databaseLeg.volumeEdgeId)
-                legColors.push(databaseColor)
-              }
-
-              return { route, legColors }
+              return buildRequestItinerary({
+                entryEdgeId: entry.edgeId,
+                albEdgeId: taskRoute.albEdgeId,
+                junctionEdgeId: taskRoute.junctionEdgeId,
+                readLegs: taskRoute.readLeg,
+                writeLegs: taskRoute.writeLeg,
+                queries,
+                liveEdgeIds: inputs.current.liveEdgeIds,
+              })
             },
             carried,
           )
@@ -286,7 +313,14 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
           entry.requestsPerMinute,
           deltaSeconds,
           entry.color,
-          () => ({ route: [entry.edgeId], legColors: [entry.color] }),
+          () => [
+            {
+              edgeId: entry.edgeId,
+              reversed: false,
+              color: entry.color,
+              speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND,
+            },
+          ],
           carried,
         )
       }
@@ -299,38 +333,48 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
       const alive: Packet[] = []
       let drawn = 0
       const { liveEdgeIds: currentLiveEdgeIds, taskRoutes } = inputs.current
-      const writeLeg = taskRoutes[0]?.writeLeg ?? null
-      const fallbackEdgeIds = writeLeg ? [writeLeg.instanceEdgeId, writeLeg.volumeEdgeId] : []
+      const writeLegs = taskRoutes[0]?.writeLeg ?? null
 
       const hasGraphChanged = currentLiveEdgeIds !== routedAgainst
       routedAgainst = currentLiveEdgeIds
 
       for (const packet of packets.current) {
-        if (hasGraphChanged) {
-          const repaired = repairRoute(packet, packet.legIndex, currentLiveEdgeIds, fallbackEdgeIds)
-          if (repaired === null) continue
-          packet.route = repaired.route
-          packet.legColors = repaired.legColors
+        if (hasGraphChanged && !isRouteIntact(packet.legs, packet.legIndex, currentLiveEdgeIds)) {
+          if (writeLegs === null) continue
+
+          const diverted = divertToWriter(packet.legs, packet.legIndex, REPLICA_EDGES, writeLegs)
+          if (!isRouteIntact(diverted, packet.legIndex, currentLiveEdgeIds)) continue
+
+          packet.legs = diverted
         }
 
+        const legBefore = packet.legIndex
         const placement = advanceAlongRoute(packet, deltaSeconds, cache)
 
-        if (placement.kind === 'arrived') {
-          if (isCommittedWrite(packet) && currentLiveEdgeIds.has(PAGE_CACHE_EDGE_ID) && alive.length < MAX_LIVE_PACKETS) {
-            alive.push({
-              id: nextPacketId.current++,
-              route: [PAGE_CACHE_EDGE_ID],
-              legColors: ['write'],
-              speedPxPerSecond: REPLICATION_PACKET_SPEED_PX_PER_SECOND,
-              legIndex: 0,
-              legProgress: 0,
-              stalledSince: null,
-              lastPosition: null,
-              color: 'write',
-            })
-          }
-          continue
+        if (
+          justCommittedAWrite(packet, legBefore) &&
+          currentLiveEdgeIds.has(PAGE_CACHE_EDGE_ID) &&
+          alive.length < MAX_LIVE_PACKETS
+        ) {
+          alive.push({
+            id: nextPacketId.current++,
+            legs: [
+              {
+                edgeId: PAGE_CACHE_EDGE_ID,
+                reversed: false,
+                color: 'write',
+                speedPxPerSecond: REPLICATION_PACKET_SPEED_PX_PER_SECOND,
+              },
+            ],
+            legIndex: 0,
+            legProgress: 0,
+            stalledSince: null,
+            lastPosition: null,
+            color: 'write',
+          })
         }
+
+        if (placement.kind === 'arrived') continue
 
         if (placement.kind === 'stalled') {
           const stalledSince = packet.stalledSince ?? now
@@ -359,7 +403,7 @@ export function usePacketFlow({ entries, taskRoutes, directEntries, liveEdgeIds,
         const entry = drawnPackets[drawn]
         entry.x = placement.x
         entry.y = placement.y
-        entry.color = packet.legColors[placement.legIndex] ?? packet.color
+        entry.color = packet.legs[placement.legIndex]?.color ?? packet.color
         drawn += 1
       }
 

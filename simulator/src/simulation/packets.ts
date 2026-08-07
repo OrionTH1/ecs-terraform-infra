@@ -1,23 +1,30 @@
 export const PACKET_SPEED_PX_PER_SECOND = 190
 export const REPLICATION_PACKET_SPEED_PX_PER_SECOND = 400
+export const DATABASE_SPEED_MULTIPLIER = 3
 export const MAX_LIVE_PACKETS = 260
 export const MAX_STALL_MS = 600
 
+export const PACKET_RADIUS = 3.5
+export const PACKET_GLOW_PX = 4
+export const PACKET_LANE_OFFSET_PX = 3.5
+
 const MIN_PACKETS_PER_SECOND = 0.8
-const MAX_PACKETS_PER_SECOND = 6
+const MAX_PACKETS_PER_SECOND = 3
 const REQUESTS_PER_SECOND_PER_PACKET = 4
 const SECONDS_PER_MINUTE = 60
 
 export type PacketColor = 'default' | 'write' | 'blocked'
 
-export const PACKET_RADIUS = 3.5
-export const PACKET_GLOW_PX = 4
+export interface ItineraryLeg {
+  edgeId: string
+  reversed: boolean
+  color: PacketColor
+  speedPxPerSecond: number
+}
 
 export interface Packet {
   id: number
-  route: string[]
-  legColors: PacketColor[]
-  speedPxPerSecond: number
+  legs: ItineraryLeg[]
   legIndex: number
   legProgress: number
   stalledSince: number | null
@@ -35,31 +42,12 @@ export function packetsPerSecond(requestsPerMinute: number): number {
   )
 }
 
-export interface PacketRoute {
-  route: string[]
-  legColors: PacketColor[]
-}
-
-export function repairRoute(
-  packet: PacketRoute,
-  currentLegIndex: number,
-  liveEdgeIds: Set<string>,
-  fallbackEdgeIds: string[],
-): PacketRoute | null {
-  const deadFrom = packet.route.findIndex((edgeId) => !liveEdgeIds.has(edgeId))
-  if (deadFrom === -1) return packet
-  if (deadFrom <= currentLegIndex) return null
-
-  const [instanceEdgeId, ...rest] = fallbackEdgeIds
-  if (instanceEdgeId === undefined || !liveEdgeIds.has(instanceEdgeId)) return null
-
-  const detour = [instanceEdgeId, ...rest.filter((edgeId) => liveEdgeIds.has(edgeId))]
-  const carriedColor = packet.legColors[deadFrom] ?? packet.legColors.at(-1) ?? 'default'
-
-  return {
-    route: [...packet.route.slice(0, deadFrom), ...detour],
-    legColors: [...packet.legColors.slice(0, deadFrom), ...detour.map(() => carriedColor)],
+export function isRouteIntact(legs: ItineraryLeg[], fromLegIndex: number, liveEdgeIds: Set<string>): boolean {
+  for (let index = fromLegIndex; index < legs.length; index += 1) {
+    if (!liveEdgeIds.has(legs[index].edgeId)) return false
   }
+
+  return true
 }
 
 export function pathElementId(edgeId: string): string {

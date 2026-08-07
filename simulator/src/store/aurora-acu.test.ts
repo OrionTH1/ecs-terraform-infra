@@ -62,10 +62,21 @@ describe('capacity under load', () => {
     expect(slots().writer?.acu).toBe(runningFloorAcu())
   })
 
-  it('pulls the writer up too once the write share alone needs more capacity', () => {
+  it('leaves the writer at the floor, since writes alone are a small share of the queries', () => {
     drive(10_000)
     advance(20 * 60_000)
 
+    expect(slots().writer?.acu).toBe(runningFloorAcu())
+  })
+
+  it('pulls the writer up once it has to absorb the reads as well', () => {
+    drive(10_000)
+    advance(20 * 60_000)
+
+    useSimulationStore.getState().killRdsInstance('reader')
+    advance(6 * 60_000)
+
+    expect(slots().reader?.lifecycle).toBe('provisioning')
     expect(slots().writer?.acu ?? 0).toBeGreaterThan(runningFloorAcu())
   })
 
@@ -80,12 +91,14 @@ describe('capacity under load', () => {
   it('releases capacity again once the load goes away', () => {
     drive(10_000)
     advance(20 * 60_000)
-    const underLoad = slots().writer?.acu ?? 0
+    const underLoad = slots().reader?.acu ?? 0
+
+    expect(underLoad).toBeGreaterThan(runningFloorAcu())
 
     drive(0)
     advance(20 * 60_000)
 
-    expect(slots().writer?.acu ?? 0).toBeLessThan(underLoad)
+    expect(slots().reader?.acu ?? 0).toBeLessThan(underLoad)
   })
 })
 

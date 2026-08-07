@@ -12,7 +12,8 @@ import {
   requestServiceTimeMs,
   snapToAcuStep,
 } from './aurora-capacity'
-import { AURORA_SERVERLESS, WORKLOAD } from './simulation-config'
+import { AURORA_SERVERLESS, AVERAGE_QUERIES_PER_REQUEST, WORKLOAD } from './simulation-config'
+
 
 const AWS_PUBLISHED_FULL_RANGE_MS = 22 * 60_000
 const AWS_PUBLISHED_FLOOR_ACU = 0.5
@@ -70,8 +71,8 @@ describe('demanded capacity', () => {
   })
 
   it('charges a request for every query it issues', () => {
-    expect(queriesForRequests(100)).toBe(100 * WORKLOAD.queriesPerRequest)
-    expect(requestServiceTimeMs(2)).toBeCloseTo(queryServiceTimeMs(2) * WORKLOAD.queriesPerRequest)
+    expect(queriesForRequests(100)).toBe(100 * AVERAGE_QUERIES_PER_REQUEST)
+    expect(requestServiceTimeMs(2)).toBeCloseTo(queryServiceTimeMs(2) * AVERAGE_QUERIES_PER_REQUEST)
   })
 })
 

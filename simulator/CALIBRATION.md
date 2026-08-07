@@ -65,7 +65,7 @@ Derivado do benchmark sysbench publicado no [blog do Aurora serverless](https://
 
 **Por que o benchmark é um proxy adequado:** o `oltp_read_only` mistura point select, range select, agregação e ordenação — o perfil de queries de uma rota com regra de negócio, que é o workload que este projeto modela. Se a base fosse o `SELECT 1` do placeholder, o número estaria ordens de grandeza errado para baixo.
 
-A unidade aqui é **query**, não request. A conversão para request é premissa de workload, não dado da AWS — ver `queriesPerRequest` abaixo.
+A unidade aqui é **query**, não request. A conversão para request é premissa de workload, não dado da AWS — ver `AVERAGE_QUERIES_PER_REQUEST` abaixo.
 
 O teste de escrita (`oltp_write_only`, 50M transações / 49 min / 63 ACU) daria ~270 tx/s por ACU, mas cada transação do sysbench agrupa várias sentenças, então o número não é comparável 1:1 com o de leitura. Por isso o modelo **não** inventa uma assimetria leitura/escrita: usa a única medida limpa e por unidade que a AWS publica.
 
@@ -75,18 +75,21 @@ Estes não são dados da AWS nem valores do Terraform. São o perfil do backend 
 
 | Constante | Valor | Premissa |
 |---|---|---|
-| `WORKLOAD.queriesPerRequest` | 3 | Uma request autenticada típica: uma query de sessão/token mais duas de regra de negócio. Move direto a demanda de ACU, então é a premissa de maior alavancagem do modelo. |
+| `WORKLOAD.minQueriesPerRequest` / `maxQueriesPerRequest` | 1 / 3 | Rotas fazem trabalhos diferentes: uma leitura simples resolve em uma query, uma rota autenticada com regra de negócio chega a três. O simulador sorteia dentro do intervalo por request. |
+| `AVERAGE_QUERIES_PER_REQUEST` | 2 | **Derivado** da média do intervalo acima, não escrito à mão. É o que o modelo de capacidade usa. Amarrar os dois impede que a tela e o dimensionamento discordem se o intervalo mudar. |
 | `WORKLOAD.targetAcuUtilization` | 0,7 | A AWS **não publica** o limiar de utilização que dispara o scale-up — confirmado na doc e no blog de faixa de ACU. O modelo provisiona para 70% de ocupação, deixando a curva de fila na parte plana em vez de escalar só quando já está saturado. |
 | `LATENCY.appServiceTimeMs` | 24 | Tempo de **ocupação** da task por request, não CPU pura. A task tem 0,25 vCPU, então 24ms de ocupação equivalem a ~6ms de core cheio — plausível para Node com auth, serialização e regra de negócio. |
 
 O que essas premissas produzem, com o teto de 10 tasks × 1000 req/min:
 
-| Cenário | Carga no banco | ACU | Utilização |
-|---|---|---|---|
-| Ocioso | 0 | 0,5 | — |
-| Normal, 2 tasks no target | 6.000 q/min | 1 | 0,35 |
-| Teto do ECS | 30.000 q/min | 3 | 0,59 |
-| Runaway, tasks saturadas | 75.000 q/min | 4 (no teto) | 1,10 — satura |
+| Cenário | Writer | Reader |
+|---|---|---|
+| Ocioso | 0,5 | 0,5 |
+| Teto do ECS, split 80/20 | 0,5 | 1,5 |
+| Teto do ECS, réplica perdida | **2** | — |
+| Runaway, tasks saturadas | 1 | 3,5 |
+
+Com média de 2 consultas por request, o writer não sai do piso em operação normal — as escritas são 20% de um total já menor. Ele só cresce quando absorve as leituras após perder a réplica, e é esse caso que continua dimensionando o teto.
 
 O teto de 4 ACU foi escolhido para caber o pico normal com um passo de folga, e para que o runaway bata no limite em vez de escalar indefinidamente — que é a função de um teto.
 

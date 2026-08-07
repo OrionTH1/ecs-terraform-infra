@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { repairRoute, type PacketColor } from './packets'
+import { isRouteIntact, PACKET_SPEED_PX_PER_SECOND, type ItineraryLeg } from './packets'
+import { divertToWriter } from './request-itinerary'
 
 const ENTRY = 'user-to-alb'
 const ALB = 'alb-to-task'
@@ -9,77 +10,71 @@ const READER_VOLUME = 'reader-to-volume'
 const WRITER = 'junction-to-writer'
 const WRITER_VOLUME = 'writer-to-volume'
 
-const READ_ROUTE = {
-  route: [ENTRY, ALB, JUNCTION, READER, READER_VOLUME],
-  legColors: ['default', 'default', 'default', 'default', 'default'] as PacketColor[],
+const REPLICA = { instanceEdgeId: READER, volumeEdgeId: READER_VOLUME }
+const PRIMARY = { instanceEdgeId: WRITER, volumeEdgeId: WRITER_VOLUME }
+
+function leg(edgeId: string, reversed = false): ItineraryLeg {
+  return { edgeId, reversed, color: 'default', speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND }
 }
 
-const WRITER_FALLBACK = [WRITER, WRITER_VOLUME]
+const READ_ITINERARY = [
+  leg(ENTRY),
+  leg(ALB),
+  leg(JUNCTION),
+  leg(READER),
+  leg(READER_VOLUME),
+  leg(READER_VOLUME, true),
+  leg(READER, true),
+  leg(JUNCTION, true),
+  leg(ALB, true),
+  leg(ENTRY, true),
+]
 
-function live(...edgeIds: string[]): Set<string> {
-  return new Set(edgeIds)
-}
+const EVERYTHING_UP = new Set([ENTRY, ALB, JUNCTION, READER, READER_VOLUME, WRITER, WRITER_VOLUME])
+const REPLICA_DOWN = new Set([ENTRY, ALB, JUNCTION, WRITER, WRITER_VOLUME])
 
-const EVERYTHING_UP = live(ENTRY, ALB, JUNCTION, READER, READER_VOLUME, WRITER, WRITER_VOLUME)
-const READER_DOWN = live(ENTRY, ALB, JUNCTION, WRITER, WRITER_VOLUME)
+describe('checking whether the road ahead still exists', () => {
+  it('accepts a route whose every remaining edge is alive', () => {
+    expect(isRouteIntact(READ_ITINERARY, 0, EVERYTHING_UP)).toBe(true)
+  })
 
-describe('an intact route', () => {
-  it('is handed back untouched, without allocating a new one', () => {
-    expect(repairRoute(READ_ROUTE, 1, EVERYTHING_UP, WRITER_FALLBACK)).toBe(READ_ROUTE)
+  it('rejects a route that still has to cross a dead edge', () => {
+    expect(isRouteIntact(READ_ITINERARY, 0, REPLICA_DOWN)).toBe(false)
+  })
+
+  it('ignores dead edges the packet has already left behind', () => {
+    const alreadyPastTheReplica = 8
+
+    expect(isRouteIntact(READ_ITINERARY, alreadyPastTheReplica, REPLICA_DOWN)).toBe(true)
   })
 })
 
 describe('a replica lost while requests are in flight', () => {
-  it('keeps a request that is still crossing the load balancer edge', () => {
-    const repaired = repairRoute(READ_ROUTE, 0, READER_DOWN, WRITER_FALLBACK)
+  it('sends the remaining database legs to the writer instead', () => {
+    const diverted = divertToWriter(READ_ITINERARY, 0, REPLICA, PRIMARY)
 
-    expect(repaired).not.toBeNull()
-    expect(repaired?.route).toEqual([ENTRY, ALB, JUNCTION, WRITER, WRITER_VOLUME])
+    expect(isRouteIntact(diverted, 0, REPLICA_DOWN)).toBe(true)
+    expect(diverted.map((entry) => entry.edgeId)).toEqual([
+      ENTRY, ALB, JUNCTION, WRITER, WRITER_VOLUME, WRITER_VOLUME, WRITER, JUNCTION, ALB, ENTRY,
+    ])
   })
 
-  it('keeps a request that has already reached the task', () => {
-    const repaired = repairRoute(READ_ROUTE, 2, READER_DOWN, WRITER_FALLBACK)
+  it('leaves the legs already travelled untouched', () => {
+    const halfway = 5
+    const diverted = divertToWriter(READ_ITINERARY, halfway, REPLICA, PRIMARY)
 
-    expect(repaired?.route).toEqual([ENTRY, ALB, JUNCTION, WRITER, WRITER_VOLUME])
+    expect(diverted.slice(0, halfway)).toEqual(READ_ITINERARY.slice(0, halfway))
   })
 
-  it('leaves the legs already travelled exactly as they were', () => {
-    const repaired = repairRoute(READ_ROUTE, 1, READER_DOWN, WRITER_FALLBACK)
+  it('keeps each leg pointing the same way it was going', () => {
+    const diverted = divertToWriter(READ_ITINERARY, 0, REPLICA, PRIMARY)
 
-    expect(repaired?.route.slice(0, 3)).toEqual([ENTRY, ALB, JUNCTION])
+    expect(diverted.map((entry) => entry.reversed)).toEqual(READ_ITINERARY.map((entry) => entry.reversed))
   })
 
-  it('keeps the rerouted legs coloured as the read they still are', () => {
-    const repaired = repairRoute(READ_ROUTE, 1, READER_DOWN, WRITER_FALLBACK)
+  it('does not touch a route that never involved the replica', () => {
+    const writeItinerary = [leg(ENTRY), leg(ALB), leg(JUNCTION), leg(WRITER)]
 
-    expect(repaired?.legColors).toEqual(['default', 'default', 'default', 'default', 'default'])
-  })
-
-  it('drops only the request that was already crossing the dead instance edge', () => {
-    expect(repairRoute(READ_ROUTE, 3, READER_DOWN, WRITER_FALLBACK)).toBeNull()
-  })
-})
-
-describe('when there is nowhere to fall back to', () => {
-  it('drops the request if the writer is gone as well', () => {
-    expect(repairRoute(READ_ROUTE, 1, live(ENTRY, ALB, JUNCTION), WRITER_FALLBACK)).toBeNull()
-  })
-
-  it('drops the request when the cluster offers no fallback at all', () => {
-    expect(repairRoute(READ_ROUTE, 1, READER_DOWN, [])).toBeNull()
-  })
-
-  it('still reroutes when only the shared volume edge is missing', () => {
-    const repaired = repairRoute(READ_ROUTE, 1, live(ENTRY, ALB, JUNCTION, WRITER), WRITER_FALLBACK)
-
-    expect(repaired?.route).toEqual([ENTRY, ALB, JUNCTION, WRITER])
-  })
-})
-
-describe('a single-leg replication packet', () => {
-  it('is dropped when its own edge disappears, having nowhere else to go', () => {
-    const pulse = { route: ['page-cache'], legColors: ['write'] as PacketColor[] }
-
-    expect(repairRoute(pulse, 0, live(WRITER), WRITER_FALLBACK)).toBeNull()
+    expect(divertToWriter(writeItinerary, 0, REPLICA, PRIMARY)).toEqual(writeItinerary)
   })
 })
