@@ -300,11 +300,11 @@
 }
 
 .react-flow .react-flow__handle-left.sg-handle {
-  left: -19px;
+  left: -11px;
 }
 
 .react-flow .react-flow__handle-right.sg-handle {
-  right: -19px;
+  right: -11px;
 }
 
 .react-flow .react-flow__handle.sg-handle.connectionindicator,
