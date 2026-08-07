@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
-export const COMPACT_VIEWPORT_QUERY = '(max-width: 767px)'
+export const COMPACT_VIEWPORT_QUERY = '(max-width: 767px), (max-height: 559px)'
 
 function subscribe(query: string) {
   return (onChange: () => void) => {
