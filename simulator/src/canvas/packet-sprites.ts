@@ -2,7 +2,11 @@ import { PACKET_GLOW_PX, PACKET_RADIUS, type PacketColor } from '../simulation/p
 
 const SPRITE_RESOLUTION = 6
 const RESPONSE_RING_WIDTH_PX = 1.4
-const RESPONSE_TOKEN = '--color-status-healthy'
+const RESPONSE_TOKEN: Record<PacketColor, string> = {
+  default: '--color-status-healthy',
+  write: '--color-status-healthy',
+  blocked: '--color-status-error',
+}
 
 const COLOR_TOKEN: Record<PacketColor, string> = {
   default: '--color-border-interaction',
@@ -22,7 +26,7 @@ export type PacketShape = 'request' | 'response'
 
 export interface PacketSprites {
   request: Record<PacketColor, HTMLCanvasElement>
-  response: HTMLCanvasElement
+  response: Record<PacketColor, HTMLCanvasElement>
 }
 
 function readToken(name: string): string {
@@ -85,6 +89,10 @@ export function buildPacketSprites(): PacketSprites {
       write: drawSprite(COLOR_TOKEN.write, GLOW_ALPHA.write, 'request'),
       blocked: drawSprite(COLOR_TOKEN.blocked, GLOW_ALPHA.blocked, 'request'),
     },
-    response: drawSprite(RESPONSE_TOKEN, 0.5, 'response'),
+    response: {
+      default: drawSprite(RESPONSE_TOKEN.default, 0.5, 'response'),
+      write: drawSprite(RESPONSE_TOKEN.write, 0.5, 'response'),
+      blocked: drawSprite(RESPONSE_TOKEN.blocked, 0.5, 'response'),
+    },
   }
 }

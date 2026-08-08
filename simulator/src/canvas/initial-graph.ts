@@ -293,7 +293,7 @@ export const initialNodes: SimulatorFlowNode[] = [
     data: {
       label: 'Web ACL',
       tooltip:
-        'AWS WAF is not a hop in front of the load balancer — the Web ACL is associated with the ALB, which evaluates it on every request before routing. Clients always talk to the ALB directly. The rate-based rule counts requests per source IP over a sliding 5-minute window, re-evaluated every 30 seconds, and blocked requests keep counting toward that window: lowering your rate does not unblock you until the window drains.',
+        'AWS WAF is not a hop in front of the load balancer — the Web ACL is associated with the ALB, which evaluates it on every request before routing. Clients always talk to the ALB directly. The rate-based rule counts requests per source IP over a sliding 5-minute window, re-evaluated every 30 seconds, and blocked requests keep counting toward that window: lowering your rate does not unblock you until the window drains. A blocked request never reaches a task — the load balancer answers it with 403, the default response for a WAF block action.',
       status: 'idle',
       inspectedRequestsPerMinute: 0,
       blockedRequests: 0,

@@ -8,6 +8,8 @@ import { WafIcon } from '../../icons'
 const RATE_LIMIT_LABEL = `${WAF.rateLimitPer5Min.toLocaleString('en-US')} req / 5 min per IP`
 
 const MAX_LISTED_IPS = 2
+const BLOCK_RESPONSE_CODE = 403
+
 const RESERVED_CONTENT_HEIGHT = 'min-h-[190px]'
 
 export function WafNode({ data }: NodeProps<WafFlowNode>) {
@@ -53,7 +55,7 @@ export function WafNode({ data }: NodeProps<WafFlowNode>) {
         ) : null}
 
         <span className="mt-auto font-mono text-[11px] tabular-nums text-fg-muted">
-          {Math.round(data.blockedRequests).toLocaleString('en-US')} requests blocked
+          {Math.round(data.blockedRequests).toLocaleString('en-US')} requests blocked · {BLOCK_RESPONSE_CODE}
         </span>
       </div>
     </NodeCard>

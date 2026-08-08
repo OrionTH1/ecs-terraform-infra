@@ -207,6 +207,16 @@ function advanceAlongRoute(
   }
 }
 
+function rejectedAtTheDoor(edgeId: string, color: PacketColor): ItineraryLeg[] {
+  return [false, true].map((reversed) => ({
+    edgeId,
+    reversed,
+    color,
+    speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND,
+    entersNodeAtEnd: true,
+  }))
+}
+
 function justCommittedAWrite(packet: Packet, previousLegIndex: number): boolean {
   for (let index = previousLegIndex; index < Math.min(packet.legIndex, packet.legs.length); index += 1) {
     const leg = packet.legs[index]
@@ -281,7 +291,7 @@ export function usePacketFlow({
 
         if (screenX < -size || screenY < -size || screenX > cssWidth + size || screenY > cssHeight + size) continue
 
-        const sprite = packet.shape === 'response' ? sprites.response : sprites.request[packet.color]
+        const sprite = (packet.shape === 'response' ? sprites.response : sprites.request)[packet.color]
         context!.globalAlpha = packet.alpha
         context!.drawImage(sprite, screenX - half, screenY - half, size, size)
       }
@@ -408,15 +418,7 @@ export function usePacketFlow({
           entry.requestsPerMinute,
           deltaSeconds,
           entry.color,
-          () => [
-            {
-              edgeId: entry.edgeId,
-              reversed: false,
-              color: entry.color,
-              speedPxPerSecond: PACKET_SPEED_PX_PER_SECOND,
-              entersNodeAtEnd: true,
-            },
-          ],
+          () => rejectedAtTheDoor(entry.edgeId, entry.color),
           carried,
         )
       }
