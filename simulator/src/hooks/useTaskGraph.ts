@@ -266,12 +266,11 @@ export function useTaskGraph({
         .filter((task) => task.status === 'healthy')
         .map((task) => ({
           taskId: task.id,
-          requestsPerMinute: requestsByTaskId.get(task.id) ?? 0,
           junctionEdgeId: taskToLogsEdgeId(task.id),
           endpointEdgeId: LOGS_JUNCTION_TO_ENDPOINT_EDGE_ID,
           serviceEdgeId: ENDPOINT_TO_LOGS_EDGE_ID,
         })),
-    [orderedTasks, requestsByTaskId],
+    [orderedTasks],
   )
 
   const secretFetches = useMemo(

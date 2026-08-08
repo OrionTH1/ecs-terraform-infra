@@ -3,6 +3,7 @@ import type { useStoreApi } from '@xyflow/react'
 import { useSimulationStore } from '../store/useSimulationStore'
 import { SPRITE_SIZE_PX, buildPacketSprites, type PacketShape } from '../canvas/packet-sprites'
 import {
+  albToTaskEdgeId,
   JUNCTION_TO_READER_EDGE_ID,
   JUNCTION_TO_WRITER_EDGE_ID,
   PAGE_CACHE_EDGE_ID,
@@ -226,6 +227,15 @@ function rejectedAtTheDoor(edgeId: string, color: PacketColor): ItineraryLeg[] {
   }))
 }
 
+function edgeJustReached(packet: Packet, previousLegIndex: number): string | null {
+  for (let index = previousLegIndex; index < Math.min(packet.legIndex, packet.legs.length); index += 1) {
+    const leg = packet.legs[index]
+    if (!leg.reversed) return leg.edgeId
+  }
+
+  return null
+}
+
 function justCommittedAWrite(packet: Packet, previousLegIndex: number): boolean {
   for (let index = previousLegIndex; index < Math.min(packet.legIndex, packet.legs.length); index += 1) {
     const leg = packet.legs[index]
@@ -436,17 +446,6 @@ export function usePacketFlow({
         })
       }
 
-      for (const shipment of inputs.current.logShipments) {
-        spawnAlong(
-          shipment.junctionEdgeId,
-          shipment.requestsPerMinute,
-          deltaSeconds,
-          'default',
-          () => buildLogShipment(shipment, inputs.current.liveEdgeIds),
-          carried,
-        )
-      }
-
       for (const fetch of inputs.current.secretFetches) {
         if (pullsInFlight.current.has(fetch.endpointEdgeId)) continue
 
@@ -489,6 +488,9 @@ export function usePacketFlow({
       const writeLegs = taskRoutes[0]?.writeLeg ?? null
       const pullingTaskIdByRouteKey = new Map(imagePullRoutes.map((route) => [route.registryEgressEdgeId, route.taskId]))
       for (const fetch of inputs.current.secretFetches) pullingTaskIdByRouteKey.set(fetch.endpointEdgeId, '')
+      const logRouteByAlbEdgeId = new Map(
+        inputs.current.logShipments.map((shipment) => [albToTaskEdgeId(shipment.taskId), shipment]),
+      )
       const pullingRouteKeys = new Set([
         ...imagePullRoutes.map((route) => route.registryEgressEdgeId),
         ...secretFetches.map((fetch) => fetch.endpointEdgeId),
@@ -521,6 +523,26 @@ export function usePacketFlow({
 
         const legBefore = packet.legIndex
         const placement = advanceAlongRoute(packet, now, deltaSeconds, cache)
+
+        const reachedEdgeId = packet.routeKey === null ? edgeJustReached(packet, legBefore) : null
+        const logRoute = reachedEdgeId === null ? undefined : logRouteByAlbEdgeId.get(reachedEdgeId)
+
+        if (logRoute !== undefined && alive.length < MAX_LIVE_PACKETS) {
+          const legs = buildLogShipment(logRoute, currentLiveEdgeIds)
+          if (legs.length > 0) {
+            alive.push({
+              id: nextPacketId.current++,
+              routeKey: null,
+              legs,
+              legIndex: 0,
+              legProgress: 0,
+              dwellUntil: null,
+              stalledSince: null,
+              lastPosition: null,
+              color: 'default',
+            })
+          }
+        }
 
         if (
           justCommittedAWrite(packet, legBefore) &&

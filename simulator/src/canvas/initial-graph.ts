@@ -255,9 +255,9 @@ const INITIAL_REGIONAL_SERVICES = regionalServicePositions(INITIAL_ZONES.vpc, IN
 
 export const LOGS_JUNCTION_SIZE = 12
 
-export function logsJunctionPosition(serviceFrame: FrameBox): XYPosition {
+export function logsJunctionPosition(vpcFrame: FrameBox, serviceFrame: FrameBox): XYPosition {
   return {
-    x: serviceFrame.position.x + serviceFrame.width / 2 - LOGS_JUNCTION_SIZE / 2,
+    x: doorPositions(vpcFrame, serviceFrame).interface.x + DOOR_WIDTH / 2 - LOGS_JUNCTION_SIZE / 2,
     y: serviceFrame.position.y + serviceFrame.height + LOGS_JUNCTION_GAP,
   }
 }
@@ -516,7 +516,7 @@ export const initialNodes: SimulatorFlowNode[] = [
   {
     id: LOGS_JUNCTION_NODE_ID,
     type: 'dbJunction',
-    position: logsJunctionPosition(INITIAL_SERVICE_FRAME),
+    position: logsJunctionPosition(INITIAL_ZONES.vpc, INITIAL_SERVICE_FRAME),
     data: {},
     draggable: false,
     deletable: false,

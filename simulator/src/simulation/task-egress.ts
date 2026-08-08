@@ -5,7 +5,6 @@ const SECRET_FETCH_STATUSES: TaskStatus[] = ['starting']
 
 export interface LogShipmentLegs {
   taskId: string
-  requestsPerMinute: number
   junctionEdgeId: string
   endpointEdgeId: string
   serviceEdgeId: string

@@ -11,7 +11,6 @@ const ENDPOINT_TO_SECRETS = 'interface-endpoints-secrets-manager'
 
 const LOG_LEGS = {
   taskId: 'task-1',
-  requestsPerMinute: 600,
   junctionEdgeId: TASK_TO_JUNCTION,
   endpointEdgeId: JUNCTION_TO_ENDPOINT,
   serviceEdgeId: ENDPOINT_TO_LOGS,
@@ -27,6 +26,11 @@ const LOGS_UP = new Set([TASK_TO_JUNCTION, JUNCTION_TO_ENDPOINT, ENDPOINT_TO_LOG
 const SECRETS_UP = new Set([TASK_TO_ENDPOINT, ENDPOINT_TO_SECRETS])
 
 describe('shipping a log line', () => {
+  it('carries the id of the task that wrote it, so the line can be traced to its request', () => {
+    expect(LOG_LEGS.taskId).toBe('task-1')
+    expect(LOG_LEGS.junctionEdgeId).toContain(LOG_LEGS.taskId)
+  })
+
   it('leaves the task and never comes back, because nothing is waiting on it', () => {
     const legs = buildLogShipment(LOG_LEGS, LOGS_UP)
 

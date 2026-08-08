@@ -119,7 +119,7 @@ export function useNetworkZoneLayout({ serviceFrame }: NetworkZoneLayoutArgs): N
         [CLOUDWATCH_LOGS_NODE_ID, regionalServices.logs],
         [SECRETS_MANAGER_NODE_ID, regionalServices.secrets],
         [LAYER_STORAGE_NODE_ID, regionalServices.storage],
-        [LOGS_JUNCTION_NODE_ID, logsJunctionPosition(serviceFrame)],
+        [LOGS_JUNCTION_NODE_ID, logsJunctionPosition(zones.vpc, serviceFrame)],
       ]),
       wafPosition: { x: ALB_POSITION.x, y: zones.controlPlaneBottom - wafHeight },
       autoScalingPosition: { x: TASK_COLUMN_X, y: zones.controlPlaneBottom - autoScalingHeight },
