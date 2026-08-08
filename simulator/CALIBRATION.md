@@ -22,8 +22,7 @@ Sobre a origem 3: `backend/` é uma imagem placeholder para dar ao ECS algo que 
 | `HEALTH_CHECK.healthyThreshold` | 2 | `alb` health_check `healthy_threshold` |
 | `TASK_LIFECYCLE.registeringMs` | 60s | `healthy_threshold × interval` — um target novo precisa passar 2 checks consecutivos espaçados de 30s |
 | `WAF.rateLimitPer5Min` | 2000 | `waf.rate_limit_per_5min` |
-| `AURORA_SERVERLESS.minAcu` / `maxAcu` | 0 / 4 | `rds.min_capacity_acu` / `max_capacity_acu` |
-| `AURORA_SERVERLESS.secondsUntilAutoPause` | 3600 | `rds.seconds_until_auto_pause` |
+| `AURORA_SERVERLESS.minAcu` / `maxAcu` | 0,5 / 4 | `rds.min_capacity_acu` / `max_capacity_acu`, por instância |
 | `AURORA_SERVERLESS.promotionTier` | 0 | `aws_rds_cluster_instance` não define `promotion_tier`; o default do provider AWS é 0 |
 
 | `VPC_CIDR` | 10.0.0.0/16 | `network.vpc_cidr` |
@@ -43,7 +42,6 @@ A métrica de autoscaling é `ALBRequestCountPerTarget`, não CPU — igual ao `
 | Constante | Valor | Fonte |
 |---|---|---|
 | `acuStep` | 0,5 ACU | [How Aurora serverless works](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-serverless-v2.how-it-works.html) — *"Scaling happens in increments as small as 0.5 ACUs"* |
-| `resumeMs` | 15.000 | [Scaling to Zero](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-serverless-v2-auto-pause.html) — *"the typical time to resume might be approximately 15 seconds"* |
 
 Um ACU é *"approximately 2 gibibytes (GiB) of memory, corresponding CPU, and networking"*. A capacidade é reavaliada a cada segundo.
 
@@ -139,5 +137,7 @@ Registrados aqui para não passarem por calibrados:
 - **A duração continua sendo `provisioningMs`.** A velocidade do pacote é derivada dela dividida pela escala de tempo, então a chegada acontece no tempo calibrado e o cold start segue significando o que dizia. O que o controle de velocidade muda é a velocidade de viagem, não a duração do estágio.
 - **O dwell do pull escala com a simulação** (`PACKET_DWELL_MS / timeScale`), diferente do dwell das requests, que é fixo. São 8 paradas no trajeto; a 25× um dwell fixo custaria 44s simulados contra um orçamento de 12s, e o estágio nunca fecharia. A pausa representa processamento num node, que é tempo simulado.
 - **Rede de segurança:** se o pacote morrer no caminho (aresta some, geometria ausente, stall), a conclusão dispara mesmo assim, e o store ainda tem um timeout de `provisioningMs * 3`. Nenhum dos dois deve acontecer em operação normal — existem para a simulação não travar.
+- **A faixa de ACU vale por instância, não pelo cluster.** A AWS: *"This capacity range applies to every Aurora serverless DB instance in the cluster."* Com duas instâncias e faixa 0,5–4, o cluster consome entre 1 e 8 ACU. O simulador mostra ACU por instância, que é o que o console mostra.
+- **`minAcu` = 0,5 e não 0.** Zero liga o auto-pause, que a AWS posiciona para dev e teste: *"helps to manage costs for systems that don't have a stringent service level objective… clusters used for development and testing."* O `CLAUDE.md` define esta infra como serviço de produção, então o auto-pause foi desligado. `seconds_until_auto_pause` saiu junto — a AWS remove a propriedade quando o mínimo é maior que zero.
 - **Qual instância Aurora fica em qual AZ.** O simulador rotula a instância `[0]` como `us-east-1a` e a `[1]` como `us-east-1b`. O Terraform não escolhe isso: `aws_rds_cluster_instance` não recebe `availability_zone`, e o RDS distribui as instâncias entre as AZs do `db_subnet_group` por conta própria. O que o Terraform garante é que as duas subnets privadas estão em AZs diferentes — a atribuição específica é uma suposição para o desenho, e é o que dá sentido visual ao failover.
 - `max_connections` a 2 ACU. A tabela da AWS publica 189 (1 ACU) e 823 (4 ACU) para Aurora PostgreSQL, mas não o valor de 2 ACU. O simulador não usa esse número justamente por isso — interpolar seria inventar.

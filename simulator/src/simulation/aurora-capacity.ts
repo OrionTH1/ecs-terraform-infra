@@ -55,10 +55,3 @@ export function advanceAcu(current: number, target: number, deltaMs: number): nu
 export function readerFloorAcu(writerAcu: number, promotionTier: number): number {
   return promotionTier <= 1 ? writerAcu : AURORA_SERVERLESS.minAcu
 }
-
-export function isPausable(acu: number, idleMs: number, hasOpenConnections: boolean): boolean {
-  if (hasOpenConnections) return false
-  if (AURORA_SERVERLESS.minAcu > 0) return false
-
-  return acu > 0 && idleMs >= AURORA_SERVERLESS.secondsUntilAutoPause * MS_PER_SECOND
-}

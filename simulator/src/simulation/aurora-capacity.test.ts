@@ -5,7 +5,6 @@ import {
   clampAcu,
   demandedAcu,
   runningFloorAcu,
-  isPausable,
   readerFloorAcu,
   queryServiceTimeMs,
   queriesForRequests,
@@ -77,9 +76,12 @@ describe('demanded capacity', () => {
 })
 
 describe('the floor of a running instance', () => {
-  it('never drops a live instance to zero, because zero is the paused state', () => {
-    expect(runningFloorAcu()).toBe(AURORA_SERVERLESS.acuStep)
-    expect(runningFloorAcu()).toBeGreaterThan(AURORA_SERVERLESS.minAcu)
+  it('rests at the minimum the cluster is configured for', () => {
+    expect(runningFloorAcu()).toBe(AURORA_SERVERLESS.minAcu)
+  })
+
+  it('never sits below one scaling step, since capacity cannot be finer than that', () => {
+    expect(runningFloorAcu()).toBeGreaterThanOrEqual(AURORA_SERVERLESS.acuStep)
   })
 })
 
@@ -127,25 +129,5 @@ describe('reader tied to the writer by promotion tier', () => {
 
   it('uses the tier this repo actually provisions', () => {
     expect(readerFloorAcu(3, AURORA_SERVERLESS.promotionTier)).toBe(3)
-  })
-})
-
-describe('auto-pause', () => {
-  const idleLongEnough = AURORA_SERVERLESS.secondsUntilAutoPause * 1000
-
-  it('pauses an idle instance once the configured interval elapses', () => {
-    expect(isPausable(0.5, idleLongEnough, false)).toBe(true)
-  })
-
-  it('never pauses while a connection is held open', () => {
-    expect(isPausable(0.5, idleLongEnough, true)).toBe(false)
-  })
-
-  it('does not pause before the interval elapses', () => {
-    expect(isPausable(0.5, idleLongEnough - 1, false)).toBe(false)
-  })
-
-  it('does not pause an instance that is already at zero', () => {
-    expect(isPausable(0, idleLongEnough, false)).toBe(false)
   })
 })

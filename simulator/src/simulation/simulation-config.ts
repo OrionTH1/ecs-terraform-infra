@@ -83,14 +83,11 @@ export const WORKLOAD = {
 }
 
 export const AURORA_SERVERLESS = {
-  minAcu: 0,
+  minAcu: 0.5,
   maxAcu: 4,
   acuStep: 0.5,
   queriesPerSecondPerAcu: 283,
   capacityDoublingMs: 147_000,
-  resumeMs: 15_000,
-  resumeAcu: 0.5,
-  secondsUntilAutoPause: 3600,
   promotionTier: 0,
 }
 
