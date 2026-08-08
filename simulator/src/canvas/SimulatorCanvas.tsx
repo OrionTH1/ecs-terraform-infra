@@ -21,6 +21,7 @@ import { SignalEdge } from '../edges/SignalEdge'
 import { ApplyConsole } from '../panels/ApplyConsole'
 import { CanvasControls } from '../panels/CanvasControls'
 import { PacketLayer } from './PacketLayer'
+import { splitAtTheDoor } from '../simulation/traffic-distribution'
 import { useSimulationClock } from '../hooks/useSimulationClock'
 import { useTrafficRouting } from '../hooks/useTrafficRouting'
 import { useNetworkZoneLayout } from '../hooks/useNetworkZoneLayout'
@@ -117,29 +118,29 @@ export function SimulatorCanvas() {
 
   const userEdges = useMemo(() => edges.filter((edge) => edge.target === ALB_NODE_ID), [edges])
 
-  const isRejectedAtAlb = useCallback(
-    (sourceId: string) => hasNoHealthyTargets || routing.blockedUserIds.has(sourceId),
-    [hasNoHealthyTargets, routing.blockedUserIds],
+  const splitFrom = useCallback(
+    (sourceId: string) =>
+      splitAtTheDoor(
+        routing.requestsByUserId.get(sourceId) ?? 0,
+        routing.deliveredByUserId.get(sourceId) ?? 0,
+        hasNoHealthyTargets,
+      ),
+    [routing.requestsByUserId, routing.deliveredByUserId, hasNoHealthyTargets],
   )
 
   const packetEntries = useMemo(
-    () =>
-      userEdges
-        .filter((edge) => !isRejectedAtAlb(edge.source))
-        .map((edge) => ({ edgeId: edge.id, requestsPerMinute: routing.deliveredByUserId.get(edge.source) ?? 0 })),
-    [userEdges, routing.deliveredByUserId, isRejectedAtAlb],
+    () => userEdges.map((edge) => ({ edgeId: edge.id, requestsPerMinute: splitFrom(edge.source).delivered })),
+    [userEdges, splitFrom],
   )
 
   const directPacketEntries = useMemo(
     () =>
-      userEdges
-        .filter((edge) => isRejectedAtAlb(edge.source))
-        .map((edge) => ({
-          edgeId: edge.id,
-          requestsPerMinute: routing.requestsByUserId.get(edge.source) ?? 0,
-          color: 'blocked' as const,
-        })),
-    [userEdges, routing.requestsByUserId, isRejectedAtAlb],
+      userEdges.map((edge) => ({
+        edgeId: edge.id,
+        requestsPerMinute: splitFrom(edge.source).turnedAway,
+        color: 'blocked' as const,
+      })),
+    [userEdges, splitFrom],
   )
 
   return (

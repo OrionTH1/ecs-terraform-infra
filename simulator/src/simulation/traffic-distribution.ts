@@ -13,3 +13,18 @@ export function splitReadWrite(totalRequests: number, readFraction: number): { r
   const reads = Math.round(totalRequests * readFraction)
   return { reads, writes: totalRequests - reads }
 }
+
+export interface UserTrafficSplit {
+  delivered: number
+  turnedAway: number
+}
+
+export function splitAtTheDoor(
+  requestsPerMinute: number,
+  deliveredPerMinute: number,
+  hasNoHealthyTargets: boolean,
+): UserTrafficSplit {
+  const delivered = hasNoHealthyTargets ? 0 : Math.min(deliveredPerMinute, requestsPerMinute)
+
+  return { delivered, turnedAway: Math.max(0, requestsPerMinute - delivered) }
+}

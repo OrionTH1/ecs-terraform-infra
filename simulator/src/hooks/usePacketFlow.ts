@@ -302,25 +302,25 @@ export function usePacketFlow({
     let routedAgainst: Set<string> | null = null
 
     function spawnAlong(
-      edgeId: string,
+      key: string,
       requestsPerMinute: number,
       deltaSeconds: number,
       color: PacketColor,
       buildLegs: () => ItineraryLeg[],
       carried: Map<string, number>,
     ) {
-      spawnAtRate(edgeId, packetsPerSecond(requestsPerMinute), deltaSeconds, color, buildLegs, carried)
+      spawnAtRate(key, packetsPerSecond(requestsPerMinute), deltaSeconds, color, buildLegs, carried)
     }
 
     function spawnAtRate(
-      edgeId: string,
+      key: string,
       rate: number,
       deltaSeconds: number,
       color: PacketColor,
       buildLegs: () => ItineraryLeg[],
       carried: Map<string, number>,
     ) {
-      let remaining = (pending.current.get(edgeId) ?? 0) + rate * deltaSeconds
+      let remaining = (pending.current.get(key) ?? 0) + rate * deltaSeconds
 
       while (remaining >= 1 && packets.current.length < MAX_LIVE_PACKETS) {
         const legs = buildLegs()
@@ -340,7 +340,7 @@ export function usePacketFlow({
         })
       }
 
-      carried.set(edgeId, rate > 0 ? remaining % 1 : 0)
+      carried.set(key, rate > 0 ? remaining % 1 : 0)
     }
 
     function spawn(deltaSeconds: number) {
@@ -414,7 +414,7 @@ export function usePacketFlow({
 
       for (const entry of currentDirectEntries) {
         spawnAlong(
-          entry.edgeId,
+          `${entry.edgeId}:blocked`,
           entry.requestsPerMinute,
           deltaSeconds,
           entry.color,
