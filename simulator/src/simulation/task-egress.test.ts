@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildLogShipment, buildSecretFetch, isFetchingSecret } from './task-egress'
+import { buildLogShipment, buildSecretFetch, hasEgressToEndpoints, isFetchingSecret } from './task-egress'
 import { TASK_STATUS_MESSAGE } from '../types/task-data'
 
 const TASK_TO_JUNCTION = 'task-1-logs-junction'
@@ -11,6 +11,7 @@ const ENDPOINT_TO_SECRETS = 'interface-endpoints-secrets-manager'
 
 const LOG_LEGS = {
   taskId: 'task-1',
+  requestsPerMinute: 600,
   junctionEdgeId: TASK_TO_JUNCTION,
   endpointEdgeId: JUNCTION_TO_ENDPOINT,
   serviceEdgeId: ENDPOINT_TO_LOGS,
@@ -58,6 +59,20 @@ describe('fetching the database password', () => {
 
   it('gives back nothing when the endpoint is unreachable', () => {
     expect(buildSecretFetch(SECRET_LEGS, new Set())).toEqual([])
+  })
+})
+
+describe('which tasks keep a way out to the endpoints', () => {
+  it('keeps the door open while the task pulls, starts and serves', () => {
+    expect(hasEgressToEndpoints('provisioning')).toBe(true)
+    expect(hasEgressToEndpoints('starting')).toBe(true)
+    expect(hasEgressToEndpoints('healthy')).toBe(true)
+  })
+
+  it('closes it once the task has nothing left to send', () => {
+    expect(hasEgressToEndpoints('registering')).toBe(false)
+    expect(hasEgressToEndpoints('draining')).toBe(false)
+    expect(hasEgressToEndpoints('failed')).toBe(false)
   })
 })
 

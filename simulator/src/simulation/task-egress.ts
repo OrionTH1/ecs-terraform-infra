@@ -1,12 +1,11 @@
 import { PACKET_SPEED_PX_PER_SECOND, type ItineraryLeg } from './packets'
 import type { TaskStatus } from '../types/task-data'
 
-export const LOG_LINES_PER_SECOND_PER_TASK = 0.6
-
 const SECRET_FETCH_STATUSES: TaskStatus[] = ['starting']
 
 export interface LogShipmentLegs {
   taskId: string
+  requestsPerMinute: number
   junctionEdgeId: string
   endpointEdgeId: string
   serviceEdgeId: string
@@ -24,6 +23,10 @@ function leg(edgeId: string, reversed: boolean, entersNodeAtEnd = true): Itinera
 
 export function isFetchingSecret(status: TaskStatus): boolean {
   return SECRET_FETCH_STATUSES.includes(status)
+}
+
+export function hasEgressToEndpoints(status: TaskStatus): boolean {
+  return status === 'provisioning' || status === 'starting' || status === 'healthy'
 }
 
 export function buildLogShipment(legs: LogShipmentLegs, liveEdgeIds: Set<string>): ItineraryLeg[] {

@@ -11,7 +11,6 @@ import {
 import { buildRequestItinerary, divertToWriter, queriesForNextRequest } from '../simulation/request-itinerary'
 import { servesFromCache } from '../simulation/aurora-cache'
 import {
-  LOG_LINES_PER_SECOND_PER_TASK,
   buildLogShipment,
   buildSecretFetch,
   type LogShipmentLegs,
@@ -438,9 +437,9 @@ export function usePacketFlow({
       }
 
       for (const shipment of inputs.current.logShipments) {
-        spawnAtRate(
+        spawnAlong(
           shipment.junctionEdgeId,
-          LOG_LINES_PER_SECOND_PER_TASK,
+          shipment.requestsPerMinute,
           deltaSeconds,
           'default',
           () => buildLogShipment(shipment, inputs.current.liveEdgeIds),

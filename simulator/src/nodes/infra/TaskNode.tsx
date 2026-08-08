@@ -11,7 +11,7 @@ import { RateReadout } from '../shared/RateReadout'
 import { SecurityGroupHandle } from '../shared/SecurityGroupHandle'
 import { StageProgress, type StageTone } from '../shared/StageProgress'
 import { TaskIcon } from '../../icons'
-import { isPullingImageStatus } from '../../simulation/image-pull'
+import { hasEgressToEndpoints } from '../../simulation/task-egress'
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
   provisioning: 'Provisioning',
@@ -72,7 +72,7 @@ export function TaskNode({ id, data }: NodeProps<TaskFlowNode>) {
         <>
           <SecurityGroupHandle nodeType="task" type="target" position={Position.Left} id="in" isConnectable={false} />
           <SecurityGroupHandle nodeType="task" type="source" position={Position.Right} id="out" isConnectable={false} />
-          {isPullingImageStatus(data.status) ? (
+          {hasEgressToEndpoints(data.status) ? (
             <Handle type="source" position={Position.Bottom} id="pull" isConnectable={false} />
           ) : null}
         </>
