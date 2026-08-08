@@ -86,11 +86,16 @@ ALB → ECS Service (N tasks) → (Aurora, opcional/decorativo). Posição arras
 Site estático em Vercel ou GitHub Pages, sem custo. Pode viver neste mesmo monorepo (ex.: `simulator/`) ou em repo próprio linkado no README principal — decisão de organização, não bloqueia o design acima.
 
 ## Falta
-- [ ] Um bug quando deleta o writer instances, todas requests são apagadas
-- [ ] Tentar tornar o ECS Cluster com duas colunas de ECS Tasks
-- [ ] Tentar criar representações visuais de requests de retorno, exemplo o Reader instance retornando uma response para a ECS Task
-- [ ] Tentar simular o S3, também com uma representação visual de retorno
-- [ ] Tentar descobrir o problema de perfomance quando dá zoom no ECS Cluster
+- [ ] Um bug quando deleta o writer instance, todas as requests são apagadas — **não verificado desde então**. O fallback de leitura para o writer foi implementado, mas o caso inverso (writer morto, leituras seguindo pelo reader) nunca foi testado de novo.
+- [ ] Simular o S3 da aplicação — uma rota do backend lendo ou gravando num bucket próprio. Diferente do S3 que já existe no desenho, que é onde o ECR guarda as camadas de imagem.
+
+## Resolvido
+- [x] Representações visuais de response de volta — toda request faz o circuito completo até o usuário, com anel verde na volta e faixas deslocadas para ida e volta não se sobreporem.
+- [x] Performance no zoom do ECS Cluster — a causa era `transition: transform` nos quatro tipos de node do cluster, que promovia camadas de composição a cada frame. De 25,8 fps para 77 fps em produção.
+- [x] S3 no caminho do image pull — com round trip completo, portas de VPC endpoint e o ECR devolvendo URL pré-assinada em vez de bytes.
+
+## Decidido não fazer
+- **Duas colunas de ECS Tasks.** Testado e revertido. O grid empurrava os pacotes para cima dos cards (o `ViewportPortal` renderiza acima dos nodes) e *piorava* o enquadramento no mobile em retrato — 0,46 de zoom contra 0,54 da coluna única. A coluna única com card compacto resolveu o problema de altura sem esses custos.
 
 ## Lacunas entre o Terraform e o simulador
 
