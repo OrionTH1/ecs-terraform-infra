@@ -17,6 +17,7 @@ export type SignalVariant = 'association' | 'metric' | 'command'
 
 export interface SignalEdgeData extends Record<string, unknown> {
   isActive: boolean
+  isAlerting?: boolean
   variant: SignalVariant
   label: string
 }

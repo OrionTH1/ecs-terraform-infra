@@ -5,10 +5,16 @@ interface VariantStyle {
   dashArray: string
   strokeWidth: number
   activeClass: string
+  alertClass?: string
 }
 
 const VARIANT_STYLE: Record<SignalVariant, VariantStyle> = {
-  association: { dashArray: '4 4', strokeWidth: 1.5, activeClass: 'stroke-status-warning signal-dash' },
+  association: {
+    dashArray: '4 4',
+    strokeWidth: 1.5,
+    activeClass: 'stroke-border-interaction signal-dash',
+    alertClass: 'stroke-status-warning signal-dash',
+  },
   metric: { dashArray: '2 6', strokeWidth: 1.5, activeClass: 'stroke-border-interaction signal-dash' },
   command: { dashArray: '6 4', strokeWidth: 2, activeClass: 'stroke-border-interaction signal-dash' },
 }
@@ -26,7 +32,9 @@ export function SignalEdge({
 
   const variant = data?.variant ?? 'association'
   const isActive = data?.isActive ?? false
+  const isAlerting = data?.isAlerting ?? false
   const style = VARIANT_STYLE[variant]
+  const activeClass = isAlerting ? (style.alertClass ?? style.activeClass) : style.activeClass
 
   return (
     <g className="edge-fade-in">
@@ -36,7 +44,7 @@ export function SignalEdge({
         strokeWidth={style.strokeWidth}
         strokeDasharray={style.dashArray}
         strokeOpacity={isActive ? 1 : 0.35}
-        className={isActive ? style.activeClass : 'stroke-border'}
+        className={isActive ? activeClass : 'stroke-border'}
       />
       {data?.label ? (
         <text

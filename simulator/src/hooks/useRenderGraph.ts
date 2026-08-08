@@ -361,7 +361,12 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones 
         if (edge.id === WAF_TO_ALB_EDGE_ID) {
           return {
             ...edge,
-            data: { isActive: blockedIps.length > 0, variant: 'association', label: 'associated' },
+            data: {
+              isActive: routing.totalRequestsSent > 0,
+              isAlerting: blockedIps.length > 0,
+              variant: 'association',
+              label: blockedIps.length > 0 ? 'blocking' : 'inspecting',
+            },
           } as SignalEdgeType
         }
         if (edge.id === METRIC_EDGE_ID) {
