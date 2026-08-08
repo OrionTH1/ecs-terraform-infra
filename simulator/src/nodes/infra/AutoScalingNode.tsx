@@ -20,7 +20,7 @@ export function AutoScalingNode({ data }: NodeProps<AutoScalingFlowNode>) {
 
   return (
     <NodeCard
-      variant="infra"
+      variant="control"
       icon={<AutoScalingIcon />}
       title={data.label}
       tooltip={data.tooltip}

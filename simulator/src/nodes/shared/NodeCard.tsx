@@ -6,7 +6,7 @@ import { StageProgress } from './StageProgress'
 import { RemoveIcon } from '../../icons'
 
 interface NodeCardProps {
-  variant: 'infra' | 'interaction'
+  variant: 'infra' | 'interaction' | 'control'
   icon: ReactNode
   title: ReactNode
   tooltip: string
@@ -58,14 +58,23 @@ export function NodeCard({
   const isProvisioning = provisioning !== null
   const hasJustProvisioned = useRecentChange(isProvisioning, SETTLE_MS) && !isProvisioning
 
-  const borderClass =
-    status !== 'idle' ? statusBorderClass[status] : variant === 'interaction' ? 'border-border-interaction' : 'border-border'
+  const isControl = variant === 'control'
+
+  const borderClass = isControl
+    ? 'border-dashed border-border/70'
+    : status !== 'idle'
+      ? statusBorderClass[status]
+      : variant === 'interaction'
+        ? 'border-border-interaction'
+        : 'border-border'
+
+  const surfaceClass = isControl ? 'bg-canvas/40' : 'bg-surface shadow-card'
 
   const lifecycleClass = isLeaving ? 'node-drain' : isBlasted ? 'node-blast' : 'node-materialize'
 
   return (
     <div
-      className={`group/card relative min-w-[170px] overflow-visible rounded-card border bg-surface shadow-card ${lifecycleClass} ${
+      className={`group/card relative min-w-[170px] overflow-visible rounded-card border ${surfaceClass} ${lifecycleClass} ${
         hasJustProvisioned ? 'card-settle' : ''
       } ${borderClass} ${isProvisional || isProvisioning ? 'border-dashed' : ''} ${
         isTargetable ? 'nodrag cursor-crosshair hover:border-status-error hover:shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''
@@ -81,9 +90,9 @@ export function NodeCard({
         </div>
       ) : (
         <>
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
+      <div className={`flex items-center gap-2 border-b px-3 py-2.5 ${isControl ? 'border-border/50' : 'border-border'}`}>
         <span className="inline-flex text-fg-muted">{icon}</span>
-        <span className="flex-1 font-sans text-[13px] font-medium text-fg">{title}</span>
+        <span className={`flex-1 font-sans text-[13px] font-medium ${isControl ? 'text-fg-muted' : 'text-fg'}`}>{title}</span>
         {headerAction}
         <InfoTooltip text={tooltip} />
       </div>

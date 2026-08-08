@@ -17,7 +17,7 @@ export function WafNode({ data }: NodeProps<WafFlowNode>) {
 
   return (
     <NodeCard
-      variant="infra"
+      variant="control"
       icon={<WafIcon />}
       title={data.label}
       tooltip={data.tooltip}
