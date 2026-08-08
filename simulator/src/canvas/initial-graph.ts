@@ -6,6 +6,7 @@ import { NO_ALARM } from '../simulation/autoscaling-alarm'
 import { GATEWAY_ENDPOINT, INTERFACE_ENDPOINTS } from '../simulation/vpc-endpoints'
 import {
   AVAILABILITY_ZONES,
+  REGION,
   PRIVATE_SUBNETS,
   PUBLIC_SUBNETS,
   VPC_CIDR,
@@ -36,6 +37,7 @@ export const READER_TO_VOLUME_EDGE_ID = 'rds-reader-volume'
 export const PAGE_CACHE_EDGE_ID = 'rds-writer-reader-page-cache'
 export const METRIC_EDGE_ID = 'alb-auto-scaling-metric'
 export const DESIRED_COUNT_EDGE_ID = 'auto-scaling-ecs-service-desired-count'
+export const REGION_NODE_ID = 'aws-region'
 export const VPC_NODE_ID = 'vpc'
 export const PUBLIC_SUBNETS_NODE_ID = 'public-subnets'
 export const PRIVATE_SUBNETS_NODE_ID = 'private-subnets'
@@ -93,10 +95,10 @@ export const FALLBACK_RDS_INSTANCE_SIZE = { width: FALLBACK_CARD_WIDTH, height: 
 export const AURORA_FRAME = auroraFrameFor(FALLBACK_RDS_INSTANCE_SIZE)
 
 export const ENDPOINT_CARD_WIDTH = 210
-export const ENDPOINT_CARD_HEIGHT = 148
-export const ENDPOINT_ROW_GAP = 44
 export const REGIONAL_SERVICE_GAP = 96
 export const ENDPOINT_COLUMN_GAP = 24
+export const DOOR_WIDTH = 48
+export const DOOR_HEIGHT = 9
 
 const VPC_BORDER_BEYOND_AURORA_FRAME = FRAME_PADDING * 2
 const MANAGED_STORAGE_GAP = 150
@@ -174,32 +176,25 @@ const INITIAL_SERVICE_FRAME = {
   height: 0,
 }
 
-export function endpointPositions(serviceFrame: FrameBox): { interface: XYPosition; gateway: XYPosition } {
-  const y = serviceFrame.position.y + serviceFrame.height + ENDPOINT_ROW_GAP
+export function endpointColumns(serviceFrame: FrameBox): { registry: number; storage: number } {
+  const left = serviceFrame.position.x
 
-  return {
-    interface: { x: serviceFrame.position.x, y },
-    gateway: { x: serviceFrame.position.x + ENDPOINT_CARD_WIDTH + ENDPOINT_COLUMN_GAP, y },
-  }
+  return { registry: left, storage: left + ENDPOINT_CARD_WIDTH + ENDPOINT_COLUMN_GAP }
 }
 
-export function endpointRowBox(serviceFrame: FrameBox, height: number): ContentBox {
-  const positions = endpointPositions(serviceFrame)
-
-  return {
-    left: positions.interface.x,
-    top: positions.interface.y,
-    right: positions.gateway.x + ENDPOINT_CARD_WIDTH,
-    bottom: positions.interface.y + height,
-  }
+function doorX(column: number): number {
+  return column + ENDPOINT_CARD_WIDTH / 2 - DOOR_WIDTH / 2
 }
 
-export function privateTierBoxes(
-  serviceFrame: FrameBox,
-  endpointHeight: number,
-  auroraFrame: FrameBox,
-): ContentBox[] {
-  return [frameContentBox(serviceFrame), frameContentBox(auroraFrame), endpointRowBox(serviceFrame, endpointHeight)]
+export function doorPositions(vpcFrame: FrameBox, serviceFrame: FrameBox): { interface: XYPosition; gateway: XYPosition } {
+  const columns = endpointColumns(serviceFrame)
+  const y = vpcFrame.position.y + vpcFrame.height - DOOR_HEIGHT / 2
+
+  return { interface: { x: doorX(columns.registry), y }, gateway: { x: doorX(columns.storage), y } }
+}
+
+export function privateTierBoxes(serviceFrame: FrameBox, auroraFrame: FrameBox): ContentBox[] {
+  return [frameContentBox(serviceFrame), frameContentBox(auroraFrame)]
 }
 
 const INITIAL_ZONES = networkZoneFrames(
@@ -209,24 +204,24 @@ const INITIAL_ZONES = networkZoneFrames(
     right: ALB_POSITION.x + FALLBACK_CARD_WIDTH,
     bottom: ALB_POSITION.y + FALLBACK_CARD_HEIGHT,
   },
-  privateTierBoxes(INITIAL_SERVICE_FRAME, ENDPOINT_CARD_HEIGHT, AURORA_FRAME),
+  privateTierBoxes(INITIAL_SERVICE_FRAME, AURORA_FRAME),
 )
 
 export function regionalServicePositions(
   vpcFrame: FrameBox,
   serviceFrame: FrameBox,
 ): { registry: XYPosition; storage: XYPosition } {
-  const endpoints = endpointPositions(serviceFrame)
+  const columns = endpointColumns(serviceFrame)
   const y = vpcFrame.position.y + vpcFrame.height + REGIONAL_SERVICE_GAP
 
-  return {
-    registry: { x: endpoints.interface.x, y },
-    storage: { x: endpoints.gateway.x, y },
-  }
+  return { registry: { x: columns.registry, y }, storage: { x: columns.storage, y } }
 }
 
-const INITIAL_ENDPOINTS = endpointPositions(INITIAL_SERVICE_FRAME)
+const INITIAL_DOORS = doorPositions(INITIAL_ZONES.vpc, INITIAL_SERVICE_FRAME)
 const INITIAL_REGIONAL_SERVICES = regionalServicePositions(INITIAL_ZONES.vpc, INITIAL_SERVICE_FRAME)
+
+const REGION_TOOLTIP =
+  'Everything inside this outline runs in one AWS region. The VPC is yours; the rest are regional services AWS operates for you — the Web ACL the load balancer evaluates, the Application Auto Scaling policy that resizes the service, the registry and bucket the tasks pull images from, and the Aurora storage volume. Traffic between your VPC and any of them stays on the AWS network, which is why the private subnets need no NAT gateway. The person sending requests is the one thing outside.'
 
 const ECR_TOOLTIP =
   'The registry holds the manifest and the layer metadata, and it answers over the interface endpoints — but it never hands over the bytes. GetDownloadUrlForLayer is called once per layer that is not already cached, and what comes back is a pre-signed S3 URL: an address, not an image. That is the whole reason the task itself needs S3 egress. Tag immutability is on here and every push is scanned, so a task can never silently start a different image behind the same tag.'
@@ -236,6 +231,24 @@ const LAYER_STORAGE_TOOLTIP =
 
 export const initialNodes: SimulatorFlowNode[] = [
   {
+    id: REGION_NODE_ID,
+    type: 'networkZone',
+    position: INITIAL_ZONES.vpc.position,
+    data: {
+      label: REGION,
+      tooltip: REGION_TOOLTIP,
+      status: 'idle',
+      tone: 'region',
+      width: INITIAL_ZONES.vpc.width,
+      height: INITIAL_ZONES.vpc.height,
+      summary: 'aws region',
+    },
+    draggable: false,
+    deletable: false,
+    selectable: false,
+    zIndex: -5,
+  },
+  {
     id: VPC_NODE_ID,
     type: 'networkZone',
     position: INITIAL_ZONES.vpc.position,
@@ -243,6 +256,7 @@ export const initialNodes: SimulatorFlowNode[] = [
       label: 'VPC',
       tooltip: VPC_TOOLTIP,
       status: 'idle',
+      tone: 'perimeter',
       width: INITIAL_ZONES.vpc.width,
       height: INITIAL_ZONES.vpc.height,
       summary: VPC_CIDR,
@@ -260,6 +274,7 @@ export const initialNodes: SimulatorFlowNode[] = [
       label: PUBLIC_SUBNETS.label,
       tooltip: PUBLIC_SUBNETS.tooltip,
       status: 'idle',
+      tone: 'ownership',
       width: INITIAL_ZONES.publicSubnets.width,
       height: INITIAL_ZONES.publicSubnets.height,
       summary: subnetSummary(PUBLIC_SUBNETS),
@@ -277,6 +292,7 @@ export const initialNodes: SimulatorFlowNode[] = [
       label: PRIVATE_SUBNETS.label,
       tooltip: PRIVATE_SUBNETS.tooltip,
       status: 'idle',
+      tone: 'ownership',
       width: INITIAL_ZONES.privateSubnets.width,
       height: INITIAL_ZONES.privateSubnets.height,
       summary: subnetSummary(PRIVATE_SUBNETS),
@@ -375,32 +391,28 @@ export const initialNodes: SimulatorFlowNode[] = [
   },
   {
     id: INTERFACE_ENDPOINTS_NODE_ID,
-    type: 'vpcEndpoint',
-    position: INITIAL_ENDPOINTS.interface,
+    type: 'vpcDoor',
+    position: INITIAL_DOORS.interface,
+    selectable: false,
     data: {
-      label: INTERFACE_ENDPOINTS.label,
-      tooltip: INTERFACE_ENDPOINTS.tooltip,
-      status: 'idle',
       kind: INTERFACE_ENDPOINTS.kind,
+      label: 'Interface',
       services: INTERFACE_ENDPOINTS.services,
       footnote: INTERFACE_ENDPOINTS.footnote,
-      isResolving: false,
     },
     draggable: false,
     deletable: false,
   },
   {
     id: GATEWAY_ENDPOINT_NODE_ID,
-    type: 'vpcEndpoint',
-    position: INITIAL_ENDPOINTS.gateway,
+    type: 'vpcDoor',
+    position: INITIAL_DOORS.gateway,
+    selectable: false,
     data: {
-      label: GATEWAY_ENDPOINT.label,
-      tooltip: GATEWAY_ENDPOINT.tooltip,
-      status: 'idle',
       kind: GATEWAY_ENDPOINT.kind,
+      label: 'Gateway',
       services: GATEWAY_ENDPOINT.services,
       footnote: GATEWAY_ENDPOINT.footnote,
-      isResolving: false,
     },
     draggable: false,
     deletable: false,
@@ -426,11 +438,11 @@ export const initialNodes: SimulatorFlowNode[] = [
     type: 'regionalService',
     position: INITIAL_REGIONAL_SERVICES.storage,
     data: {
-      label: 'Layer Storage',
+      label: 'S3',
       tooltip: LAYER_STORAGE_TOOLTIP,
       status: 'idle',
       role: 'storage',
-      detail: 'image layer bytes',
+      detail: 'ecr image layers',
       footnote: 'no cache between fargate tasks',
       isServing: false,
     },

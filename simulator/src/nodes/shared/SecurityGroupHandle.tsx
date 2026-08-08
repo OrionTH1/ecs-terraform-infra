@@ -1,6 +1,24 @@
 import { Handle, useNodeId, type HandleProps } from '@xyflow/react'
 import { boundaryDirection, boundaryKey, formatRule, securityGroupBoundary } from '../../simulation/security-groups'
-import { useSecurityGroupStore } from '../../store/useSecurityGroupStore'
+import { useSecurityGroupStore, type BoundaryAnchor, type TooltipContent } from '../../store/useSecurityGroupStore'
+import type { SecurityGroupBoundary } from '../../simulation/security-groups'
+
+function tooltipFor(boundary: SecurityGroupBoundary): TooltipContent {
+  const direction = boundaryDirection(boundary)
+
+  return {
+    title: 'Security Group',
+    subtitle: `${direction.toUpperCase()} · ${boundary.rules[0].securityGroup}`,
+    lines: boundary.rules.map(formatRule),
+    side: direction === 'ingress' ? 'left' : 'right',
+  }
+}
+
+function anchorOf(element: HTMLElement): BoundaryAnchor {
+  const rect = element.getBoundingClientRect()
+
+  return { top: rect.top, left: rect.left, right: rect.right, height: rect.height }
+}
 
 interface SecurityGroupHandleProps extends HandleProps {
   nodeType: string
@@ -37,11 +55,11 @@ export function SecurityGroupHandle({ nodeType, id, ...handleProps }: SecurityGr
       role="button"
       aria-expanded={isOpen}
       aria-label={`${direction} ${boundary.rules[0].securityGroup}: ${boundary.rules.map(formatRule).join(', ')}`}
-      onMouseEnter={() => hoverBoundary(key, nodeId ?? '', boundary.pairId)}
+      onMouseEnter={(event) => hoverBoundary(key, nodeId ?? '', boundary.pairId, anchorOf(event.currentTarget), tooltipFor(boundary))}
       onMouseLeave={() => clearBoundary(key)}
-      onFocus={() => hoverBoundary(key, nodeId ?? '', boundary.pairId)}
+      onFocus={(event) => hoverBoundary(key, nodeId ?? '', boundary.pairId, anchorOf(event.currentTarget), tooltipFor(boundary))}
       onBlur={() => clearBoundary(key)}
-      onClick={() => toggleBoundary(key, nodeId ?? '', boundary.pairId)}
+      onClick={(event) => toggleBoundary(key, nodeId ?? '', boundary.pairId, anchorOf(event.currentTarget), tooltipFor(boundary))}
     >
       <span
         className={`pointer-events-none flex items-center gap-[3px] ${isIngress ? 'flex-row-reverse' : 'flex-row'}`}
@@ -50,22 +68,6 @@ export function SecurityGroupHandle({ nodeType, id, ...handleProps }: SecurityGr
         <span className={`${markClass} sg-arrow`} />
       </span>
 
-      <span
-        role="tooltip"
-        className={`sg-tooltip pointer-events-none absolute top-1/2 w-max rounded-lg border border-border bg-surface-raised px-2.5 py-1.5 shadow-card ${
-          isIngress ? 'right-full mr-2.5 origin-right' : 'left-full ml-2.5 origin-left'
-        } ${isOpen ? 'sg-tooltip-open' : ''}`}
-      >
-        <span className="block font-sans text-[10px] font-medium tracking-wider text-fg-muted">
-          <span className="uppercase">{direction}</span>
-          <span className="font-mono normal-case"> · {boundary.rules[0].securityGroup}</span>
-        </span>
-        {boundary.rules.map((rule) => (
-          <span key={`${rule.port}-${rule.peer}`} className="block font-mono text-[11px] text-fg">
-            {formatRule(rule)}
-          </span>
-        ))}
-      </span>
     </Handle>
   )
 }

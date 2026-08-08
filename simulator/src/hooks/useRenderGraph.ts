@@ -11,6 +11,7 @@ import {
   WAF_TO_ALB_EDGE_ID,
   METRIC_EDGE_ID,
   DESIRED_COUNT_EDGE_ID,
+  REGION_NODE_ID,
   isEdgeInSecurityGroupPair,
 } from '../canvas/initial-graph'
 import { useSecurityGroupStore } from '../store/useSecurityGroupStore'
@@ -45,7 +46,6 @@ import type {
   EcsServiceNodeData,
   NetworkZoneNodeData,
   RegionalServiceNodeData,
-  VpcEndpointNodeData,
   ProvisioningInfo,
   RdsInstanceNodeData,
   SimulatorFlowNode,
@@ -60,6 +60,7 @@ interface RenderGraphArgs {
   routing: TrafficRouting
   taskGraph: TaskGraph
   networkZones: NetworkZoneLayout
+  isRepelling: boolean
 }
 
 export interface RenderGraph {
@@ -135,7 +136,6 @@ function hasRequiredInstances(edgeId: string, availability: AuroraAvailability):
 
 const SCALING_COMMAND_MS = 1400
 
-const OPEN_BOUNDARY_Z_INDEX = 1000
 
 function isEdgeVisible(ledger: ResourceLedger, edge: SimulatorFlowEdge, availability: AuroraAvailability): boolean {
   if (!hasRequiredInstances(edge.id, availability)) return false
@@ -146,7 +146,14 @@ function isEdgeVisible(ledger: ResourceLedger, edge: SimulatorFlowEdge, availabi
   return isNodeCreated(ledger, edge.source) && isNodeCreated(ledger, edge.target)
 }
 
-export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones }: RenderGraphArgs): RenderGraph {
+export function useRenderGraph({
+  nodes,
+  edges,
+  routing,
+  taskGraph,
+  networkZones,
+  isRepelling,
+}: RenderGraphArgs): RenderGraph {
   const resources = useSimulationStore((state) => state.resources)
   const tasks = useSimulationStore((state) => state.tasks)
   const wafBlockedRequests = useSimulationStore((state) => state.wafBlockedRequests)
@@ -158,7 +165,6 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones 
   const scaleOutBreachAt = useSimulationStore((state) => state.scaleOutBreachAt)
   const scaleInBreachAt = useSimulationStore((state) => state.scaleInBreachAt)
   const hoveredPairId = useSecurityGroupStore((state) => state.hoveredPairId)
-  const hoveredNodeId = useSecurityGroupStore((state) => state.hoveredNodeId)
 
   const serviceTaskCounts = useMemo(() => countServiceTasks(tasks.map((task) => task.status)), [tasks])
   const isPullingTaskImage = useMemo(() => isPullingImage(tasks.map((task) => task.status)), [tasks])
@@ -216,7 +222,12 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones 
           const frame = networkZones.framesByNodeId.get(node.id)
           if (frame === undefined) return node
 
-          const data: NetworkZoneNodeData = { ...node.data, width: frame.width, height: frame.height }
+          const data: NetworkZoneNodeData = {
+            ...node.data,
+            width: frame.width,
+            height: frame.height,
+            isRepelling: isRepelling && node.id === REGION_NODE_ID,
+          }
           return { ...node, position: frame.position, data }
         }
 
@@ -228,12 +239,10 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones 
           return { ...node, position: frame.position, data }
         }
 
-        if (node.type === 'vpcEndpoint') {
+        if (node.type === 'vpcDoor') {
           const position = networkZones.positionsByNodeId.get(node.id)
-          if (position === undefined) return node
 
-          const data: VpcEndpointNodeData = { ...node.data, isResolving: isPullingTaskImage }
-          return { ...node, position, data }
+          return position === undefined ? node : { ...node, position }
         }
 
         if (node.type === 'regionalService') {
@@ -326,11 +335,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones 
       ? [taskGraph.targetGroupNode, ...projected, ...taskGraph.taskNodes]
       : [...projected, ...taskGraph.taskNodes]
 
-    if (hoveredNodeId === null) return assembled
-
-    return assembled.map((node) =>
-      node.id === hoveredNodeId ? { ...node, zIndex: OPEN_BOUNDARY_Z_INDEX } : node,
-    )
+    return assembled
   }, [
     nodes,
     resources,
@@ -339,6 +344,7 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones 
     hasNoHealthyTargets,
     serviceTaskCounts,
     isPullingTaskImage,
+    isRepelling,
     taskGraph,
     networkZones,
     auroraTraffic,
@@ -351,7 +357,6 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones 
     requestsPerMinutePerTask,
     latency,
     latencyHistory,
-    hoveredNodeId,
   ])
 
   const renderEdges = useMemo(() => {

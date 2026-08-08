@@ -25,7 +25,7 @@ export const GATEWAY_ENDPOINT: VpcEndpointGroup = {
   tooltip:
     'Not an interface: no network interface, no address, no security group, and no hourly charge. It is a prefix list entry added to the private route table, which is why the task egress rule for it names pl-s3 rather than a security group. It exists even though this project owns no S3 bucket — ECR keeps image layers in S3, so pulling a container is ECR for the manifest and S3 for the bytes. Without this route a task in a private subnet with no NAT gateway would authenticate against ECR and then stall downloading layers.',
   services: [`${REGION}.s3`],
-  footnote: 'route table entry · no eni, no charge',
+  footnote: 'route table entry · no eni, no security group',
 }
 
 export const VPC_ENDPOINT_GROUPS = [INTERFACE_ENDPOINTS, GATEWAY_ENDPOINT]

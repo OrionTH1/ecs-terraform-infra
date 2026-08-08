@@ -8,7 +8,7 @@ import { TargetGroupNode } from '../nodes/infra/TargetGroupNode'
 import { DbJunctionNode } from '../nodes/infra/DbJunctionNode'
 import { TaskNode } from '../nodes/infra/TaskNode'
 import { NetworkZoneNode } from '../nodes/infra/NetworkZoneNode'
-import { VpcEndpointNode } from '../nodes/infra/VpcEndpointNode'
+import { VpcDoorNode } from '../nodes/infra/VpcDoorNode'
 import { RegionalServiceNode } from '../nodes/infra/RegionalServiceNode'
 import { AuroraClusterNode } from '../nodes/infra/AuroraClusterNode'
 import { ClusterVolumeNode } from '../nodes/infra/ClusterVolumeNode'
@@ -21,6 +21,7 @@ import { SignalEdge } from '../edges/SignalEdge'
 import { ApplyConsole } from '../panels/ApplyConsole'
 import { CanvasControls } from '../panels/CanvasControls'
 import { PacketLayer } from './PacketLayer'
+import { BoundaryTooltip } from './BoundaryTooltip'
 import { splitAtTheDoor } from '../simulation/traffic-distribution'
 import { useSimulationClock } from '../hooks/useSimulationClock'
 import { useTrafficRouting } from '../hooks/useTrafficRouting'
@@ -30,6 +31,7 @@ import { useRenderGraph } from '../hooks/useRenderGraph'
 import { useCanvasConnections } from '../hooks/useCanvasConnections'
 import { useActiveTool } from '../hooks/useActiveTool'
 import { useNodePalette } from '../hooks/useNodePalette'
+import { useRegionWall } from '../hooks/useRegionWall'
 import { useToolShortcuts } from '../hooks/useToolShortcuts'
 import { useSettleViewport } from '../hooks/useSettleViewport'
 import { useIsCompactViewport } from '../hooks/useMediaQuery'
@@ -56,7 +58,7 @@ const nodeTypes = {
   task: TaskNode,
   auroraCluster: AuroraClusterNode,
   networkZone: NetworkZoneNode,
-  vpcEndpoint: VpcEndpointNode,
+  vpcDoor: VpcDoorNode,
   regionalService: RegionalServiceNode,
   clusterVolume: ClusterVolumeNode,
   rdsInstance: RdsInstanceNode,
@@ -95,6 +97,7 @@ export function SimulatorCanvas() {
   })
 
   const networkZones = useNetworkZoneLayout({ serviceFrame: taskGraph.serviceFrame })
+  const { onNodesChangeOutsideTheRegion, isRepelling } = useRegionWall({ nodes, networkZones, onNodesChange })
 
   const { renderNodes, renderEdges, liveEdgeIds, hasNoHealthyTargets } = useRenderGraph({
     nodes,
@@ -102,12 +105,16 @@ export function SimulatorCanvas() {
     routing,
     taskGraph,
     networkZones,
+    isRepelling,
   })
 
   useSettleViewport(renderNodes.length)
 
   const { isValidConnection, onConnect, onConnectEnd } = useCanvasConnections({ nodes, edges, setEdges })
-  const { onDragOver, onDrop, addNodeAtViewportCenter } = useNodePalette({ nodes, onNodesChange })
+  const { onDragOver, onDrop, addNodeAtViewportCenter } = useNodePalette({
+    nodes,
+    onNodesChange: onNodesChangeOutsideTheRegion,
+  })
   const isCompact = useIsCompactViewport()
   const shell = useRef<HTMLDivElement>(null)
 
@@ -150,7 +157,7 @@ export function SimulatorCanvas() {
         edges={renderEdges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        onNodesChange={onNodesChange}
+        onNodesChange={onNodesChangeOutsideTheRegion}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onConnectEnd={onConnectEnd}
@@ -176,6 +183,7 @@ export function SimulatorCanvas() {
           liveEdgeIds={liveEdgeIds}
         />
       </ReactFlow>
+      <BoundaryTooltip />
       <ApplyConsole />
       <CanvasControls onAddNode={addNodeAtViewportCenter} />
     </div>

@@ -5,15 +5,17 @@ import {
   ALB_POSITION,
   AURORA_FRAME as REAL_AURORA_FRAME,
   CLUSTER_VOLUME_POSITION,
-  ENDPOINT_CARD_HEIGHT,
+  DOOR_HEIGHT,
+  DOOR_WIDTH,
+  ENDPOINT_CARD_WIDTH,
   FALLBACK_CARD_HEIGHT,
   FALLBACK_CARD_WIDTH,
   RDS_READER_POSITION,
   RDS_WRITER_POSITION,
   auroraFrameFor,
-  endpointPositions,
-  endpointRowBox,
+  doorPositions,
   privateTierBoxes,
+  regionalServicePositions,
 } from './initial-graph'
 
 const ALB_BOX = { left: 360, top: 200, right: 570, bottom: 332 }
@@ -32,7 +34,7 @@ function zones() {
 }
 
 function realZones(serviceFrame: FrameBox = SERVICE_FRAME) {
-  return networkZoneFrames(REAL_ALB_BOX, privateTierBoxes(serviceFrame, ENDPOINT_CARD_HEIGHT, REAL_AURORA_FRAME))
+  return networkZoneFrames(REAL_ALB_BOX, privateTierBoxes(serviceFrame, REAL_AURORA_FRAME))
 }
 
 function contains(outer: FrameBox, inner: FrameBox): boolean {
@@ -40,12 +42,6 @@ function contains(outer: FrameBox, inner: FrameBox): boolean {
   const b = frameContentBox(inner)
 
   return a.left <= b.left && a.top <= b.top && a.right >= b.right && a.bottom >= b.bottom
-}
-
-function containsBox(outer: FrameBox, inner: ContentBox): boolean {
-  const a = frameContentBox(outer)
-
-  return a.left <= inner.left && a.top <= inner.top && a.right >= inner.right && a.bottom >= inner.bottom
 }
 
 describe('nesting', () => {
@@ -98,31 +94,39 @@ describe('nesting', () => {
   })
 })
 
-describe('the vpc endpoints', () => {
-  it('keeps both of them inside the private tier', () => {
-    const { privateSubnets } = realZones()
+describe('the doors in the vpc wall', () => {
+  it('sits both of them astride the boundary, half in and half out', () => {
+    const { vpc } = realZones()
+    const doors = doorPositions(vpc, SERVICE_FRAME)
+    const wall = frameContentBox(vpc).bottom
 
-    expect(containsBox(privateSubnets, endpointRowBox(SERVICE_FRAME, ENDPOINT_CARD_HEIGHT))).toBe(true)
+    for (const door of [doors.interface, doors.gateway]) {
+      expect(door.y).toBeLessThan(wall)
+      expect(door.y + DOOR_HEIGHT).toBeGreaterThan(wall)
+    }
   })
 
-  it('stands them side by side without overlapping', () => {
-    const { interface: interfaceEndpoints, gateway } = endpointPositions(SERVICE_FRAME)
+  it('centres each door on the service it opens onto', () => {
+    const { vpc } = realZones()
+    const doors = doorPositions(vpc, SERVICE_FRAME)
+    const services = regionalServicePositions(vpc, SERVICE_FRAME)
 
-    expect(interfaceEndpoints.y).toBe(gateway.y)
-    expect(gateway.x).toBeGreaterThan(interfaceEndpoints.x + FALLBACK_CARD_WIDTH)
+    expect(doors.interface.x + DOOR_WIDTH / 2).toBe(services.registry.x + ENDPOINT_CARD_WIDTH / 2)
+    expect(doors.gateway.x + DOOR_WIDTH / 2).toBe(services.storage.x + ENDPOINT_CARD_WIDTH / 2)
   })
 
-  it('clears the ecs service instead of sitting on top of it', () => {
-    const { interface: interfaceEndpoints } = endpointPositions(SERVICE_FRAME)
+  it('keeps the two doors apart', () => {
+    const doors = doorPositions(realZones().vpc, SERVICE_FRAME)
 
-    expect(interfaceEndpoints.y).toBeGreaterThan(SERVICE_FRAME.position.y + SERVICE_FRAME.height)
+    expect(doors.gateway.x).toBeGreaterThan(doors.interface.x + DOOR_WIDTH)
   })
 
-  it('follows the service frame down as the task column grows', () => {
+  it('follows the wall down as the task column grows', () => {
     const taller: FrameBox = { position: { x: 876, y: -200 }, width: 322, height: 800 }
 
-    expect(endpointPositions(taller).interface.y).toBeGreaterThan(endpointPositions(SERVICE_FRAME).interface.y)
-    expect(containsBox(realZones(taller).privateSubnets, endpointRowBox(taller, ENDPOINT_CARD_HEIGHT))).toBe(true)
+    expect(doorPositions(realZones(taller).vpc, taller).interface.y).toBeGreaterThan(
+      doorPositions(realZones().vpc, SERVICE_FRAME).interface.y,
+    )
   })
 })
 

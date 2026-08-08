@@ -88,16 +88,18 @@ export interface AuroraClusterNodeData extends InfraNodeData {
 }
 
 export interface NetworkZoneNodeData extends InfraNodeData {
+  tone: 'perimeter' | 'ownership' | 'region'
   width: number
   height: number
   summary: string
+  isRepelling?: boolean
 }
 
-export interface VpcEndpointNodeData extends InfraNodeData {
+export interface VpcDoorNodeData extends Record<string, unknown> {
   kind: 'interface' | 'gateway'
+  label: string
   services: string[]
   footnote: string
-  isResolving: boolean
 }
 
 export interface RegionalServiceNodeData extends InfraNodeData {
@@ -133,7 +135,7 @@ export type TargetGroupFlowNode = Node<TargetGroupNodeData, 'targetGroup'>
 export type DbJunctionFlowNode = Node<Record<string, unknown>, 'dbJunction'>
 export type AuroraClusterFlowNode = Node<AuroraClusterNodeData, 'auroraCluster'>
 export type NetworkZoneFlowNode = Node<NetworkZoneNodeData, 'networkZone'>
-export type VpcEndpointFlowNode = Node<VpcEndpointNodeData, 'vpcEndpoint'>
+export type VpcDoorFlowNode = Node<VpcDoorNodeData, 'vpcDoor'>
 export type RegionalServiceFlowNode = Node<RegionalServiceNodeData, 'regionalService'>
 export type ClusterVolumeFlowNode = Node<ClusterVolumeNodeData, 'clusterVolume'>
 export type RdsInstanceFlowNode = Node<RdsInstanceNodeData, 'rdsInstance'>
@@ -150,7 +152,7 @@ export type SimulatorFlowNode =
   | TaskFlowNode
   | AuroraClusterFlowNode
   | NetworkZoneFlowNode
-  | VpcEndpointFlowNode
+  | VpcDoorFlowNode
   | RegionalServiceFlowNode
   | ClusterVolumeFlowNode
   | RdsInstanceFlowNode

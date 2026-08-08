@@ -9,7 +9,8 @@ export function NetworkZoneNode({ data }: NodeProps<NetworkZoneFlowNode>) {
       tooltip={data.tooltip}
       width={data.width}
       height={data.height}
-      tone="ownership"
+      tone={data.tone}
+      isRepelling={data.isRepelling ?? false}
       summary={<FrameSummary>{data.summary}</FrameSummary>}
     />
   )

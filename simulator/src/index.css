@@ -367,29 +367,111 @@
   border-left-color: var(--color-border-interaction);
 }
 
-.sg-tooltip {
-  z-index: 60;
+.door .react-flow__handle {
   opacity: 0;
-  visibility: hidden;
-  transform: translateY(-50%) scale(0.94);
+}
+
+.door:focus,
+.door:focus-visible {
+  outline: none;
+}
+
+.door.react-flow__node.selected {
+  box-shadow: none;
+}
+
+.door:focus-visible .door-opening {
+  outline: 2px solid var(--color-border-interaction);
+  outline-offset: 4px;
+  border-radius: 3px;
+}
+
+.door-jamb {
+  background-color: var(--color-border);
+  transition: background-color var(--motion-state) var(--ease-converge);
+}
+
+.door-device {
+  background-color: var(--color-border-interaction);
   transition:
-    opacity 140ms ease-out,
-    transform 140ms ease-out,
-    visibility 140ms;
+    background-color var(--motion-state) var(--ease-converge),
+    box-shadow var(--motion-state) var(--ease-converge);
 }
 
-.sg-tooltip.origin-right {
-  transform: translateY(-50%) translateX(6px) scale(0.94);
+.door-route {
+  border: 1px solid var(--color-border);
+  transition:
+    border-color var(--motion-state) var(--ease-converge),
+    box-shadow var(--motion-state) var(--ease-converge);
 }
 
-.sg-tooltip.origin-left {
-  transform: translateY(-50%) translateX(-6px) scale(0.94);
+.door:hover .door-route,
+.door:focus-visible .door-route {
+  border-color: var(--color-fg-muted);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-fg-muted) 16%, transparent);
 }
 
-.sg-tooltip-open.sg-tooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(-50%) translateX(0) scale(1);
+.door-label {
+  color: var(--color-fg-muted);
+  transition: color var(--motion-state) var(--ease-converge);
+}
+
+.door:hover .door-jamb,
+.door:focus-visible .door-jamb {
+  background-color: var(--color-border-interaction);
+}
+
+.door:hover .door-device,
+.door:focus-visible .door-device {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-border-interaction) 22%, transparent);
+}
+
+.door:hover .door-label,
+.door:focus-visible .door-route {
+  border: 1px solid var(--color-border);
+  transition:
+    border-color var(--motion-state) var(--ease-converge),
+    box-shadow var(--motion-state) var(--ease-converge);
+}
+
+.door:hover .door-route,
+.door:focus-visible .door-route {
+  border-color: var(--color-fg-muted);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-fg-muted) 16%, transparent);
+}
+
+.door-label {
+  color: var(--color-fg);
+}
+
+@keyframes sg-card-in-egress {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+@keyframes sg-card-in-ingress {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(calc(-100% + 6px)) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(-100%) scale(1);
+  }
+}
+
+.sg-card-egress {
+  animation: sg-card-in-egress 140ms var(--ease-converge) both;
+}
+
+.sg-card-ingress {
+  animation: sg-card-in-ingress 140ms var(--ease-converge) both;
 }
 
 .react-flow .react-flow__handle.connectionindicator {
