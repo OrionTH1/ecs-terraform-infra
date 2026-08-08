@@ -91,3 +91,13 @@ Site estático em Vercel ou GitHub Pages, sem custo. Pode viver neste mesmo mono
 - [ ] Tentar criar representações visuais de requests de retorno, exemplo o Reader instance retornando uma response para a ECS Task
 - [ ] Tentar simular o S3, também com uma representação visual de retorno
 - [ ] Tentar descobrir o problema de perfomance quando dá zoom no ECS Cluster
+
+## Lacunas entre o Terraform e o simulador
+
+Levantadas comparando recurso a recurso. Estas três não são features novas — são promessas que o simulador já faz e não cumpre.
+
+- [ ] **Ejetar target que ficou não saudável.** O `aws_lb_target_group` tem `unhealthy_threshold = 3`, mas o simulador só modela o `healthy_threshold` (é o estágio `registering`, 2 checks de 30s). Hoje uma task só sai do target group quando é explodida na mão; na AWS ela sai sozinha depois de 3 checks falhos. Metade do health check está simulada.
+- [ ] **Dar destino a `logs` e `secretsmanager`.** O tooltip do interface endpoint lista quatro serviços e só o ECR tem node do outro lado. Falta o CloudWatch Logs recebendo o que o driver `awslogs` manda de cada task, e o Secrets Manager sendo consultado pelo execution role antes do container subir. As portas prometem quatro caminhos e entregam um.
+- [ ] **Mostrar alarme disparando.** São 9 alarmes no `modules/observability` mais o tópico SNS onde eles caem. O card do Application Auto Scaling mostra `alarms OK` e a tooltip descreve AlarmHigh e AlarmLow em detalhe, mas nenhum alarme jamais acende. O simulador usa o vocabulário sem mostrar o evento.
+
+Ordem sugerida: destino dos endpoints → ejeção de target → alarmes. O primeiro porque os nodes de CloudWatch e Secrets Manager que ele exige são pré-requisito do terceiro.
