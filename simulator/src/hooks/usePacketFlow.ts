@@ -9,6 +9,7 @@ import {
   READER_TO_VOLUME_EDGE_ID,
 } from '../canvas/initial-graph'
 import { buildRequestItinerary, divertToWriter, queriesForNextRequest } from '../simulation/request-itinerary'
+import { servesFromCache } from '../simulation/aurora-cache'
 import {
   buildImagePullItinerary,
   imagePullSpeed,
@@ -241,6 +242,7 @@ export function usePacketFlow({
   const rotation = useRef(0)
   const pullsInFlight = useRef(new Set<string>())
   const writeRotation = useRef(0)
+  const cacheRotation = useRef(0)
   const inputs = useRef<PacketFlowArgs>({ entries, taskRoutes, directEntries, imagePullRoutes, liveEdgeIds })
 
   inputs.current = { entries, taskRoutes, directEntries, imagePullRoutes, liveEdgeIds }
@@ -361,6 +363,9 @@ export function usePacketFlow({
               const queries = queriesForNextRequest(writeRotation.current)
               writeRotation.current += 1
 
+              const readServedFromCache = servesFromCache(cacheRotation.current, taskRoute.readCacheHitRatio)
+              cacheRotation.current += 1
+
               return buildRequestItinerary({
                 entryEdgeId: entry.edgeId,
                 albEdgeId: taskRoute.albEdgeId,
@@ -369,6 +374,7 @@ export function usePacketFlow({
                 writeLegs: taskRoute.writeLeg,
                 queries,
                 liveEdgeIds: inputs.current.liveEdgeIds,
+                readServedFromCache,
               })
             },
             carried,

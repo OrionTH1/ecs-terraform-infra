@@ -9,6 +9,12 @@ import { LatencyReadout } from '../shared/LatencyReadout'
 import { RateReadout } from '../shared/RateReadout'
 import { RdsIcon } from '../../icons'
 
+function formatCacheState(hitRatio: number, isApplyingRedo: boolean): string {
+  const hits = `${Math.round(hitRatio * 100)}% cache hits`
+
+  return isApplyingRedo ? `${hits} · applying redo` : hits
+}
+
 export function RdsInstanceNode({ data }: NodeProps<RdsInstanceFlowNode>) {
   const { isTargetable, blast } = useRdsInstanceBlast({ role: data.role, lifecycle: data.lifecycle })
 
@@ -60,17 +66,15 @@ export function RdsInstanceNode({ data }: NodeProps<RdsInstanceFlowNode>) {
             </span>
           </div>
         ) : null}
-        {data.role === 'reader' ? (
+        {data.role === 'reader' && data.cacheHitRatio !== null ? (
           <div className="flex items-center gap-1.5 border-t border-border pt-1.5">
             <span
               className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                data.isCacheInvalidating ? 'bg-status-warning cache-pulse' : 'bg-border'
+                data.isApplyingRedo ? 'cache-pulse bg-status-healthy' : 'bg-border'
               }`}
             />
-            <span
-              className={`font-mono text-[10px] ${data.isCacheInvalidating ? 'text-status-warning' : 'text-fg-muted'}`}
-            >
-              {data.isCacheInvalidating ? 'page cache invalidating' : 'page cache warm'}
+            <span className="font-mono text-[10px] text-fg-muted">
+              {formatCacheState(data.cacheHitRatio, data.isApplyingRedo)}
             </span>
           </div>
         ) : null}

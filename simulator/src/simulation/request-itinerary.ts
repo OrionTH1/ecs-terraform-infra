@@ -16,6 +16,7 @@ export interface ItineraryRequest {
   writeLegs: DatabaseLegs | null
   queries: QueryKind[]
   liveEdgeIds: Set<string>
+  readServedFromCache: boolean
 }
 
 const WRITES_EVERY = Math.round(1 / (1 - RDS_READ_FRACTION))
@@ -45,7 +46,8 @@ export function buildRequestItinerary(request: ItineraryRequest): ItineraryLeg[]
     const outward = [leg(junctionEdgeId, false, false), leg(legs.instanceEdgeId, false)]
     const homeward = [leg(legs.instanceEdgeId, true, false), leg(junctionEdgeId, true)]
 
-    if (liveEdgeIds.has(legs.volumeEdgeId)) {
+    const readsStorage = kind === 'write' || !request.readServedFromCache
+    if (readsStorage && liveEdgeIds.has(legs.volumeEdgeId)) {
       outward.push(leg(legs.volumeEdgeId, false))
       homeward.unshift(leg(legs.volumeEdgeId, true))
     }

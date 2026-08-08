@@ -21,6 +21,7 @@ import { SignalEdge } from '../edges/SignalEdge'
 import { ApplyConsole } from '../panels/ApplyConsole'
 import { CanvasControls } from '../panels/CanvasControls'
 import { PacketLayer } from './PacketLayer'
+import { cacheHitRatio } from '../simulation/aurora-cache'
 import { BoundaryTooltip } from './BoundaryTooltip'
 import { splitAtTheDoor } from '../simulation/traffic-distribution'
 import { useSimulationClock } from '../hooks/useSimulationClock'
@@ -87,7 +88,14 @@ export function SimulatorCanvas() {
 
   const routing = useTrafficRouting({ nodes, edges, tasks })
 
+  const readCacheHitRatio = useSimulationStore((state) =>
+    state.rdsSlots.reader?.lifecycle === 'available'
+      ? cacheHitRatio(state.clock - state.rdsSlots.reader.stageEnteredAt)
+      : 0,
+  )
+
   const taskGraph = useTaskGraph({
+    readCacheHitRatio,
     tasks,
     requestsByTaskId: routing.requestsByTaskId,
     isTargetGroupVisible: isCreated(resources, 'targetGroup'),
@@ -106,6 +114,7 @@ export function SimulatorCanvas() {
     taskGraph,
     networkZones,
     isRepelling,
+    readCacheHitRatio,
   })
 
   useSettleViewport(renderNodes.length)

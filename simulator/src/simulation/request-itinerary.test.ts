@@ -13,8 +13,9 @@ const WRITER_VOLUME = 'writer-to-volume'
 
 const EVERYTHING_UP = new Set([ENTRY, ALB, JUNCTION, READER, READER_VOLUME, WRITER, WRITER_VOLUME])
 
-function itinerary(queries: QueryKind[], liveEdgeIds = EVERYTHING_UP) {
+function itinerary(queries: QueryKind[], liveEdgeIds = EVERYTHING_UP, readServedFromCache = false) {
   return buildRequestItinerary({
+    readServedFromCache,
     entryEdgeId: ENTRY,
     albEdgeId: ALB,
     junctionEdgeId: JUNCTION,
@@ -102,9 +103,27 @@ describe('the junction is a drawing artifact, not a resource', () => {
   })
 })
 
+describe('a read the reader can answer from memory', () => {
+  it('turns around at the instance instead of going on to storage', () => {
+    const legs = itinerary(['read'], EVERYTHING_UP, true).map((leg) => leg.edgeId)
+
+    expect(legs).not.toContain(READER_VOLUME)
+    expect(legs).toContain(READER)
+  })
+
+  it('still crosses the volume when the page is not cached', () => {
+    expect(itinerary(['read'], EVERYTHING_UP, false).map((leg) => leg.edgeId)).toContain(READER_VOLUME)
+  })
+
+  it('sends a write to storage whatever the cache holds, because redo must be durable', () => {
+    expect(itinerary(['write'], EVERYTHING_UP, true).map((leg) => leg.edgeId)).toContain(WRITER_VOLUME)
+  })
+})
+
 describe('when the database cannot be reached', () => {
   it('turns the request around at the task instead of stranding it', () => {
     const legs = buildRequestItinerary({
+      readServedFromCache: false,
       entryEdgeId: ENTRY,
       albEdgeId: ALB,
       junctionEdgeId: null,

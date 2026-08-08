@@ -121,7 +121,8 @@ export interface RdsInstanceNodeData extends InfraNodeData {
   requestsPerMinute: number
   latencyMs: number
   acu: number
-  isCacheInvalidating: boolean
+  isApplyingRedo: boolean
+  cacheHitRatio: number | null
   isAbsorbingFallbackReads: boolean
 }
 

@@ -45,6 +45,18 @@ A métrica de autoscaling é `ALBRequestCountPerTarget`, não CPU — igual ao `
 
 Um ACU é *"approximately 2 gibibytes (GiB) of memory, corresponding CPU, and networking"*. A capacidade é reavaliada a cada segundo.
 
+#### `SHARED_BUFFERS_FRACTION` = 0,75
+
+*"The database engine allocates 75 percent of instance memory to shared buffers by default"* no Aurora PostgreSQL — bem acima dos 25–40% do Postgres comum, porque o Aurora não usa cache de sistema de arquivos e evita buffer duplo ([Aurora PostgreSQL parameters, Part 1](https://aws.amazon.com/blogs/database/amazon-aurora-postgresql-parameters-part-1-memory-and-query-plan-management/)).
+
+Combinado com 2 GiB por ACU, o buffer cache do nosso cluster vai de 0,75 GiB (0,5 ACU) a 6 GiB (4 ACU) por instância.
+
+#### O que o cache faz com uma leitura
+
+Vem da documentação, não de escolha nossa: o writer manda o fluxo de redo para os nós de storage **e em paralelo para cada reader**. O reader aplica o registro se a página já está no buffer cache dele e descarta se não está — e *"neither case results in any I/O activity with the storage volume"* ([Aurora Replicas](https://docs.aws.amazon.com/prescriptive-guidance/latest/aurora-replication-options/aurora-replicas.html)).
+
+Ou seja: **escrita nunca manda o reader ao volume**. Ele só lê storage quando uma query pede uma página que o cache não tem — primeira vez, ou despejada pelo *clock sweep* quando falta memória.
+
 #### `capacityDoublingMs` = 147.000
 
 A AWS não publica uma taxa em ACU/s. Publica que o Serverless v2 *"scales 45% faster from 0.5 ACU to 256 ACU"*, alcançando o máximo em **22 minutos** ([blog do Aurora serverless](https://aws.amazon.com/blogs/database/aurora-serverless-faster-performance-enhanced-scaling-and-still-scales-down-to-zero/)).
@@ -137,6 +149,7 @@ Registrados aqui para não passarem por calibrados:
 - **A duração continua sendo `provisioningMs`.** A velocidade do pacote é derivada dela dividida pela escala de tempo, então a chegada acontece no tempo calibrado e o cold start segue significando o que dizia. O que o controle de velocidade muda é a velocidade de viagem, não a duração do estágio.
 - **O dwell do pull escala com a simulação** (`PACKET_DWELL_MS / timeScale`), diferente do dwell das requests, que é fixo. São 8 paradas no trajeto; a 25× um dwell fixo custaria 44s simulados contra um orçamento de 12s, e o estágio nunca fecharia. A pausa representa processamento num node, que é tempo simulado.
 - **Rede de segurança:** se o pacote morrer no caminho (aresta some, geometria ausente, stall), a conclusão dispara mesmo assim, e o store ainda tem um timeout de `provisioningMs * 3`. Nenhum dos dois deve acontecer em operação normal — existem para a simulação não travar.
+- **`WARM_HIT_RATIO` = 0,99 e `CACHE_WARMUP_MS` = 90s.** A AWS não publica um valor de referência para `BufferCacheHitRatio`, e a taxa real é propriedade do working set da aplicação — não dá para derivar. 99% é premissa declarada para uma instância bem dimensionada; o tempo de aquecimento é escolha de ritmo. O que fica afirmado com fidelidade é a *consequência*: quase nenhuma leitura chega ao volume, e o tráfego de storage que sobra é o de escrita, que é obrigatório.
 - **A faixa de ACU vale por instância, não pelo cluster.** A AWS: *"This capacity range applies to every Aurora serverless DB instance in the cluster."* Com duas instâncias e faixa 0,5–4, o cluster consome entre 1 e 8 ACU. O simulador mostra ACU por instância, que é o que o console mostra.
 - **`minAcu` = 0,5 e não 0.** Zero liga o auto-pause, que a AWS posiciona para dev e teste: *"helps to manage costs for systems that don't have a stringent service level objective… clusters used for development and testing."* O `CLAUDE.md` define esta infra como serviço de produção, então o auto-pause foi desligado. `seconds_until_auto_pause` saiu junto — a AWS remove a propriedade quando o mínimo é maior que zero.
 - **Qual instância Aurora fica em qual AZ.** O simulador rotula a instância `[0]` como `us-east-1a` e a `[1]` como `us-east-1b`. O Terraform não escolhe isso: `aws_rds_cluster_instance` não recebe `availability_zone`, e o RDS distribui as instâncias entre as AZs do `db_subnet_group` por conta própria. O que o Terraform garante é que as duas subnets privadas estão em AZs diferentes — a atribuição específica é uma suposição para o desenho, e é o que dá sentido visual ao failover.

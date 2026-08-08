@@ -61,6 +61,7 @@ interface RenderGraphArgs {
   taskGraph: TaskGraph
   networkZones: NetworkZoneLayout
   isRepelling: boolean
+  readCacheHitRatio: number
 }
 
 export interface RenderGraph {
@@ -153,6 +154,7 @@ export function useRenderGraph({
   taskGraph,
   networkZones,
   isRepelling,
+  readCacheHitRatio,
 }: RenderGraphArgs): RenderGraph {
   const resources = useSimulationStore((state) => state.resources)
   const tasks = useSimulationStore((state) => state.tasks)
@@ -321,8 +323,9 @@ export function useRenderGraph({
               : auroraTraffic.readerRequestsPerMinute,
             latencyMs: isWriter ? latency.writerMs : latency.readerMs,
             acu: slot?.acu ?? 0,
-            isCacheInvalidating:
+            isApplyingRedo:
               !isWriter && availability.isReaderAvailable && auroraTraffic.committedWritesPerMinute > 0,
+            cacheHitRatio: isWriter ? null : readCacheHitRatio,
             isAbsorbingFallbackReads: isWriter && isAbsorbingFallbackReads(rdsReads, availability),
           }
           return { ...node, data }

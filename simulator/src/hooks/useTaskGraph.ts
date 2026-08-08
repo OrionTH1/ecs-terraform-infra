@@ -30,6 +30,7 @@ import type { TargetGroupFlowNode } from '../types/node-data'
 import type { TaskFlowNode } from '../types/task-data'
 
 interface TaskGraphArgs {
+  readCacheHitRatio: number
   tasks: TaskRuntime[]
   requestsByTaskId: Map<string, number>
   isTargetGroupVisible: boolean
@@ -44,6 +45,7 @@ export interface DatabaseLeg {
 }
 
 export interface TaskRoute {
+  readCacheHitRatio: number
   albEdgeId: string
   junctionEdgeId: string | null
   readLeg: DatabaseLeg | null
@@ -60,6 +62,7 @@ export interface TaskGraph {
 }
 
 export function useTaskGraph({
+  readCacheHitRatio,
   tasks,
   requestsByTaskId,
   isTargetGroupVisible,
@@ -194,12 +197,13 @@ export function useTaskGraph({
       tasks
         .filter((task) => task.status === 'healthy')
         .map((task) => ({
+          readCacheHitRatio,
           albEdgeId: albToTaskEdgeId(task.id),
           junctionEdgeId: isDatabaseReachable ? taskToJunctionEdgeId(task.id) : null,
           readLeg,
           writeLeg,
         })),
-    [tasks, isDatabaseReachable, readLeg, writeLeg],
+    [tasks, isDatabaseReachable, readLeg, writeLeg, readCacheHitRatio],
   )
 
   const imagePullRoutes = useMemo(

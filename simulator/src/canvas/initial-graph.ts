@@ -486,7 +486,8 @@ export const initialNodes: SimulatorFlowNode[] = [
       requestsPerMinute: 0,
       latencyMs: IDLE_LATENCY.writerMs,
       acu: runningFloorAcu(),
-      isCacheInvalidating: false,
+      isApplyingRedo: false,
+      cacheHitRatio: null,
       isAbsorbingFallbackReads: false,
     },
     draggable: false,
@@ -499,7 +500,7 @@ export const initialNodes: SimulatorFlowNode[] = [
     data: {
       label: 'Reader Instance',
       tooltip:
-        'Reads the exact same cluster volume as the writer — Aurora never copies data between instances, so this replica had no data of its own to build. The writer sends its redo log stream to the storage nodes and, in parallel, to every reader. This instance applies each record that touches a page it already has cached and discards the rest, which is what the ReplicaLag metric measures: typically 100 ms or less. Serves read-only queries and is the promotion target on failover.',
+        'Reads the exact same cluster volume as the writer — Aurora never copies data between instances, so this replica had no data of its own to build. The writer sends its redo log stream to the storage nodes and, in parallel, to every reader. This instance applies each record that touches a page it already has cached and discards the rest — neither path reads storage, so a write never sends this instance back to the volume. It only reads storage when a query asks for a page its buffer cache does not hold. ReplicaLag measures how far behind that log stream runs: typically 100 ms or less. Serves read-only queries and is the promotion target on failover.',
       status: 'idle',
       availabilityZone: AVAILABILITY_ZONES[1],
       role: 'reader',
@@ -507,7 +508,8 @@ export const initialNodes: SimulatorFlowNode[] = [
       requestsPerMinute: 0,
       latencyMs: IDLE_LATENCY.writerMs,
       acu: runningFloorAcu(),
-      isCacheInvalidating: false,
+      isApplyingRedo: false,
+      cacheHitRatio: null,
       isAbsorbingFallbackReads: false,
     },
     draggable: false,
