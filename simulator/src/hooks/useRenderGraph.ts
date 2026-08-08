@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import {
   ALB_NODE_ID,
   EDGE_RESOURCE_ID,
@@ -25,6 +25,7 @@ import {
 import { currentAlarm } from '../simulation/autoscaling-alarm'
 import { countServiceTasks } from '../simulation/task-counts'
 import { isPullingImage } from '../simulation/image-pull'
+import { isFetchingSecret } from '../simulation/task-egress'
 import { BOOT_GRAPH, type ResourceLedger } from '../simulation/boot-graph'
 import { AUTOSCALING, RDS_READ_FRACTION } from '../simulation/simulation-config'
 import { splitReadWrite } from '../simulation/traffic-distribution'
@@ -170,6 +171,18 @@ export function useRenderGraph({
 
   const serviceTaskCounts = useMemo(() => countServiceTasks(tasks.map((task) => task.status)), [tasks])
   const isPullingTaskImage = useMemo(() => isPullingImage(tasks.map((task) => task.status)), [tasks])
+  const isFetchingAnySecret = useMemo(() => tasks.some((task) => isFetchingSecret(task.status)), [tasks])
+  const hasHealthyTask = routing.healthyTaskCount > 0
+
+  const isServingRegionally = useCallback(
+    (role: RegionalServiceNodeData['role']) => {
+      if (role === 'secrets') return isFetchingAnySecret
+      if (role === 'logs') return hasHealthyTask
+
+      return isPullingTaskImage
+    },
+    [isFetchingAnySecret, hasHealthyTask, isPullingTaskImage],
+  )
 
   const isScalingCommandLive = useRecentChange(desiredCount, SCALING_COMMAND_MS)
   const alarm = useMemo(
@@ -241,6 +254,12 @@ export function useRenderGraph({
           return { ...node, position: frame.position, data }
         }
 
+        if (node.type === 'dbJunction') {
+          const position = networkZones.positionsByNodeId.get(node.id)
+
+          return position === undefined ? node : { ...node, position }
+        }
+
         if (node.type === 'vpcDoor') {
           const position = networkZones.positionsByNodeId.get(node.id)
 
@@ -251,7 +270,7 @@ export function useRenderGraph({
           const position = networkZones.positionsByNodeId.get(node.id)
           if (position === undefined) return node
 
-          const data: RegionalServiceNodeData = { ...node.data, isServing: isPullingTaskImage }
+          const data: RegionalServiceNodeData = { ...node.data, isServing: isServingRegionally(node.data.role) }
           return { ...node, position, data }
         }
 
@@ -346,7 +365,7 @@ export function useRenderGraph({
     rdsReads,
     hasNoHealthyTargets,
     serviceTaskCounts,
-    isPullingTaskImage,
+    isServingRegionally,
     isRepelling,
     taskGraph,
     networkZones,

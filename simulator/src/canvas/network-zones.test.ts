@@ -106,13 +106,27 @@ describe('the doors in the vpc wall', () => {
     }
   })
 
-  it('centres each door on the service it opens onto', () => {
+  it('centres the gateway on the single service it opens onto', () => {
     const { vpc } = realZones()
     const doors = doorPositions(vpc, SERVICE_FRAME)
     const services = regionalServicePositions(vpc, SERVICE_FRAME)
 
-    expect(doors.interface.x + DOOR_WIDTH / 2).toBe(services.registry.x + ENDPOINT_CARD_WIDTH / 2)
     expect(doors.gateway.x + DOOR_WIDTH / 2).toBe(services.storage.x + ENDPOINT_CARD_WIDTH / 2)
+  })
+
+  it('centres the interface door over every service that reaches out through it', () => {
+    const { vpc } = realZones()
+    const doors = doorPositions(vpc, SERVICE_FRAME)
+    const services = regionalServicePositions(vpc, SERVICE_FRAME)
+    const span = (services.registry.x + services.secrets.x + ENDPOINT_CARD_WIDTH) / 2
+
+    expect(doors.interface.x + DOOR_WIDTH / 2).toBe(span)
+  })
+
+  it('opens the interface door somewhere the gateway does not', () => {
+    const doors = doorPositions(realZones().vpc, SERVICE_FRAME)
+
+    expect(doors.interface.x + DOOR_WIDTH).toBeLessThan(doors.gateway.x)
   })
 
   it('keeps the two doors apart', () => {

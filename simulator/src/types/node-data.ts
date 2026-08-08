@@ -103,7 +103,7 @@ export interface VpcDoorNodeData extends Record<string, unknown> {
 }
 
 export interface RegionalServiceNodeData extends InfraNodeData {
-  role: 'registry' | 'storage'
+  role: 'registry' | 'logs' | 'secrets' | 'storage'
   detail: string
   footnote: string
   isServing: boolean

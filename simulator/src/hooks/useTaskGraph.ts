@@ -9,13 +9,21 @@ import {
   GATEWAY_ENDPOINT_NODE_ID,
   INTERFACE_ENDPOINTS_NODE_ID,
   ENDPOINT_TO_ECR_EDGE_ID,
+  ENDPOINT_TO_LOGS_EDGE_ID,
+  ENDPOINT_TO_SECRETS_EDGE_ID,
   ENDPOINT_TO_STORAGE_EDGE_ID,
+  LOGS_JUNCTION_NODE_ID,
+  LOGS_JUNCTION_TO_ENDPOINT_EDGE_ID,
+  SECRETS_MANAGER_NODE_ID,
+  taskToLogsEdgeId,
+  taskToSecretsEdgeId,
   albToTaskEdgeId,
   taskToJunctionEdgeId,
   taskToRegistryEdgeId,
   taskToStorageEdgeId,
 } from '../canvas/initial-graph'
 import { isPullingImageStatus, pullSecondsRemaining, type ImagePullLegs } from '../simulation/image-pull'
+import { isFetchingSecret, type LogShipmentLegs, type SecretFetchLegs } from '../simulation/task-egress'
 import { TASK_LIFECYCLE } from '../simulation/simulation-config'
 import { useSimulationStore } from '../store/useSimulationStore'
 
@@ -59,6 +67,8 @@ export interface TaskGraph {
   taskEdges: RequestFlowEdge[]
   healthyTaskRoutes: TaskRoute[]
   imagePullRoutes: ImagePullLegs[]
+  logShipments: LogShipmentLegs[]
+  secretFetches: SecretFetchLegs[]
 }
 
 export function useTaskGraph({
@@ -174,6 +184,34 @@ export function useTaskGraph({
         })
       }
 
+      if (isFetchingSecret(task.status)) {
+        edges.push({
+          id: taskToSecretsEdgeId(task.id),
+          type: 'requestFlow',
+          source: task.id,
+          sourceHandle: 'pull',
+          target: SECRETS_MANAGER_NODE_ID,
+          targetHandle: 'in',
+          data: { requestsPerMinute: 0 },
+          deletable: false,
+          reconnectable: false,
+        })
+      }
+
+      if (task.status === 'healthy') {
+        edges.push({
+          id: taskToLogsEdgeId(task.id),
+          type: 'requestFlow',
+          source: task.id,
+          sourceHandle: 'pull',
+          target: LOGS_JUNCTION_NODE_ID,
+          targetHandle: 'in',
+          data: { requestsPerMinute: 0 },
+          deletable: false,
+          reconnectable: false,
+        })
+      }
+
       if (task.status !== 'healthy' || !isDatabaseReachable) continue
 
       edges.push({
@@ -222,5 +260,39 @@ export function useTaskGraph({
     [orderedTasks, clock, timeScale],
   )
 
-  return { taskNodes, targetGroupNode, serviceFrame, taskEdges, healthyTaskRoutes, imagePullRoutes }
+  const logShipments = useMemo(
+    (): LogShipmentLegs[] =>
+      orderedTasks
+        .filter((task) => task.status === 'healthy')
+        .map((task) => ({
+          taskId: task.id,
+          junctionEdgeId: taskToLogsEdgeId(task.id),
+          endpointEdgeId: LOGS_JUNCTION_TO_ENDPOINT_EDGE_ID,
+          serviceEdgeId: ENDPOINT_TO_LOGS_EDGE_ID,
+        })),
+    [orderedTasks],
+  )
+
+  const secretFetches = useMemo(
+    (): SecretFetchLegs[] =>
+      orderedTasks
+        .filter((task) => isFetchingSecret(task.status))
+        .map((task) => ({
+          taskId: task.id,
+          endpointEdgeId: taskToSecretsEdgeId(task.id),
+          serviceEdgeId: ENDPOINT_TO_SECRETS_EDGE_ID,
+        })),
+    [orderedTasks],
+  )
+
+  return {
+    taskNodes,
+    targetGroupNode,
+    serviceFrame,
+    taskEdges,
+    healthyTaskRoutes,
+    imagePullRoutes,
+    logShipments,
+    secretFetches,
+  }
 }

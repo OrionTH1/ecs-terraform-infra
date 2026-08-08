@@ -11,6 +11,13 @@ import {
 import { buildRequestItinerary, divertToWriter, queriesForNextRequest } from '../simulation/request-itinerary'
 import { servesFromCache } from '../simulation/aurora-cache'
 import {
+  LOG_LINES_PER_SECOND_PER_TASK,
+  buildLogShipment,
+  buildSecretFetch,
+  type LogShipmentLegs,
+  type SecretFetchLegs,
+} from '../simulation/task-egress'
+import {
   buildImagePullItinerary,
   imagePullSpeed,
   pullDwellMs,
@@ -61,6 +68,8 @@ interface PacketFlowArgs {
   taskRoutes: TaskRoute[]
   directEntries: DirectPacketEntry[]
   imagePullRoutes: ImagePullLegs[]
+  logShipments: LogShipmentLegs[]
+  secretFetches: SecretFetchLegs[]
   liveEdgeIds: Set<string>
 }
 
@@ -232,6 +241,8 @@ export function usePacketFlow({
   taskRoutes,
   directEntries,
   imagePullRoutes,
+  logShipments,
+  secretFetches,
   liveEdgeIds,
   canvas,
   store,
@@ -243,9 +254,17 @@ export function usePacketFlow({
   const pullsInFlight = useRef(new Set<string>())
   const writeRotation = useRef(0)
   const cacheRotation = useRef(0)
-  const inputs = useRef<PacketFlowArgs>({ entries, taskRoutes, directEntries, imagePullRoutes, liveEdgeIds })
+  const inputs = useRef<PacketFlowArgs>({
+    entries,
+    taskRoutes,
+    directEntries,
+    imagePullRoutes,
+    logShipments,
+    secretFetches,
+    liveEdgeIds,
+  })
 
-  inputs.current = { entries, taskRoutes, directEntries, imagePullRoutes, liveEdgeIds }
+  inputs.current = { entries, taskRoutes, directEntries, imagePullRoutes, logShipments, secretFetches, liveEdgeIds }
 
   useEffect(() => {
     const element = canvas.current
@@ -418,6 +437,37 @@ export function usePacketFlow({
         })
       }
 
+      for (const shipment of inputs.current.logShipments) {
+        spawnAtRate(
+          shipment.junctionEdgeId,
+          LOG_LINES_PER_SECOND_PER_TASK,
+          deltaSeconds,
+          'default',
+          () => buildLogShipment(shipment, inputs.current.liveEdgeIds),
+          carried,
+        )
+      }
+
+      for (const fetch of inputs.current.secretFetches) {
+        if (pullsInFlight.current.has(fetch.endpointEdgeId)) continue
+
+        const legs = buildSecretFetch(fetch, inputs.current.liveEdgeIds)
+        if (legs.length === 0 || packets.current.length >= MAX_LIVE_PACKETS) continue
+
+        pullsInFlight.current.add(fetch.endpointEdgeId)
+        packets.current.push({
+          id: nextPacketId.current++,
+          routeKey: fetch.endpointEdgeId,
+          legs,
+          legIndex: 0,
+          legProgress: 0,
+          dwellUntil: null,
+          stalledSince: null,
+          lastPosition: null,
+          color: 'default',
+        })
+      }
+
       for (const entry of currentDirectEntries) {
         spawnAlong(
           `${entry.edgeId}:blocked`,
@@ -436,14 +486,18 @@ export function usePacketFlow({
       const cache = new Map<string, PathGeometry | null>()
       const alive: Packet[] = []
       let drawn = 0
-      const { liveEdgeIds: currentLiveEdgeIds, taskRoutes, imagePullRoutes } = inputs.current
+      const { liveEdgeIds: currentLiveEdgeIds, taskRoutes, imagePullRoutes, secretFetches } = inputs.current
       const writeLegs = taskRoutes[0]?.writeLeg ?? null
       const pullingTaskIdByRouteKey = new Map(imagePullRoutes.map((route) => [route.registryEgressEdgeId, route.taskId]))
-      const pullingRouteKeys = new Set(pullingTaskIdByRouteKey.keys())
+      for (const fetch of inputs.current.secretFetches) pullingTaskIdByRouteKey.set(fetch.endpointEdgeId, '')
+      const pullingRouteKeys = new Set([
+        ...imagePullRoutes.map((route) => route.registryEgressEdgeId),
+        ...secretFetches.map((fetch) => fetch.endpointEdgeId),
+      ])
 
       function onImagePullComplete(routeKey: string) {
         const taskId = pullingTaskIdByRouteKey.get(routeKey)
-        if (taskId !== undefined) useSimulationStore.getState().completeImagePull(taskId)
+        if (taskId !== undefined && taskId !== '') useSimulationStore.getState().completeImagePull(taskId)
       }
       const stillPulling = new Set<string>()
 

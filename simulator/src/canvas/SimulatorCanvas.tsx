@@ -188,6 +188,8 @@ export function SimulatorCanvas() {
           entries={packetEntries}
           taskRoutes={taskGraph.healthyTaskRoutes}
           imagePullRoutes={taskGraph.imagePullRoutes}
+          logShipments={taskGraph.logShipments}
+          secretFetches={taskGraph.secretFetches}
           directEntries={directPacketEntries}
           liveEdgeIds={liveEdgeIds}
         />

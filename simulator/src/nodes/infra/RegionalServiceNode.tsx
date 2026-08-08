@@ -1,13 +1,20 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { RegionalServiceFlowNode } from '../../types/node-data'
 import { NodeCard } from '../shared/NodeCard'
-import { RegistryIcon, StorageIcon } from '../../icons'
+import { LogsIcon, RegistryIcon, SecretIcon, StorageIcon } from '../../icons'
+
+const ROLE_ICON = {
+  registry: <RegistryIcon />,
+  logs: <LogsIcon />,
+  secrets: <SecretIcon />,
+  storage: <StorageIcon />,
+}
 
 export function RegionalServiceNode({ data }: NodeProps<RegionalServiceFlowNode>) {
   return (
     <NodeCard
       variant="infra"
-      icon={data.role === 'registry' ? <RegistryIcon /> : <StorageIcon />}
+      icon={ROLE_ICON[data.role]}
       title={data.label}
       tooltip={data.tooltip}
       status={data.status}

@@ -8,6 +8,8 @@ import {
   Waypoints,
   Route,
   Package,
+  ScrollText,
+  KeyRound,
   HardDrive,
   Hand,
   Network,
@@ -80,6 +82,14 @@ export function GatewayIcon({ className }: IconProps) {
 
 export function RegistryIcon({ className }: IconProps) {
   return <Glyph icon={Package} size={16} className={className} />
+}
+
+export function LogsIcon({ className }: IconProps) {
+  return <Glyph icon={ScrollText} size={16} className={className} />
+}
+
+export function SecretIcon({ className }: IconProps) {
+  return <Glyph icon={KeyRound} size={16} className={className} />
 }
 
 export function RegenerateIcon({ className }: IconProps) {

@@ -45,6 +45,20 @@ export const INTERFACE_ENDPOINTS_NODE_ID = 'interface-endpoints'
 export const GATEWAY_ENDPOINT_NODE_ID = 'gateway-endpoint'
 export const ECR_NODE_ID = 'ecr'
 export const LAYER_STORAGE_NODE_ID = 'layer-storage'
+export const CLOUDWATCH_LOGS_NODE_ID = 'cloudwatch-logs'
+export const SECRETS_MANAGER_NODE_ID = 'secrets-manager'
+export const LOGS_JUNCTION_NODE_ID = 'logs-junction'
+export const ENDPOINT_TO_LOGS_EDGE_ID = 'interface-endpoints-cloudwatch-logs'
+export const ENDPOINT_TO_SECRETS_EDGE_ID = 'interface-endpoints-secrets-manager'
+export const LOGS_JUNCTION_TO_ENDPOINT_EDGE_ID = 'logs-junction-interface-endpoints'
+
+export function taskToLogsEdgeId(taskId: string): string {
+  return `${taskId}-${LOGS_JUNCTION_NODE_ID}`
+}
+
+export function taskToSecretsEdgeId(taskId: string): string {
+  return `${taskId}-${SECRETS_MANAGER_NODE_ID}`
+}
 export const ENDPOINT_TO_ECR_EDGE_ID = 'interface-endpoints-ecr'
 export const ENDPOINT_TO_STORAGE_EDGE_ID = 'gateway-endpoint-layer-storage'
 
@@ -96,6 +110,7 @@ export const AURORA_FRAME = auroraFrameFor(FALLBACK_RDS_INSTANCE_SIZE)
 
 export const ENDPOINT_CARD_WIDTH = 210
 export const REGIONAL_SERVICE_GAP = 96
+export const LOGS_JUNCTION_GAP = 60
 export const ENDPOINT_COLUMN_GAP = 24
 export const DOOR_WIDTH = 48
 export const DOOR_HEIGHT = 9
@@ -176,21 +191,37 @@ const INITIAL_SERVICE_FRAME = {
   height: 0,
 }
 
-export function endpointColumns(serviceFrame: FrameBox): { registry: number; storage: number } {
-  const left = serviceFrame.position.x
+export type RegionalServiceKey = 'registry' | 'logs' | 'secrets' | 'storage'
 
-  return { registry: left, storage: left + ENDPOINT_CARD_WIDTH + ENDPOINT_COLUMN_GAP }
+const INTERFACE_SERVED: RegionalServiceKey[] = ['registry', 'logs', 'secrets']
+const REGIONAL_SERVICE_ORDER: RegionalServiceKey[] = ['registry', 'logs', 'secrets', 'storage']
+
+export function endpointColumns(serviceFrame: FrameBox): Record<RegionalServiceKey, number> {
+  const step = ENDPOINT_CARD_WIDTH + ENDPOINT_COLUMN_GAP
+
+  return Object.fromEntries(
+    REGIONAL_SERVICE_ORDER.map((key, index) => [key, serviceFrame.position.x + index * step]),
+  ) as Record<RegionalServiceKey, number>
 }
 
-function doorX(column: number): number {
-  return column + ENDPOINT_CARD_WIDTH / 2 - DOOR_WIDTH / 2
+function doorOver(columns: number[]): number {
+  const left = Math.min(...columns)
+  const right = Math.max(...columns) + ENDPOINT_CARD_WIDTH
+
+  return (left + right) / 2 - DOOR_WIDTH / 2
 }
 
-export function doorPositions(vpcFrame: FrameBox, serviceFrame: FrameBox): { interface: XYPosition; gateway: XYPosition } {
+export function doorPositions(
+  vpcFrame: FrameBox,
+  serviceFrame: FrameBox,
+): { interface: XYPosition; gateway: XYPosition } {
   const columns = endpointColumns(serviceFrame)
   const y = vpcFrame.position.y + vpcFrame.height - DOOR_HEIGHT / 2
 
-  return { interface: { x: doorX(columns.registry), y }, gateway: { x: doorX(columns.storage), y } }
+  return {
+    interface: { x: doorOver(INTERFACE_SERVED.map((key) => columns[key])), y },
+    gateway: { x: doorOver([columns.storage]), y },
+  }
 }
 
 export function privateTierBoxes(serviceFrame: FrameBox, auroraFrame: FrameBox): ContentBox[] {
@@ -210,15 +241,32 @@ const INITIAL_ZONES = networkZoneFrames(
 export function regionalServicePositions(
   vpcFrame: FrameBox,
   serviceFrame: FrameBox,
-): { registry: XYPosition; storage: XYPosition } {
+): Record<RegionalServiceKey, XYPosition> {
   const columns = endpointColumns(serviceFrame)
   const y = vpcFrame.position.y + vpcFrame.height + REGIONAL_SERVICE_GAP
 
-  return { registry: { x: columns.registry, y }, storage: { x: columns.storage, y } }
+  return Object.fromEntries(
+    REGIONAL_SERVICE_ORDER.map((key) => [key, { x: columns[key], y }]),
+  ) as Record<RegionalServiceKey, XYPosition>
 }
 
 const INITIAL_DOORS = doorPositions(INITIAL_ZONES.vpc, INITIAL_SERVICE_FRAME)
 const INITIAL_REGIONAL_SERVICES = regionalServicePositions(INITIAL_ZONES.vpc, INITIAL_SERVICE_FRAME)
+
+export const LOGS_JUNCTION_SIZE = 12
+
+export function logsJunctionPosition(serviceFrame: FrameBox): XYPosition {
+  return {
+    x: serviceFrame.position.x + serviceFrame.width / 2 - LOGS_JUNCTION_SIZE / 2,
+    y: serviceFrame.position.y + serviceFrame.height + LOGS_JUNCTION_GAP,
+  }
+}
+
+const CLOUDWATCH_LOGS_TOOLTIP =
+  'Every line the container writes goes here, shipped by the awslogs driver on the task itself rather than by anything you run. That is why the log group is created in Terraform and the execution role is granted to write to it. The stream leaves through the interface endpoint, so log delivery never depends on a route to the internet. A metric filter over this group counts error lines, and that count is what one of the alarms watches.'
+
+const SECRETS_MANAGER_TOOLTIP =
+  'The database password is never written in Terraform or in the task definition. RDS generates and rotates it, and the task definition only names the secret. Before the container starts, the ECS execution role fetches the value through the interface endpoint and injects it as an environment variable — which is why this call belongs to the starting stage and happens exactly once per task.'
 
 const REGION_TOOLTIP =
   'Everything inside this outline runs in one AWS region. The VPC is yours; the rest are regional services AWS operates for you — the Web ACL the load balancer evaluates, the Application Auto Scaling policy that resizes the service, the registry and bucket the tasks pull images from, and the Aurora storage volume. Traffic between your VPC and any of them stays on the AWS network, which is why the private subnets need no NAT gateway. The person sending requests is the one thing outside.'
@@ -434,6 +482,47 @@ export const initialNodes: SimulatorFlowNode[] = [
     deletable: false,
   },
   {
+    id: CLOUDWATCH_LOGS_NODE_ID,
+    type: 'regionalService',
+    position: INITIAL_REGIONAL_SERVICES.logs,
+    data: {
+      label: 'CloudWatch Logs',
+      tooltip: CLOUDWATCH_LOGS_TOOLTIP,
+      status: 'idle',
+      role: 'logs',
+      detail: 'awslogs driver',
+      footnote: 'one stream per task',
+      isServing: false,
+    },
+    draggable: false,
+    deletable: false,
+  },
+  {
+    id: SECRETS_MANAGER_NODE_ID,
+    type: 'regionalService',
+    position: INITIAL_REGIONAL_SERVICES.secrets,
+    data: {
+      label: 'Secrets Manager',
+      tooltip: SECRETS_MANAGER_TOOLTIP,
+      status: 'idle',
+      role: 'secrets',
+      detail: 'db username · password',
+      footnote: 'fetched once, before the container starts',
+      isServing: false,
+    },
+    draggable: false,
+    deletable: false,
+  },
+  {
+    id: LOGS_JUNCTION_NODE_ID,
+    type: 'dbJunction',
+    position: logsJunctionPosition(INITIAL_SERVICE_FRAME),
+    data: {},
+    draggable: false,
+    deletable: false,
+    selectable: false,
+  },
+  {
     id: LAYER_STORAGE_NODE_ID,
     type: 'regionalService',
     position: INITIAL_REGIONAL_SERVICES.storage,
@@ -524,6 +613,42 @@ export const initialEdges: SimulatorFlowEdge[] = [
     source: INTERFACE_ENDPOINTS_NODE_ID,
     sourceHandle: 'out',
     target: ECR_NODE_ID,
+    targetHandle: 'in',
+    data: { requestsPerMinute: 0 },
+    deletable: false,
+    reconnectable: false,
+    selectable: false,
+  },
+  {
+    id: ENDPOINT_TO_LOGS_EDGE_ID,
+    type: 'requestFlow',
+    source: INTERFACE_ENDPOINTS_NODE_ID,
+    sourceHandle: 'out',
+    target: CLOUDWATCH_LOGS_NODE_ID,
+    targetHandle: 'in',
+    data: { requestsPerMinute: 0 },
+    deletable: false,
+    reconnectable: false,
+    selectable: false,
+  },
+  {
+    id: ENDPOINT_TO_SECRETS_EDGE_ID,
+    type: 'requestFlow',
+    source: INTERFACE_ENDPOINTS_NODE_ID,
+    sourceHandle: 'out',
+    target: SECRETS_MANAGER_NODE_ID,
+    targetHandle: 'in',
+    data: { requestsPerMinute: 0 },
+    deletable: false,
+    reconnectable: false,
+    selectable: false,
+  },
+  {
+    id: LOGS_JUNCTION_TO_ENDPOINT_EDGE_ID,
+    type: 'requestFlow',
+    source: LOGS_JUNCTION_NODE_ID,
+    sourceHandle: 'out',
+    target: INTERFACE_ENDPOINTS_NODE_ID,
     targetHandle: 'in',
     data: { requestsPerMinute: 0 },
     deletable: false,
