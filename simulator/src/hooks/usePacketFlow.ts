@@ -398,7 +398,7 @@ export function usePacketFlow({
           dwellUntil: null,
           stalledSince: null,
           lastPosition: null,
-          color: 'pull',
+          color: 'default',
         })
       }
 

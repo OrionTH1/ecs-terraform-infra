@@ -21,8 +21,8 @@ export const HEALTH_CHECK = {
 }
 
 export const TASK_LIFECYCLE = {
-  provisioningMs: 12_000,
-  startingMs: 8_000,
+  provisioningMs: 5_000,
+  startingMs: 15_000,
   registeringMs: HEALTH_CHECK.healthyThreshold * HEALTH_CHECK.intervalMs,
   drainingMs: 5_000,
   failedLingerMs: 4_000,
