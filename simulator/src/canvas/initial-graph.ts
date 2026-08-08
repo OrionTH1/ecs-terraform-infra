@@ -16,6 +16,7 @@ import { FRAME_PADDING, frameAround, frameContentBox } from './frame-metrics'
 import { networkZoneFrames } from './network-zones'
 import type { XYPosition } from '@xyflow/react'
 import type { ContentBox, FrameBox } from './frame-metrics'
+import type { MeasuredSize } from '../hooks/useMeasuredNodeSizes'
 import type { ResourceId } from '../simulation/boot-graph'
 import type { SimulatorFlowNode } from '../types/node-data'
 import type { SimulatorFlowEdge } from '../types/edge-data'
@@ -78,12 +79,18 @@ export const RDS_READER_POSITION = { x: RDS_INSTANCE_X, y: ALB_POSITION.y + 130 
 
 const INITIAL_CONTROL_PLANE_Y = ALB_POSITION.y - 330
 
-export const AURORA_FRAME = frameAround({
-  left: RDS_INSTANCE_X,
-  top: RDS_WRITER_POSITION.y,
-  right: RDS_INSTANCE_X + FALLBACK_CARD_WIDTH,
-  bottom: RDS_READER_POSITION.y + FALLBACK_CARD_HEIGHT,
-})
+export function auroraFrameFor(instanceSize: MeasuredSize): FrameBox {
+  return frameAround({
+    left: RDS_INSTANCE_X,
+    top: RDS_WRITER_POSITION.y,
+    right: RDS_INSTANCE_X + instanceSize.width,
+    bottom: RDS_READER_POSITION.y + instanceSize.height,
+  })
+}
+
+export const FALLBACK_RDS_INSTANCE_SIZE = { width: FALLBACK_CARD_WIDTH, height: 186 }
+
+export const AURORA_FRAME = auroraFrameFor(FALLBACK_RDS_INSTANCE_SIZE)
 
 export const ENDPOINT_CARD_WIDTH = 210
 export const ENDPOINT_CARD_HEIGHT = 148
@@ -187,8 +194,12 @@ export function endpointRowBox(serviceFrame: FrameBox, height: number): ContentB
   }
 }
 
-export function privateTierBoxes(serviceFrame: FrameBox, endpointHeight: number): ContentBox[] {
-  return [frameContentBox(serviceFrame), frameContentBox(AURORA_FRAME), endpointRowBox(serviceFrame, endpointHeight)]
+export function privateTierBoxes(
+  serviceFrame: FrameBox,
+  endpointHeight: number,
+  auroraFrame: FrameBox,
+): ContentBox[] {
+  return [frameContentBox(serviceFrame), frameContentBox(auroraFrame), endpointRowBox(serviceFrame, endpointHeight)]
 }
 
 const INITIAL_ZONES = networkZoneFrames(
@@ -198,7 +209,7 @@ const INITIAL_ZONES = networkZoneFrames(
     right: ALB_POSITION.x + FALLBACK_CARD_WIDTH,
     bottom: ALB_POSITION.y + FALLBACK_CARD_HEIGHT,
   },
-  privateTierBoxes(INITIAL_SERVICE_FRAME, ENDPOINT_CARD_HEIGHT),
+  privateTierBoxes(INITIAL_SERVICE_FRAME, ENDPOINT_CARD_HEIGHT, AURORA_FRAME),
 )
 
 export function regionalServicePositions(

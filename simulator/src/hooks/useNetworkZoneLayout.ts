@@ -4,6 +4,11 @@ import {
   ALB_POSITION,
   AUTO_SCALING_NODE_ID,
   ENDPOINT_CARD_HEIGHT,
+  FALLBACK_RDS_INSTANCE_SIZE,
+  RDS_CLUSTER_NODE_ID,
+  RDS_READER_NODE_ID,
+  RDS_WRITER_NODE_ID,
+  auroraFrameFor,
   FALLBACK_AUTO_SCALING_HEIGHT,
   FALLBACK_CARD_HEIGHT,
   FALLBACK_CARD_WIDTH,
@@ -22,6 +27,7 @@ import {
   regionalServicePositions,
 } from '../canvas/initial-graph'
 import { networkZoneFrames } from '../canvas/network-zones'
+import type { MeasuredSize } from './useMeasuredNodeSizes'
 import { useMeasuredNodeSizes } from './useMeasuredNodeSizes'
 import type { FrameBox } from '../canvas/frame-metrics'
 import type { XYPosition } from '@xyflow/react'
@@ -37,12 +43,22 @@ export interface NetworkZoneLayout {
   autoScalingPosition: XYPosition
 }
 
+function largestInstance(sizes: Map<string, MeasuredSize>): MeasuredSize {
+  const measured = [RDS_WRITER_NODE_ID, RDS_READER_NODE_ID].flatMap((id) => sizes.get(id) ?? [])
+
+  return {
+    width: Math.max(FALLBACK_RDS_INSTANCE_SIZE.width, ...measured.map((size) => size.width)),
+    height: Math.max(FALLBACK_RDS_INSTANCE_SIZE.height, ...measured.map((size) => size.height)),
+  }
+}
+
 export function useNetworkZoneLayout({ serviceFrame }: NetworkZoneLayoutArgs): NetworkZoneLayout {
   const sizes = useMeasuredNodeSizes()
 
   return useMemo(() => {
     const alb = sizes.get(ALB_NODE_ID)
     const endpointHeight = sizes.get(INTERFACE_ENDPOINTS_NODE_ID)?.height ?? ENDPOINT_CARD_HEIGHT
+    const auroraFrame = auroraFrameFor(largestInstance(sizes))
     const zones = networkZoneFrames(
       {
         left: ALB_POSITION.x,
@@ -50,7 +66,7 @@ export function useNetworkZoneLayout({ serviceFrame }: NetworkZoneLayoutArgs): N
         right: ALB_POSITION.x + (alb?.width ?? FALLBACK_CARD_WIDTH),
         bottom: ALB_POSITION.y + (alb?.height ?? FALLBACK_CARD_HEIGHT),
       },
-      privateTierBoxes(serviceFrame, endpointHeight),
+      privateTierBoxes(serviceFrame, endpointHeight, auroraFrame),
     )
 
     const wafHeight = sizes.get(WAF_NODE_ID)?.height ?? FALLBACK_WAF_HEIGHT
@@ -63,6 +79,7 @@ export function useNetworkZoneLayout({ serviceFrame }: NetworkZoneLayoutArgs): N
         [VPC_NODE_ID, zones.vpc],
         [PUBLIC_SUBNETS_NODE_ID, zones.publicSubnets],
         [PRIVATE_SUBNETS_NODE_ID, zones.privateSubnets],
+        [RDS_CLUSTER_NODE_ID, auroraFrame],
       ]),
       positionsByNodeId: new Map([
         [INTERFACE_ENDPOINTS_NODE_ID, endpoints.interface],

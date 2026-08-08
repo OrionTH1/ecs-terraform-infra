@@ -8,6 +8,9 @@ import {
   ENDPOINT_CARD_HEIGHT,
   FALLBACK_CARD_HEIGHT,
   FALLBACK_CARD_WIDTH,
+  RDS_READER_POSITION,
+  RDS_WRITER_POSITION,
+  auroraFrameFor,
   endpointPositions,
   endpointRowBox,
   privateTierBoxes,
@@ -29,7 +32,7 @@ function zones() {
 }
 
 function realZones(serviceFrame: FrameBox = SERVICE_FRAME) {
-  return networkZoneFrames(REAL_ALB_BOX, privateTierBoxes(serviceFrame, ENDPOINT_CARD_HEIGHT))
+  return networkZoneFrames(REAL_ALB_BOX, privateTierBoxes(serviceFrame, ENDPOINT_CARD_HEIGHT, REAL_AURORA_FRAME))
 }
 
 function contains(outer: FrameBox, inner: FrameBox): boolean {
@@ -138,6 +141,25 @@ describe('the canvas the simulator actually draws', () => {
 
   it('leaves the cluster volume outside the vpc, where aurora storage actually lives', () => {
     expect(CLUSTER_VOLUME_POSITION.x).toBeGreaterThan(frameContentBox(realZones().vpc).right)
+  })
+})
+
+describe('the aurora cluster frame', () => {
+  it('wraps both instances whatever height their cards turn out to measure', () => {
+    const tallCard = { width: 240, height: 300 }
+    const box = frameContentBox(auroraFrameFor(tallCard))
+
+    expect(box.top).toBeLessThanOrEqual(RDS_WRITER_POSITION.y)
+    expect(box.bottom).toBeGreaterThanOrEqual(RDS_READER_POSITION.y + tallCard.height)
+    expect(box.left).toBeLessThanOrEqual(RDS_WRITER_POSITION.x)
+    expect(box.right).toBeGreaterThanOrEqual(RDS_WRITER_POSITION.x + tallCard.width)
+  })
+
+  it('grows with the card instead of clipping it', () => {
+    const short = auroraFrameFor({ width: 210, height: 140 })
+    const tall = auroraFrameFor({ width: 210, height: 300 })
+
+    expect(tall.height).toBeGreaterThan(short.height)
   })
 })
 

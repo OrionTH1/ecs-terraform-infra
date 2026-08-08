@@ -42,7 +42,6 @@ import type {
   AlbNodeData,
   AutoScalingNodeData,
   EcsServiceNodeData,
-  NetworkZoneNodeData,
   RegionalServiceNodeData,
   VpcEndpointNodeData,
   ProvisioningInfo,
@@ -211,11 +210,11 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones 
           return { ...node, data }
         }
 
-        if (node.type === 'networkZone') {
+        if (node.type === 'networkZone' || node.type === 'auroraCluster') {
           const frame = networkZones.framesByNodeId.get(node.id)
           if (frame === undefined) return node
 
-          const data: NetworkZoneNodeData = { ...node.data, width: frame.width, height: frame.height }
+          const data = { ...node.data, width: frame.width, height: frame.height }
           return { ...node, position: frame.position, data }
         }
 
