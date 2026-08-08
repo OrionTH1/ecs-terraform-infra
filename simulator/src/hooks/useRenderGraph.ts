@@ -40,8 +40,10 @@ import type {
 } from '../types/edge-data'
 import type {
   AlbNodeData,
+  AuroraClusterNodeData,
   AutoScalingNodeData,
   EcsServiceNodeData,
+  NetworkZoneNodeData,
   RegionalServiceNodeData,
   VpcEndpointNodeData,
   ProvisioningInfo,
@@ -210,11 +212,19 @@ export function useRenderGraph({ nodes, edges, routing, taskGraph, networkZones 
           return { ...node, data }
         }
 
-        if (node.type === 'networkZone' || node.type === 'auroraCluster') {
+        if (node.type === 'networkZone') {
           const frame = networkZones.framesByNodeId.get(node.id)
           if (frame === undefined) return node
 
-          const data = { ...node.data, width: frame.width, height: frame.height }
+          const data: NetworkZoneNodeData = { ...node.data, width: frame.width, height: frame.height }
+          return { ...node, position: frame.position, data }
+        }
+
+        if (node.type === 'auroraCluster') {
+          const frame = networkZones.framesByNodeId.get(node.id)
+          if (frame === undefined) return node
+
+          const data: AuroraClusterNodeData = { ...node.data, width: frame.width, height: frame.height }
           return { ...node, position: frame.position, data }
         }
 
