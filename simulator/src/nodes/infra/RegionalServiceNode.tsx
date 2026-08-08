@@ -17,7 +17,7 @@ export function RegionalServiceNode({ data }: NodeProps<RegionalServiceFlowNode>
         <div className="flex items-center gap-1.5">
           <span
             className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-              data.isServing ? 'cache-pulse bg-image-pull' : 'bg-border'
+              data.isServing ? 'cache-pulse bg-border-interaction' : 'bg-border'
             }`}
           />
           <span className="truncate font-mono text-[11px] text-fg-muted">{data.detail}</span>

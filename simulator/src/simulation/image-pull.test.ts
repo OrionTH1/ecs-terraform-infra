@@ -63,10 +63,10 @@ describe('what a layer download looks like on the wire', () => {
     }
   })
 
-  it('marks every leg as image pull traffic so it reads apart from a request', () => {
+  it('speaks the same request and response language as the rest of the canvas', () => {
     const colours = new Set(buildImagePullItinerary(LEGS, EVERYTHING_UP).map((leg) => leg.color))
 
-    expect(colours).toEqual(new Set(['pull']))
+    expect(colours).toEqual(new Set(['default']))
   })
 
   it('drops the legs whose edge is gone instead of stranding a packet on it', () => {

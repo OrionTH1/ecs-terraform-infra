@@ -8,14 +8,12 @@ const COLOR_TOKEN: Record<PacketColor, string> = {
   default: '--color-border-interaction',
   write: '--color-status-warning',
   blocked: '--color-status-error',
-  pull: '--color-image-pull',
 }
 
 const GLOW_ALPHA: Record<PacketColor, number> = {
   default: 0.45,
   write: 0.45,
   blocked: 0.5,
-  pull: 0.45,
 }
 
 export const SPRITE_SIZE_PX = (PACKET_RADIUS + PACKET_GLOW_PX) * 2
@@ -86,7 +84,6 @@ export function buildPacketSprites(): PacketSprites {
       default: drawSprite(COLOR_TOKEN.default, GLOW_ALPHA.default, 'request'),
       write: drawSprite(COLOR_TOKEN.write, GLOW_ALPHA.write, 'request'),
       blocked: drawSprite(COLOR_TOKEN.blocked, GLOW_ALPHA.blocked, 'request'),
-      pull: drawSprite(COLOR_TOKEN.pull, GLOW_ALPHA.pull, 'request'),
     },
     response: drawSprite(RESPONSE_TOKEN, 0.5, 'response'),
   }

@@ -35,7 +35,7 @@ export function pullSecondsRemaining(elapsedSimMs: number, pullDurationMs: numbe
 }
 
 function leg(edgeId: string, reversed: boolean, speedPxPerSecond: number, dwellMs: number): ItineraryLeg {
-  return { edgeId, reversed, color: 'pull', speedPxPerSecond, entersNodeAtEnd: true, dwellMs }
+  return { edgeId, reversed, color: 'default', speedPxPerSecond, entersNodeAtEnd: true, dwellMs }
 }
 
 function roundTrip(egressEdgeId: string, serviceEdgeId: string, speed: number, dwellMs: number): ItineraryLeg[] {
