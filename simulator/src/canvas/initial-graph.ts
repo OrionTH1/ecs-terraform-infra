@@ -1,4 +1,4 @@
-import { AWS_ALARM_EVALUATION, AURORA_SERVERLESS, AUTOSCALING, HEALTH_CHECK } from '../simulation/simulation-config'
+import { AWS_ALARM_EVALUATION, AURORA_SERVERLESS, AUTOSCALING } from '../simulation/simulation-config'
 import { IDLE_LATENCY } from '../simulation/latency'
 import { runningFloorAcu } from '../simulation/aurora-capacity'
 import { ALB_TO_ECS_PAIR, ECS_TO_RDS_PAIR } from '../simulation/security-groups'
@@ -352,7 +352,7 @@ export const initialNodes: SimulatorFlowNode[] = [
     data: {
       label: 'Aurora Cluster',
       tooltip:
-        `A DB cluster is compute plus storage, and the two live in different places on this canvas for a reason: only the instances get an address in your subnets, while the cluster volume is regional storage AWS runs outside your VPC. Aurora Serverless v2 (Postgres), ${AURORA_SERVERLESS.minAcu}–${AURORA_SERVERLESS.maxAcu} ACU — one ACU is roughly 2 GiB of memory plus matching CPU, and capacity moves in ${AURORA_SERVERLESS.acuStep} ACU steps without dropping connections. A minimum of 0 ACU allows auto-pause, but it never fires here: the target group health check queries the database every ${HEALTH_CHECK.intervalMs / 1000} seconds, so the cluster never reaches the idle interval. The cluster publishes the writer and reader endpoints; it never proxies a query itself, and each endpoint resolves straight to an instance.`,
+        `A DB cluster is compute plus storage, and the two live in different places on this canvas for a reason: only the instances get an address in your subnets, while the cluster volume is regional storage AWS runs outside your VPC. Aurora Serverless v2 (Postgres), ${AURORA_SERVERLESS.minAcu}–${AURORA_SERVERLESS.maxAcu} ACU — one ACU is roughly 2 GiB of memory plus matching CPU, and capacity moves in ${AURORA_SERVERLESS.acuStep} ACU steps without dropping connections. A minimum of 0 ACU lets the cluster pause after an hour with no connections open, and nothing here holds it awake on purpose: the target group health check is deliberately shallow and never touches the database, so that a database hiccup cannot make the load balancer eject every healthy task at once. The cluster publishes the writer and reader endpoints; it never proxies a query itself, and each endpoint resolves straight to an instance.`,
       status: 'idle',
       width: AURORA_FRAME.width,
       height: AURORA_FRAME.height,
